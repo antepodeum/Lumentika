@@ -276,6 +276,12 @@ public fun flip(
     return FlipAnimation(delayMillis, { durationMillis }, easing)
 }
 
+public fun flip(
+    durationMillis: (distance: Float) -> Long,
+    delayMillis: Long = 0,
+    easing: (Float) -> Float = { it },
+): FlipAnimation = FlipAnimation(delayMillis, durationMillis, easing)
+
 public data class LayoutAnimationEvent(val element: Element)
 
 public data class LayoutAnimationEvents(

@@ -169,16 +169,52 @@ class ComponentTest {
     }
 
     @Test
+    fun `outro group retains every child until the slowest transition ends`() {
+        val root = headlessRoot(100f, 100f)
+        val visible = state(true)
+        val variableExit =
+            com.antepod.lumentika.animation.ElementTransition { context ->
+                com.antepod.lumentika.animation.ElementTransitionConfig(
+                    durationMillis = if (context.element.kind == "slow") 100 else 40
+                ) { t, _ ->
+                    com.antepod.lumentika.animation.TransitionFrame(opacity = t)
+                }
+            }
+        val shown =
+            root.scope.show(visible, inOut(exit = variableExit)) {
+                element("fast")
+                element("slow")
+            }
+        root.frame(1)
+
+        visible.value = false
+        root.frame(1)
+        root.frame(40_000_001)
+        assertEquals(2, shown.children.size)
+        root.frame(100_000_001)
+
+        assertTrue(shown.children.isEmpty())
+        root.close()
+    }
+
+    @Test
     fun `keyed forEach FLIP preserves visual position then animates without layout`() {
         val root = headlessRoot(100f, 100f)
         val items = state(listOf(1, 2))
         var starts = 0
         var ends = 0
+        var measuredDistance = 0f
         val repeated =
             root.scope.forEach(
                 items,
                 key = { it },
-                animation = flip(durationMillis = 100),
+                animation =
+                    flip(
+                        durationMillis = { distance ->
+                            measuredDistance = distance
+                            100
+                        }
+                    ),
                 animationEvents =
                     com.antepod.lumentika.animation.LayoutAnimationEvents(
                         onStart = { starts++ },
@@ -212,6 +248,7 @@ class ComponentTest {
         val recordsAfterMove = root.renderRecordCount
 
         assertEquals(oldOrigin, animatedOrigin)
+        assertEquals(20f, measuredDistance)
         assertEquals(2, starts)
         root.frame(50_000_002)
         assertEquals(layoutsAfterMove, root.layoutComputeCount)

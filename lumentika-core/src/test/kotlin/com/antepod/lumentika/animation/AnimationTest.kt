@@ -291,4 +291,29 @@ class AnimationTest {
         runtime.close()
         element.close()
     }
+
+    @Test
+    fun `transition handle cancels pending motion deterministically`() {
+        val clock = UiAnimationClock()
+        val element = Element()
+        var cancellations = 0
+        val runtime = ElementAnimationRuntime(clock, { _, _ -> }, { element.geometry }, {})
+        val handle =
+            runtime.start(
+                element,
+                "cancel",
+                fade(),
+                TransitionDirection.IN,
+                TransitionEvents(onCancel = { cancellations++ }),
+            )
+
+        assertTrue(handle.isActive)
+        handle.close()
+
+        assertFalse(handle.isActive)
+        assertEquals(1, cancellations)
+        assertFalse(runtime.afterCommit())
+        runtime.close()
+        element.close()
+    }
 }
