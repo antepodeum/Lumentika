@@ -1,3 +1,6 @@
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.KotlinJvm
+import com.vanniktech.maven.publish.SourcesJar
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
@@ -8,12 +11,12 @@ import org.gradle.api.tasks.TaskAction
 plugins {
     id("buildsrc.convention.kotlin-jvm")
     `java-library`
-    `maven-publish`
+    id("com.vanniktech.maven.publish")
 }
 
 group = "com.antepod"
 
-version = "0.1.0-SNAPSHOT"
+version = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT").get()
 
 abstract class GenerateStylePropertyCatalog : DefaultTask() {
     @get:Input abstract val propertyNames: ListProperty<String>
@@ -161,17 +164,53 @@ val generateStylePropertyCatalog =
 
 kotlin.sourceSets.named("main") { kotlin.srcDir(generateStylePropertyCatalog) }
 
+tasks.withType<Jar>().configureEach {
+    from(rootProject.file("LICENSE")) { into("META-INF") }
+}
+
 dependencies {
     api(libs.kotlinxCoroutines)
     implementation(libs.taffy4j)
     testImplementation(kotlin("test"))
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            artifactId = "lumentika-core"
-            from(components["java"])
+mavenPublishing {
+    configure(KotlinJvm(javadocJar = JavadocJar.Empty(), sourcesJar = SourcesJar.Sources()))
+    coordinates(group.toString(), "lumentika-core", version.toString())
+    publishToMavenCentral(automaticRelease = true)
+    signAllPublications()
+    pom {
+        name.set("Lumentika Core")
+        description.set("Platform-independent retained UI runtime for Kotlin/JVM")
+        inceptionYear.set("2026")
+        url.set("https://github.com/antepodeum/lumentika")
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                distribution.set("repo")
+            }
         }
+        developers {
+            developer {
+                id.set("antepodeum")
+                name.set("antepodeum")
+                url.set("https://github.com/antepodeum")
+            }
+        }
+        scm {
+            url.set("https://github.com/antepodeum/lumentika")
+            connection.set("scm:git:https://github.com/antepodeum/lumentika.git")
+            developerConnection.set("scm:git:ssh://git@github.com/antepodeum/lumentika.git")
+        }
+    }
+}
+
+publishing.repositories.maven {
+    name = "GitHubPackages"
+    url = uri("https://maven.pkg.github.com/antepodeum/lumentika")
+    credentials {
+        username = providers.gradleProperty("gprUser").orNull
+        password = providers.gradleProperty("gprKey").orNull
     }
 }

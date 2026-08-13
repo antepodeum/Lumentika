@@ -1,12 +1,20 @@
+import com.vanniktech.maven.publish.JavadocJar
+import com.vanniktech.maven.publish.KotlinJvm
+import com.vanniktech.maven.publish.SourcesJar
+
 plugins {
     id("buildsrc.convention.kotlin-jvm")
     `java-library`
-    `maven-publish`
+    id("com.vanniktech.maven.publish")
 }
 
 group = "com.antepod"
 
-version = "0.1.0-SNAPSHOT"
+version = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT").get()
+
+tasks.withType<Jar>().configureEach {
+    from(rootProject.file("LICENSE")) { into("META-INF") }
+}
 
 dependencies {
     implementation(project(":lumentika-core"))
@@ -15,11 +23,43 @@ dependencies {
     testImplementation(libs.kotlinCompileTestingKsp)
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            artifactId = "lumentika-ksp"
-            from(components["java"])
+mavenPublishing {
+    configure(KotlinJvm(javadocJar = JavadocJar.Empty(), sourcesJar = SourcesJar.Sources()))
+    coordinates(group.toString(), "lumentika-ksp", version.toString())
+    publishToMavenCentral(automaticRelease = true)
+    signAllPublications()
+    pom {
+        name.set("Lumentika KSP")
+        description.set("KSP compiler plugin for the Lumentika Kotlin UI DSL")
+        inceptionYear.set("2026")
+        url.set("https://github.com/antepodeum/lumentika")
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                distribution.set("repo")
+            }
         }
+        developers {
+            developer {
+                id.set("antepodeum")
+                name.set("antepodeum")
+                url.set("https://github.com/antepodeum")
+            }
+        }
+        scm {
+            url.set("https://github.com/antepodeum/lumentika")
+            connection.set("scm:git:https://github.com/antepodeum/lumentika.git")
+            developerConnection.set("scm:git:ssh://git@github.com/antepodeum/lumentika.git")
+        }
+    }
+}
+
+publishing.repositories.maven {
+    name = "GitHubPackages"
+    url = uri("https://maven.pkg.github.com/antepodeum/lumentika")
+    credentials {
+        username = providers.gradleProperty("gprUser").orNull
+        password = providers.gradleProperty("gprKey").orNull
     }
 }
