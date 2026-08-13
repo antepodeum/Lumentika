@@ -1,5 +1,9 @@
 # Lumentika Core Implementation Checklist
 
+Every checked item below must have both a production implementation and executable coverage.
+The evidence matrix at the end maps each checklist section to its acceptance tests; a green
+`./gradlew clean build spotlessCheck` is the release gate. A checked item is not a roadmap claim.
+
 ## Core boundary
 
 - [x] `com.antepod:lumentika-core` contains all universal UI mechanics
@@ -313,3 +317,23 @@
 - [x] retained paint/hit/semantic geometry parity
 - [x] repeated mount/unmount returns all ownership counters to baseline
 - [x] all universal components pass behavior and semantics tests
+
+## Verification evidence
+
+| Checklist sections | Executable evidence |
+| --- | --- |
+| Core boundary | [`ArchitectureTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/ArchitectureTest.kt), Gradle dependency graph checked by `clean build` |
+| Kotlin/component runtime | [`ReactiveTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/reactive/ReactiveTest.kt), [`ComponentTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/component/ComponentTest.kt), [`LumentikaProcessorTest.kt`](../lumentika-ksp/src/test/kotlin/com/antepod/lumentika/ksp/LumentikaProcessorTest.kt) |
+| Platform environment; frame/services | [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
+| Event/input/focus | [`InputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/input/InputTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
+| Gestures; scrolling | [`GesturesTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/gesture/GesturesTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt), [`ComponentsTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/components/ComponentsTest.kt) |
+| Semantics/accessibility | [`SemanticsTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/semantics/SemanticsTest.kt), [`ComponentsTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/components/ComponentsTest.kt) |
+| Text; clipboard/content/autofill | [`TextEditingTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/text/TextEditingTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt), [`ComponentsTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/components/ComponentsTest.kt) |
+| Primitive/content boundary | [`ArchitectureTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/ArchitectureTest.kt), [`RenderTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/render/RenderTest.kt) |
+| Taffy layout | [`LayoutRuntimeTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/layout/LayoutRuntimeTest.kt), [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt) |
+| Render/hit testing | [`RenderTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/render/RenderTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
+| Styles/themes | [`StyleTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/style/StyleTest.kt), generated-source compilation in `clean build` |
+| Animation | [`AnimationTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/animation/AnimationTest.kt), [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt) |
+| Universal components | [`ComponentsTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/components/ComponentsTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
+| Platform adapter readiness | [`PLATFORM_ADAPTER_GUIDE.md`](PLATFORM_ADAPTER_GUIDE.md), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
+| Core integration proof | [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt), full multi-module `clean build` |
