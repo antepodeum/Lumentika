@@ -418,12 +418,12 @@ private fun UiScope.mountSlider(
         sliderControl(
             element,
             local,
-            min,
-            max,
-            step,
-            label,
+            state(min),
+            state(max),
+            state(step),
+            state(label),
             gestures,
-            enabled,
+            state(enabled),
             onInput = { next ->
                 binding?.let { if (it.value != next) it.value = next }
                 onInput(next)

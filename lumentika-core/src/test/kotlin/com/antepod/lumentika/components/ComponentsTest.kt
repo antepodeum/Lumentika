@@ -27,6 +27,41 @@ import kotlin.test.*
 
 class ComponentsTest {
     @Test
+    fun `generated slider reacts across range props and binds only value`() {
+        val root = Element()
+        val value = state(5f)
+        val minimum = state(0f)
+        val maximum = state(10f)
+        val step = state<Float?>(1f)
+        val label = state<String?>("Volume")
+        val enabled = state(false)
+        val slider =
+            UiScope(root)
+                .slider(
+                    value = bind(value),
+                    min = source(minimum),
+                    max = source(maximum),
+                    step = source(step),
+                    label = source(label),
+                    enabled = source(enabled),
+                )
+
+        assertTrue(slider.semantics.actions.isEmpty())
+        minimum.value = 6f
+        maximum.value = 8f
+        label.value = "Level"
+        enabled.value = true
+
+        assertEquals(6f, value.value)
+        assertEquals(6f, slider.semantics.range?.minimum)
+        assertEquals(8f, slider.semantics.range?.maximum)
+        assertEquals("Level", slider.semantics.label)
+        slider.semantics.actions.getValue(SemanticAction.SET_VALUE)(7f)
+        assertEquals(7f, value.value)
+        root.close()
+    }
+
+    @Test
     fun `generated checkbox separates binding from reactive props`() {
         val root = Element()
         val checked = state(false)

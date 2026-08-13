@@ -129,13 +129,48 @@ public class Checkbox : Component(), ComponentOutput<ControlHandle> {
     }
 }
 
-/** Stable theme-part namespace for sliders. */
-public object Slider {
+/** Standard slider declared through the shared component model. */
+@UIComponent
+public class Slider : Component(), ComponentOutput<ControlHandle> {
+    public val value = binding(0f)
+    public val min = prop(0f)
+    public val max = prop(1f)
+    public val step = prop<Float?>(null)
+    public val label = prop<String?>(null)
+    public val enabled = prop(true)
+    public val gestures = prop<GestureConfiguration?>(null)
+    public val style = prop<Style?>(null)
+    public val partStyles = prop<Map<StylePart<Slider>, Style>>(emptyMap())
+    public val semantics = prop<ElementSemantics?>(null)
+    public val input = event<Float>()
+    public val change = event<Float>()
+
+    override lateinit var componentOutput: ControlHandle
+
     public object Part {
         public val ROOT: StylePart<Slider> = StylePart()
         public val TRACK: StylePart<Slider> = StylePart()
         public val THUMB: StylePart<Slider> = StylePart()
         public val LABEL: StylePart<Slider> = StylePart()
+    }
+
+    override fun view(): Element {
+        val element = ui.element()
+        componentOutput =
+            ui.sliderControl(
+                element,
+                value,
+                min,
+                max,
+                step,
+                label,
+                gestures.value ?: ui.context.gestureConfiguration(),
+                enabled,
+                onInput = input::emit,
+                onChange = change::emit,
+            )
+        ui.configure(element, style.value, partStyles.value, semantics.value)
+        return element
     }
 }
 
@@ -1034,12 +1069,12 @@ internal fun UiScope.checkboxControl(
 internal fun UiScope.sliderControl(
     e: Element,
     value: Mutable<Float>,
-    minimum: Float,
-    maximum: Float,
-    step: Float?,
-    label: String?,
+    minimum: Readable<Float>,
+    maximum: Readable<Float>,
+    step: Readable<Float?>,
+    label: Readable<String?>,
     gestures: GestureConfiguration,
-    enabled: Boolean,
+    enabled: Readable<Boolean>,
     onInput: (Float) -> Unit = {},
     onChange: (Float) -> Unit = {},
 ): ControlHandle {
@@ -1055,20 +1090,56 @@ internal fun UiScope.sliderControl(
             Slider.Part.THUMB to style { position = Position.ABSOLUTE },
             Slider.Part.LABEL to style {},
         )
-    label?.let { parts.getValue(Slider.Part.LABEL).content = TextContent(it, context.textLayout) }
+    val labelElement = parts.getValue(Slider.Part.LABEL)
     fun normalized(next: Float): Float {
-        val clamped = next.coerceIn(minimum, maximum)
-        return step?.let {
-            (minimum + kotlin.math.round((clamped - minimum) / it) * it).coerceIn(minimum, maximum)
+        val currentMin = minimum.value
+        val currentMax = maximum.value
+        require(currentMax >= currentMin) {
+            "slider max must be greater than or equal to min"
+        }
+        val currentStep = step.value
+        require(currentStep == null || currentStep.isFinite() && currentStep > 0f)
+        val clamped = next.coerceIn(currentMin, currentMax)
+        return currentStep?.let {
+            (currentMin + kotlin.math.round((clamped - currentMin) / it) * it).coerceIn(
+                currentMin,
+                currentMax,
+            )
         } ?: clamped
     }
     fun setValue(next: Float, final: Boolean) {
-        if (!enabled) return
+        if (!enabled.value) return
         value.value = normalized(next)
         onInput(value.value)
         if (final) onChange(value.value)
         context.feedback?.perform(UiFeedbackRequest(UiFeedbackType.SELECTION_CHANGE))
     }
+    fun semanticActions(): Map<SemanticAction, (Any?) -> Boolean> =
+        if (enabled.value)
+            mapOf(
+                SemanticAction.SET_VALUE to
+                    { next ->
+                        setValue((next as Number).toFloat(), true)
+                        true
+                    },
+                SemanticAction.INCREMENT to
+                    {
+                        setValue(
+                            value.value + (step.value ?: (maximum.value - minimum.value) / 10f),
+                            true,
+                        )
+                        true
+                    },
+                SemanticAction.DECREMENT to
+                    {
+                        setValue(
+                            value.value - (step.value ?: (maximum.value - minimum.value) / 10f),
+                            true,
+                        )
+                        true
+                    },
+            )
+        else emptyMap()
     value.value = normalized(value.value)
     val gesture =
         ControlGestureHandle(
@@ -1077,7 +1148,10 @@ internal fun UiScope.sliderControl(
                 DragAxis.HORIZONTAL,
                 onUpdate = { update ->
                     val width = e.geometry.width.takeIf { it > 0f } ?: 100f
-                    setValue(value.value + update.delta.x / width * (maximum - minimum), false)
+                    setValue(
+                        value.value + update.delta.x / width * (maximum.value - minimum.value),
+                        false,
+                    )
                 },
                 onEnd = { setValue(value.value, true) },
             )
@@ -1087,52 +1161,38 @@ internal fun UiScope.sliderControl(
             e,
             SemanticsConfiguration(
                 role = SemanticRole.SLIDER,
-                enabled = enabled,
-                range = SemanticRange(value.value, minimum, maximum, step),
-                actions =
-                    if (enabled)
-                        mapOf(
-                            SemanticAction.SET_VALUE to
-                                { v ->
-                                    setValue((v as Number).toFloat(), true)
-                                    true
-                                },
-                            SemanticAction.INCREMENT to
-                                {
-                                    setValue(
-                                        value.value + (step ?: (maximum - minimum) / 10f),
-                                        true,
-                                    )
-                                    true
-                                },
-                            SemanticAction.DECREMENT to
-                                {
-                                    setValue(
-                                        value.value - (step ?: (maximum - minimum) / 10f),
-                                        true,
-                                    )
-                                    true
-                                },
-                        )
-                    else emptyMap(),
+                enabled = enabled.value,
+                range = SemanticRange(value.value, minimum.value, maximum.value, step.value),
+                actions = semanticActions(),
             ),
             gestures = gesture,
         )
     installControlInteraction(
         e,
-        com.antepod.lumentika.reactive.state(enabled),
-        activate = { setValue(value.value + (step ?: (maximum - minimum) / 10f), true) },
+        enabled,
+        activate = {
+            setValue(
+                value.value + (step.value ?: (maximum.value - minimum.value) / 10f),
+                true,
+            )
+        },
         cursor = PointerCursorRole.POINTER,
         keyAction = { key ->
             when (key) {
                 LogicalKey.ARROW_RIGHT,
                 LogicalKey.ARROW_UP ->
-                    setValue(value.value + (step ?: (maximum - minimum) / 10f), true)
+                    setValue(
+                        value.value + (step.value ?: (maximum.value - minimum.value) / 10f),
+                        true,
+                    )
                 LogicalKey.ARROW_LEFT,
                 LogicalKey.ARROW_DOWN ->
-                    setValue(value.value - (step ?: (maximum - minimum) / 10f), true)
-                LogicalKey.HOME -> setValue(minimum, true)
-                LogicalKey.END -> setValue(maximum, true)
+                    setValue(
+                        value.value - (step.value ?: (maximum.value - minimum.value) / 10f),
+                        true,
+                    )
+                LogicalKey.HOME -> setValue(minimum.value, true)
+                LogicalKey.END -> setValue(maximum.value, true)
                 else -> return@installControlInteraction false
             }
             true
@@ -1143,7 +1203,8 @@ internal fun UiScope.sliderControl(
         var lastFraction = Float.NaN
         val updateVisual = {
             val fraction =
-                if (maximum == minimum) 0f else (value.value - minimum) / (maximum - minimum)
+                if (maximum.value == minimum.value) 0f
+                else (value.value - minimum.value) / (maximum.value - minimum.value)
             if (e.geometry.width != lastWidth || fraction != lastFraction) {
                 lastWidth = e.geometry.width
                 lastFraction = fraction
@@ -1157,11 +1218,28 @@ internal fun UiScope.sliderControl(
         }
         e.attach(ControlVisualLayoutAttachment, updateVisual)
         effect {
+            val next = normalized(value.value)
+            if (next != value.value) value.value = next
+        }
+        effect {
+            val next = label.value
+            labelElement.content = next?.let { TextContent(it, context.textLayout) }
+            context.requestFrame(true)
+        }
+        effect {
             value.value
+            minimum.value
+            maximum.value
+            step.value
             updateVisual()
             e.attach(
                 SemanticsAttachment,
-                handle.semantics.copy(range = SemanticRange(value.value, minimum, maximum, step)),
+                handle.semantics.copy(
+                    label = label.value,
+                    enabled = enabled.value,
+                    range = SemanticRange(value.value, minimum.value, maximum.value, step.value),
+                    actions = semanticActions(),
+                ),
             )
             context.requestFrame(false)
         }
