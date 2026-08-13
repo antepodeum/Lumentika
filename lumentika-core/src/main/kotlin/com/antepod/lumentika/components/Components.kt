@@ -92,12 +92,40 @@ public class Button : Component(), ComponentOutput<ControlHandle> {
     }
 }
 
-/** Stable theme-part namespace for checkboxes. */
-public object Checkbox {
+/** Standard checkbox declared through the shared component model. */
+@UIComponent
+public class Checkbox : Component(), ComponentOutput<ControlHandle> {
+    public val checked = binding(false)
+    public val label = prop<String?>(null)
+    public val enabled = prop(true)
+    public val gestures = prop<GestureConfiguration?>(null)
+    public val style = prop<Style?>(null)
+    public val partStyles = prop<Map<StylePart<Checkbox>, Style>>(emptyMap())
+    public val semantics = prop<ElementSemantics?>(null)
+    public val change = event<Boolean>()
+
+    override lateinit var componentOutput: ControlHandle
+
     public object Part {
         public val ROOT: StylePart<Checkbox> = StylePart()
         public val INDICATOR: StylePart<Checkbox> = StylePart()
         public val LABEL: StylePart<Checkbox> = StylePart()
+    }
+
+    override fun view(): Element {
+        val element = ui.element()
+        componentOutput =
+            ui.checkboxControl(
+                element,
+                checked,
+                label,
+                gestures.value ?: ui.context.gestureConfiguration(),
+                enabled,
+            ) {
+                change.emit(it)
+            }
+        ui.configure(element, style.value, partStyles.value, semantics.value)
+        return element
     }
 }
 
@@ -920,9 +948,9 @@ internal fun UiScope.buttonControl(
 internal fun UiScope.checkboxControl(
     e: Element,
     value: Mutable<Boolean>,
-    label: String?,
+    label: Readable<String?>,
     gestures: GestureConfiguration,
-    enabled: Boolean,
+    enabled: Readable<Boolean>,
     onChange: (Boolean) -> Unit = {},
 ): ControlHandle {
     val parts =
@@ -936,9 +964,9 @@ internal fun UiScope.checkboxControl(
             Checkbox.Part.INDICATOR to style {},
             Checkbox.Part.LABEL to style {},
         )
-    label?.let { parts.getValue(Checkbox.Part.LABEL).content = TextContent(it, context.textLayout) }
+    val labelElement = parts.getValue(Checkbox.Part.LABEL)
     val action = {
-        if (enabled) {
+        if (enabled.value) {
             value.value = !value.value
             onChange(value.value)
             context.feedback?.perform(UiFeedbackRequest(UiFeedbackType.TOGGLE))
@@ -949,11 +977,11 @@ internal fun UiScope.checkboxControl(
             e,
             SemanticsConfiguration(
                 role = SemanticRole.CHECKBOX,
-                label = label,
-                enabled = enabled,
+                label = label.value,
+                enabled = enabled.value,
                 checked = value.value,
                 actions =
-                    if (enabled)
+                    if (enabled.value)
                         mapOf(
                             SemanticAction.CLICK to
                                 {
@@ -966,13 +994,34 @@ internal fun UiScope.checkboxControl(
             action,
             ControlGestureHandle(TapRecognizer(gestures, action)),
         )
-    installControlInteraction(
-        e,
-        com.antepod.lumentika.reactive.state(enabled),
-        action,
-        PointerCursorRole.POINTER,
-    )
+    installControlInteraction(e, enabled, action, PointerCursorRole.POINTER)
     withComponentScope(e.scope) {
+        effect {
+            val next = label.value
+            labelElement.content = next?.let { TextContent(it, context.textLayout) }
+            e.attach(SemanticsAttachment, handle.semantics.copy(label = next))
+            context.requestFrame(true)
+        }
+        effect {
+            val active = enabled.value
+            e.attach(
+                SemanticsAttachment,
+                handle.semantics.copy(
+                    enabled = active,
+                    actions =
+                        if (active)
+                            mapOf(
+                                SemanticAction.CLICK to
+                                    {
+                                        action()
+                                        true
+                                    }
+                            )
+                        else emptyMap(),
+                ),
+            )
+            context.requestFrame(false)
+        }
         effect {
             context.setStyleState(e, ControlStyleState.CHECKED, value.value)
             e.attach(SemanticsAttachment, handle.semantics.copy(checked = value.value))

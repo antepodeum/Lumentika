@@ -295,7 +295,7 @@ private fun UiScope.mountCheckbox(
     val element = element()
     val local = controlValue(source, element)
     val handle =
-        checkboxControl(element, local, label, gestures, enabled) { next ->
+        checkboxControl(element, local, state(label), gestures, state(enabled)) { next ->
             binding?.let { if (it.value != next) it.value = next }
             onChange(next)
         }

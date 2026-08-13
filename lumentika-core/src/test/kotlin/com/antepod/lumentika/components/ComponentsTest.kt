@@ -1,6 +1,7 @@
 package com.antepod.lumentika.components
 
 import com.antepod.lumentika.animation.UiAnimationClock
+import com.antepod.lumentika.component.bind
 import com.antepod.lumentika.component.forEach
 import com.antepod.lumentika.component.source
 import com.antepod.lumentika.geometry.Point
@@ -25,6 +26,39 @@ import com.antepod.lumentika.text.TextRange
 import kotlin.test.*
 
 class ComponentsTest {
+    @Test
+    fun `generated checkbox separates binding from reactive props`() {
+        val root = Element()
+        val checked = state(false)
+        val label = state<String?>("before")
+        val enabled = state(false)
+        var changed: Boolean? = null
+        val checkbox =
+            UiScope(root)
+                .checkbox(
+                    checked = bind(checked),
+                    label = source(label),
+                    enabled = source(enabled),
+                    onChange = { changed = it },
+                )
+
+        checkbox.activate()
+        assertFalse(checked.value)
+        assertNull(changed)
+
+        label.value = "after"
+        enabled.value = true
+        checkbox.activate()
+
+        assertTrue(checked.value)
+        assertEquals(true, changed)
+        assertEquals(
+            "after",
+            (checkbox.partElement(Checkbox.Part.LABEL)!!.content as TextContent).text,
+        )
+        root.close()
+    }
+
     @Test
     fun `generated button props stay reactive without two way prop semantics`() {
         val root = Element()
