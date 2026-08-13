@@ -9,6 +9,7 @@ import com.antepod.lumentika.animation.inOut
 import com.antepod.lumentika.animation.transition
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.headlessRoot
+import com.antepod.lumentika.platform.UiLifecycleState
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.UiScope
@@ -218,6 +219,35 @@ class ComponentTest {
         assertEquals(Point(0f, 20f), finalOne.rootTransform.transform(Point(0f, 0f)))
         assertEquals(2, ends)
         assertEquals(0, root.elementAnimations.activeCount)
+        root.close()
+    }
+
+    @Test
+    fun `structural transitions pause with lifecycle and snap at zero motion scale`() {
+        val root = headlessRoot(100f, 100f)
+        val visible = state(true)
+        val shown =
+            root.scope.show(visible, transition(fade(durationMillis = 100))) {
+                element("child")
+            }
+        root.frame(1)
+        root.publishEnvironment(root.environment.value.copy(lifecycle = UiLifecycleState.SUSPENDED))
+        root.frame(1_000_000_001)
+        assertEquals(1, root.elementAnimations.activeCount)
+        assertEquals(1, shown.children.size)
+
+        root.publishEnvironment(
+            root.environment.value.copy(
+                lifecycle = UiLifecycleState.ACTIVE,
+                motionDurationScale = 0f,
+            )
+        )
+        root.frame(1_000_000_002)
+        assertEquals(0, root.elementAnimations.activeCount)
+
+        visible.value = false
+        root.frame(1_000_000_003)
+        assertTrue(shown.children.isEmpty())
         root.close()
     }
 }

@@ -5,10 +5,13 @@ import com.antepod.lumentika.HeadlessRenderBackend
 import com.antepod.lumentika.PlatformServices
 import com.antepod.lumentika.UiRoot
 import com.antepod.lumentika.components.text
+import com.antepod.lumentika.geometry.Point
+import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.platform.UiLifecycleState
 import com.antepod.lumentika.reactive.state
+import com.antepod.lumentika.render.MotionRenderProperties
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.StyleImpact
@@ -171,5 +174,83 @@ class AnimationTest {
         assertTrue(policy[Properties.Width] != null)
         assertFalse(policy[Properties.Height] != null)
         assertTrue(policy[Properties.Opacity]?.adapter === GeneratedOpacityAnimationAdapter)
+    }
+
+    @Test
+    fun `crossfade pairs send and receive geometry and falls back when unmatched`() {
+        val clock = UiAnimationClock()
+        val motions = mutableMapOf<Element, MotionRenderProperties>()
+        val bounds = mutableMapOf<Element, Rect>()
+        val root = Element("root")
+        val sender = Element("sender").also(root::append)
+        val receiver = Element("receiver").also(root::append)
+        bounds[sender] = Rect(0f, 0f, 20f, 20f)
+        bounds[receiver] = Rect(100f, 0f, 40f, 40f)
+        val runtime =
+            ElementAnimationRuntime(
+                clock,
+                { element, motion ->
+                    if (motion == null) motions.remove(element) else motions[element] = motion
+                },
+                bounds::get,
+                {},
+            )
+        val pair =
+            crossfade(
+                durationMillis = { 100L },
+                fallback = fade(durationMillis = 100),
+            )
+
+        runtime.start(sender, "send", pair.send("item"), TransitionDirection.OUT)
+        runtime.start(receiver, "receive", pair.receive("item"), TransitionDirection.IN)
+        runtime.afterCommit()
+        assertEquals(
+            Point(-100f, 0f),
+            motions.getValue(receiver).transform.transform(Point(0f, 0f)),
+        )
+
+        clock.frame(50_000_000)
+        assertEquals(Point(50f, 0f), motions.getValue(sender).transform.transform(Point(0f, 0f)))
+        assertEquals(Point(-50f, 0f), motions.getValue(receiver).transform.transform(Point(0f, 0f)))
+        assertEquals(.5f, motions.getValue(sender).opacity)
+        assertEquals(.5f, motions.getValue(receiver).opacity)
+        clock.frame(100_000_000)
+        assertTrue(motions.isEmpty())
+
+        runtime.start(sender, "fallback", pair.send("missing"), TransitionDirection.OUT)
+        runtime.afterCommit()
+        clock.frame(150_000_000)
+        assertEquals(.5f, motions.getValue(sender).opacity)
+        clock.frame(200_000_000)
+        assertTrue(motions.isEmpty())
+        runtime.close()
+        root.close()
+    }
+
+    @Test
+    fun `structural builtins expose natural state at one and transformed state at zero`() {
+        val element = Element()
+        val bounds = Rect(0f, 0f, 20f, 10f)
+        val context = ElementTransitionContext(element, bounds, TransitionDirection.IN)
+
+        assertEquals(0f, fade().create(context).sample(0f, 1f).opacity)
+        assertEquals(
+            Point(12f, 8f),
+            fly(x = 12f, y = 8f).create(context).sample(0f, 1f).transform.transform(Point(0f, 0f)),
+        )
+        assertEquals(
+            Point(10f, 5f),
+            scale(start = .5f).create(context).sample(0f, 1f).transform.transform(Point(10f, 5f)),
+        )
+        assertEquals(
+            Point(0f, 5f),
+            slide(SlideAxis.HORIZONTAL)
+                .create(context)
+                .sample(0f, 1f)
+                .transform
+                .transform(Point(10f, 5f)),
+        )
+        assertEquals(TransitionFrame(), fade().create(context).sample(1f, 0f))
+        element.close()
     }
 }

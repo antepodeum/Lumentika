@@ -75,6 +75,12 @@ public fun interface ElementTransition {
     public fun create(context: ElementTransitionContext): ElementTransitionConfig
 }
 
+private interface PreparedElementTransition : ElementTransition {
+    fun prepare(context: ElementTransitionContext)
+
+    fun finish(context: ElementTransitionContext)
+}
+
 public data class StructuralTransition(
     val bidirectional: ElementTransition? = null,
     val enter: ElementTransition? = null,
@@ -173,6 +179,82 @@ public fun slide(
             opacity = t,
         )
     }
+}
+
+public class CrossfadeTransitions
+internal constructor(
+    private val delayMillis: Long,
+    private val durationMillis: (distance: Float) -> Long,
+    private val easing: (Float) -> Float,
+    private val fallback: ElementTransition?,
+) {
+    private enum class Side {
+        SEND,
+        RECEIVE,
+    }
+
+    private data class Candidate(val element: Element, val bounds: Rect)
+
+    private val sends = mutableMapOf<Any, Candidate>()
+    private val receives = mutableMapOf<Any, Candidate>()
+
+    public fun send(key: Any): ElementTransition = CrossfadeTransition(key, Side.SEND)
+
+    public fun receive(key: Any): ElementTransition = CrossfadeTransition(key, Side.RECEIVE)
+
+    private inner class CrossfadeTransition(
+        private val key: Any,
+        private val side: Side,
+    ) : PreparedElementTransition {
+        override fun prepare(context: ElementTransitionContext) {
+            val candidates = if (side == Side.SEND) sends else receives
+            require(key !in candidates) { "Duplicate crossfade ${side.name.lowercase()} key: $key" }
+            candidates[key] = Candidate(context.element, context.bounds)
+        }
+
+        override fun create(context: ElementTransitionContext): ElementTransitionConfig {
+            val counterpart =
+                (if (side == Side.SEND) receives[key] else sends[key])
+                    ?: return fallback?.create(context) ?: naturalTransition()
+            val dx = counterpart.bounds.x - context.bounds.x
+            val dy = counterpart.bounds.y - context.bounds.y
+            val scaleX =
+                if (context.bounds.width == 0f) 1f
+                else counterpart.bounds.width / context.bounds.width
+            val scaleY =
+                if (context.bounds.height == 0f) 1f
+                else counterpart.bounds.height / context.bounds.height
+            val duration = durationMillis(hypot(dx, dy))
+            require(duration >= 0) { "Crossfade duration must be non-negative" }
+            return ElementTransitionConfig(delayMillis, duration, easing) { t, u ->
+                TransitionFrame(
+                    transform =
+                        Matrix3.translation(dx * u, dy * u) *
+                            Matrix3.scale(
+                                1f + (scaleX - 1f) * u,
+                                1f + (scaleY - 1f) * u,
+                            ),
+                    opacity = t,
+                )
+            }
+        }
+
+        override fun finish(context: ElementTransitionContext) {
+            if (side == Side.SEND) sends.remove(key) else receives.remove(key)
+        }
+    }
+}
+
+public fun crossfade(
+    delayMillis: Long = 0,
+    durationMillis: (distance: Float) -> Long = { distance ->
+        kotlin.math.sqrt(distance.coerceAtLeast(0f)).times(30f).toLong().coerceAtLeast(100L)
+    },
+    easing: (Float) -> Float = { it },
+    fallback: ElementTransition? = fade(),
+): CrossfadeTransitions {
+    require(delayMillis >= 0)
+    return CrossfadeTransitions(delayMillis, durationMillis, easing, fallback)
 }
 
 public data class FlipAnimation(
@@ -367,41 +449,56 @@ public class ElementAnimationRuntime(
                     onFinished = {},
                 )
         }
-        starts.forEach { pendingTrack ->
+        val prepared = starts.mapNotNull { pendingTrack ->
             val element = pendingTrack.key.element
             if (!element.isMounted) {
                 pendingTrack.cancel()
-                return@forEach
-            }
-            val bounds = committedBounds(element) ?: element.geometry
-            val createdConfig =
-                pendingTrack.effect.create(
-                    ElementTransitionContext(element, bounds, pendingTrack.direction)
-                )
-            val config =
-                if (pendingTrack.fromOverride == null) createdConfig
-                else createdConfig.copy(delayMillis = 0)
-            val target = if (pendingTrack.direction == TransitionDirection.IN) 1f else 0f
-            val defaultFrom = if (pendingTrack.direction == TransitionDirection.IN) 0f else 1f
-            val from = pendingTrack.fromOverride ?: defaultFrom
-            pendingTrack.onStart()
-            if (clock.motionScale == 0f || config.durationMillis == 0L) {
-                configureMotion(element, config.sample(target, 1f - target).toMotion())
-                pendingTrack.onEnd()
-                pendingTrack.onFinished()
+                null
             } else {
-                tracks[pendingTrack.key] =
-                    Track(
-                        pendingTrack.key,
-                        config,
-                        from,
-                        target,
-                        clock.frameTimeNanos,
-                        config.durationMillis * abs(target - from),
-                        pendingTrack.onEnd,
-                        pendingTrack.onCancel,
-                        pendingTrack.onFinished,
+                pendingTrack to
+                    ElementTransitionContext(
+                        element,
+                        committedBounds(element) ?: element.geometry,
+                        pendingTrack.direction,
                     )
+            }
+        }
+        prepared.forEach { (pendingTrack, context) ->
+            (pendingTrack.effect as? PreparedElementTransition)?.prepare(context)
+        }
+        try {
+            prepared.forEach { (pendingTrack, context) ->
+                val element = pendingTrack.key.element
+                val createdConfig = pendingTrack.effect.create(context)
+                val config =
+                    if (pendingTrack.fromOverride == null) createdConfig
+                    else createdConfig.copy(delayMillis = 0)
+                val target = if (pendingTrack.direction == TransitionDirection.IN) 1f else 0f
+                val defaultFrom = if (pendingTrack.direction == TransitionDirection.IN) 0f else 1f
+                val from = pendingTrack.fromOverride ?: defaultFrom
+                pendingTrack.onStart()
+                if (clock.motionScale == 0f || config.durationMillis == 0L) {
+                    configureMotion(element, config.sample(target, 1f - target).toMotion())
+                    pendingTrack.onEnd()
+                    pendingTrack.onFinished()
+                } else {
+                    tracks[pendingTrack.key] =
+                        Track(
+                            pendingTrack.key,
+                            config,
+                            from,
+                            target,
+                            clock.frameTimeNanos,
+                            config.durationMillis * abs(target - from),
+                            pendingTrack.onEnd,
+                            pendingTrack.onCancel,
+                            pendingTrack.onFinished,
+                        )
+                }
+            }
+        } finally {
+            prepared.forEach { (pendingTrack, context) ->
+                (pendingTrack.effect as? PreparedElementTransition)?.finish(context)
             }
         }
         tracks.keys.map(Key::element).distinct().forEach(::apply)
@@ -505,6 +602,9 @@ public class ElementAnimationRuntime(
 }
 
 private object FlipChannel
+
+private fun naturalTransition(): ElementTransitionConfig =
+    ElementTransitionConfig(durationMillis = 0) { _, _ -> TransitionFrame() }
 
 private fun TransitionFrame.toMotion(): MotionRenderProperties =
     MotionRenderProperties(transform, opacity)
