@@ -11,8 +11,10 @@ import com.antepod.lumentika.animation.transition
 import com.antepod.lumentika.component.Component
 import com.antepod.lumentika.component.UIComponent
 import com.antepod.lumentika.component.bind
+import com.antepod.lumentika.component.constant
 import com.antepod.lumentika.component.formula
 import com.antepod.lumentika.component.show
+import com.antepod.lumentika.component.source
 import com.antepod.lumentika.components.*
 import com.antepod.lumentika.geometry.CornerRadii
 import com.antepod.lumentika.geometry.Matrix3
@@ -129,6 +131,8 @@ fun runCoreShowcase(): CoreShowcaseProof {
     val checked = state(false)
     val volume = state(.25f)
     val query = state("")
+    val incrementLabel = state("Increment")
+    val incrementEnabled = state(true)
     val labelPaint = rgb(30, 90, 180)
     val skin = theme {
         style(Button.Part.LABEL, style { color = labelPaint })
@@ -179,10 +183,13 @@ fun runCoreShowcase(): CoreShowcaseProof {
             }
             button =
                 button(
-                    value = "Increment",
+                    value = source(incrementLabel),
+                    enabled = source(incrementEnabled),
                     onClick = { count.value++ },
                     partStyles =
-                        mapOf(Button.Part.ROOT to style { borderRadius = CornerRadii(4f) }),
+                        constant(
+                            mapOf(Button.Part.ROOT to style { borderRadius = CornerRadii(4f) })
+                        ),
                 )
             checkbox(checked = checked, label = "Enabled")
             slider(value = volume, label = "Volume")

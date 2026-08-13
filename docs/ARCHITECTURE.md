@@ -38,6 +38,13 @@ fine-grained targets. A value change does not rerun the full component view or r
 children and visual parts. Structural primitives such as `show` and keyed `forEach` update only
 their owned region.
 
+Standard semantic components dogfood this model. `Button`, `Checkbox`, `Slider`, `TextField`,
+`Text`, `Image`, and `Tooltip` declare `prop`, `binding`, `event`, and `slot` metadata in core; core
+then runs `lumentika-ksp` to generate their declaration-complete factories. Handwritten code starts
+below that boundary at retained controls, editing, gestures, scrolling, elements, and rendering.
+The KSP processor itself depends only on the KSP API; its tests depend on core, avoiding a build
+cycle.
+
 ## Platform ownership
 
 The adapter owns:

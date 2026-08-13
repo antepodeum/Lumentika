@@ -15,18 +15,20 @@ accepts trailing anchor content.
 
 ## Reactive arguments
 
-Built-in value properties use finite, strongly typed overloads:
+Built-in semantic components use the same `@UIComponent` declarations and KSP factories as
+application components. There is no primary or privileged property. Every declaration follows its
+own semantics:
 
-| Argument | Meaning |
+| Declaration | Accepted generated inputs |
 | --- | --- |
-| `T` | Constant or control-local initial value |
-| `Readable<T>` | One-way reactive source |
-| `Mutable<T>` | Two-way source for binding-capable properties |
-| `() -> T` | Scope-owned tracked formula |
+| `Prop<T>` | `constant(T)`, `source(Readable<T>)`, `formula { T }` |
+| `Binding<T>` | All prop inputs plus `bind(Mutable<T>)` |
 
-`Mutable<T>` extends `Readable<T>`, so `slider(value = volume)` selects the two-way overload while
-`slider(value = derivedVolume)` remains one-way. Tracked formulas use explicit `.value` reads and
-update only the owned property target.
+Kotlin has no union parameter type, so generated factories use `PropInput<T>` and
+`BindingInput<T>` instead of Cartesian overload sets or `Any`. Direct overloads remain for source
+compatibility, but generated inputs are the canonical declaration-complete API. A mutable supplied
+through `source(...)` to a prop stays one-way; only `bind(...)` on a binding declaration writes
+back.
 
 ```kotlin
 val volume = state(50f)
@@ -34,23 +36,30 @@ val enabled = state(true)
 val title = derived { "Volume: ${volume.value.toInt()}%" }
 
 root.scope.column {
-    text(value = title)
-    text(value = { "Enabled: ${enabled.value}" })
+    text(value = source(title))
+    text(value = formula { "Enabled: ${enabled.value}" })
     slider(
-        value = volume,
-        min = 0f,
-        max = 100f,
-        step = 1f,
+        value = bind(volume),
+        min = constant(0f),
+        max = constant(100f),
+        step = constant(1f),
+        enabled = source(enabled),
         onInput = ::previewVolume,
         onChange = ::commitVolume,
     )
-    checkbox(checked = enabled, label = "Enabled")
-    button(value = "Reset", onClick = { volume.value = 50f })
+    checkbox(checked = bind(enabled), label = constant("Enabled"))
+    button(
+        value = constant("Reset"),
+        enabled = formula { enabled.value && volume.value != 50f },
+        onClick = { volume.value = 50f },
+    )
 }
 ```
 
-External changes flow into `Mutable` controls. Control interaction writes back to the same
-`Mutable` and then invokes its event callback. `Readable` and formula inputs never receive writes.
+External changes flow into bound controls. Control interaction writes back to the same `Mutable`
+and then invokes its event callback. Props, readable binding sources, and formulas never receive
+writes. This applies equally to `enabled`, labels, placeholders, slider ranges, and other declared
+inputs.
 
 ## Containers
 
