@@ -9,11 +9,12 @@ import com.tschuchort.compiletesting.kspSourcesDir
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LumentikaProcessorTest {
     @Test
-    fun `generates complete typed component DSL`() {
+    fun `generates compact typed arguments events and slots`() {
         val compilation =
             compilation(
                 SourceFile.kotlin(
@@ -22,16 +23,51 @@ class LumentikaProcessorTest {
                     package proof
 
                     import com.antepod.lumentika.component.*
-                    import com.antepod.lumentika.runtime.Element
+                    import com.antepod.lumentika.reactive.*
+                    import com.antepod.lumentika.runtime.*
 
                     @UIComponent
                     class Proof : Component() {
                         val title = prop("default")
+                        val subtitle = requiredProp<String>()
+                        val nullable = prop<String?>(null)
+                        val count = prop(0)
                         val checked = binding(false)
+                        val requiredValue = requiredBinding<Int>()
+                        val note = binding("default note")
                         val changed = event<Boolean>()
+                        val closed = event<Unit>()
+                        val footer = slot()
                         val content = slot()
-                        val trailing = slotList()
-                        override fun view(): Element = ui.element()
+                        val items = slotList()
+
+                        override fun view(): Element = ui.element {
+                            footer.mount(this)
+                            content.mount(this)
+                            items.mount(this)
+                        }
+                    }
+
+                    fun mountProof(
+                        scope: UiScope,
+                        title: Readable<String>,
+                        count: State<Int>,
+                        checked: State<Boolean>,
+                        note: Readable<String>,
+                    ): Element = scope.proof(
+                        title = source(title),
+                        subtitle = constant("required"),
+                        nullable = constant(null),
+                        count = formula { count.value * 2 },
+                        checked = bind(checked),
+                        requiredValue = constant(7),
+                        note = source(note),
+                        onChanged = {},
+                        onClosed = {},
+                        footer = { element() },
+                        items = { element(); element() },
+                    ) {
+                        element()
                     }
                     """
                         .trimIndent(),
@@ -43,15 +79,19 @@ class LumentikaProcessorTest {
         assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode, result.messages)
         val generated =
             compilation.kspSourcesDir.walkTopDown().single { it.name == "ProofDsl.kt" }.readText()
-        assertContains(generated, "public class `ProofBuilder`")
-        assertContains(generated, "public var `title`: kotlin.String")
-        assertContains(generated, "public fun `title`(source: Readable<kotlin.String>)")
-        assertContains(generated, "public fun `bindChecked`(source: Mutable<kotlin.Boolean>)")
-        assertContains(generated, "public fun `onChanged`(listener: (kotlin.Boolean) -> Unit)")
-        assertContains(generated, "public fun `content`(content: UiScope.() -> Unit)")
-        assertContains(generated, "public fun `trailing`(content: UiScope.() -> Unit)")
         assertContains(generated, "public fun UiScope.`proof`(")
-        assertTrue(result.classLoader.loadClass("proof.ProofBuilder") != null)
+        assertContains(generated, "`title`: ComponentInput<kotlin.String>")
+        assertContains(generated, "`nullable`: ComponentInput<kotlin.String?>")
+        assertContains(generated, "`checked`: ComponentInput<kotlin.Boolean>")
+        assertContains(generated, "`onChanged`: ((kotlin.Boolean) -> kotlin.Unit)?")
+        assertContains(generated, "`onClosed`: (() -> kotlin.Unit)?")
+        assertContains(generated, "`footer`: UiScope.() -> Unit = {}")
+        assertContains(generated, "`items`: UiScope.() -> Unit = {}")
+        assertContains(generated, "`content`: UiScope.() -> Unit = {}")
+        assertContains(generated, "`content`: UiScope.() -> Unit = {},\n): Element")
+        assertFalse("Builder" in generated)
+        assertFalse("Any" in generated)
+        assertTrue(generated.length < 6_000, "generated source was ${generated.length} chars")
     }
 
     @Test

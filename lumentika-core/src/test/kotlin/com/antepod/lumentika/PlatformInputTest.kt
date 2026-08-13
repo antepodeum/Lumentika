@@ -108,24 +108,20 @@ class PlatformInputTest {
                 HeadlessRenderBackend(),
             )
         var clicks = 0
-        val button = root.scope.button { onClick { clicks++ } }
-        val disabled =
-            root.scope.button {
-                enabled = false
-                onClick { clicks++ }
-            }
+        val button = root.scope.button(onClick = { clicks++ })
+        val disabled = root.scope.button(enabled = false, onClick = { clicks++ })
         val checked = com.antepod.lumentika.reactive.state(false)
-        val checkbox = root.scope.checkbox { bindValue(checked) }
+        val checkbox = root.scope.checkbox(checked = checked)
         val sliderValue = com.antepod.lumentika.reactive.state(0f)
         val inputs = mutableListOf<Float>()
         val changes = mutableListOf<Float>()
         val slider =
-            root.scope.slider {
-                bindValue(sliderValue)
-                step = .25f
-                onInput(inputs::add)
-                onChange(changes::add)
-            }
+            root.scope.slider(
+                value = sliderValue,
+                step = .25f,
+                onInput = inputs::add,
+                onChange = changes::add,
+            )
 
         root.focus.focus(button.element, FocusCause.KEYBOARD)
         assertFalse(root.dispatchKey(EventType.KEY_DOWN, LogicalKey.ENTER, "Enter", 1))
@@ -170,9 +166,7 @@ class PlatformInputTest {
         val state = ScrollState()
         lateinit var child: com.antepod.lumentika.runtime.Element
         val scroll =
-            root.scope.scroll {
-                this.state = state
-                nestedScroll = connection
+            root.scope.scroll(state = state, nestedScroll = connection) {
                 child = text("overflow")
             }
         root.styles.attach(
@@ -260,10 +254,10 @@ class PlatformInputTest {
             )
         val controller = TextEditingController()
         val field =
-            root.scope.textField {
-                this.controller = controller
-                this.autofill = AutofillConfiguration(setOf(AutofillHint.USERNAME))
-            }
+            root.scope.textField(
+                controller = controller,
+                autofill = AutofillConfiguration(setOf(AutofillHint.USERNAME)),
+            )
         root.styles.attach(
             field.element,
             com.antepod.lumentika.reactive.state(
@@ -323,11 +317,7 @@ class PlatformInputTest {
     fun `committed hit test routes normalized pointer input into controls`() {
         var clicks = 0
         val root = headlessRoot(100f, 100f)
-        val button =
-            root.scope.button {
-                value = "Go"
-                onClick { clicks++ }
-            }
+        val button = root.scope.button(value = "Go", onClick = { clicks++ })
         root.styles.attach(
             button.element,
             com.antepod.lumentika.reactive.state(
@@ -359,7 +349,7 @@ class PlatformInputTest {
     fun `mounted long press uses active frame time without pointer movement`() {
         var presses = 0
         val root = headlessRoot(100f, 100f)
-        val button = root.scope.button { value = "Hold" }
+        val button = root.scope.button(value = "Hold")
         root.styles.attach(
             button.element,
             com.antepod.lumentika.reactive.state(
@@ -431,11 +421,7 @@ class PlatformInputTest {
     fun `prevented platform event does not activate gesture default`() {
         var clicks = 0
         val root = headlessRoot(100f, 100f)
-        val button =
-            root.scope.button {
-                value = "Go"
-                onClick { clicks++ }
-            }
+        val button = root.scope.button(value = "Go", onClick = { clicks++ })
         root.styles.attach(
             button.element,
             com.antepod.lumentika.reactive.state(
@@ -484,7 +470,7 @@ class PlatformInputTest {
             image(ImageSource.Uri("asset:test")).also {
                 imageSize = (it.content as com.antepod.lumentika.runtime.ImageContent).intrinsicSize
             }
-            field = textField { this.controller = controller }
+            field = textField(controller = controller)
         }
         root.styles.attach(
             field.element,
@@ -528,8 +514,7 @@ class PlatformInputTest {
         val state = ScrollState()
         lateinit var child: com.antepod.lumentika.runtime.Element
         val scroll =
-            root.scope.scroll {
-                this.state = state
+            root.scope.scroll(state = state) {
                 child = text("content")
             }
         root.styles.attach(

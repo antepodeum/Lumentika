@@ -10,6 +10,8 @@ import com.antepod.lumentika.animation.fade
 import com.antepod.lumentika.animation.transition
 import com.antepod.lumentika.component.Component
 import com.antepod.lumentika.component.UIComponent
+import com.antepod.lumentika.component.bind
+import com.antepod.lumentika.component.formula
 import com.antepod.lumentika.component.show
 import com.antepod.lumentika.components.*
 import com.antepod.lumentika.geometry.CornerRadii
@@ -46,8 +48,8 @@ class ProofComponent : Component() {
         private set
 
     override fun view(): Element = ui.column {
-        text { title.value }
-        boundControl = checkbox { bindValue(checked) }
+        text(value = title)
+        boundControl = checkbox(checked = checked)
         content.mount(this)
     }
 }
@@ -150,57 +152,56 @@ fun runCoreShowcase(): CoreShowcaseProof {
     lateinit var retained: Element
     val retainedContent = ShowcaseContent(Size(40f, 16f))
     root.scope.theme(skin) {
-        column {
-            style {
-                display = Display.FLEX
-                width = 420.px
-                gap = 6.px
-            }
+        column(
+            style =
+                style {
+                    display = Display.FLEX
+                    width = 420.px
+                    gap = 6.px
+                }
+        ) {
             text(summary)
             show(visible, transition(fade(durationMillis = 80))) { text("Structural content") }
             row {
-                block {
+                block(semantics = semantics { label = "Semantic block" }) {
                     text("Block")
-                    semantics { label = "Semantic block" }
                 }
                 flex { text("Flex") }
-                grid {
-                    style {
-                        gridTemplateColumns =
-                            listOf(GridTemplateComponent.Single(GridTrackSizing.flex(1)))
-                    }
+                grid(
+                    style =
+                        style {
+                            gridTemplateColumns =
+                                listOf(GridTemplateComponent.Single(GridTrackSizing.flex(1)))
+                        }
+                ) {
                     text("Grid")
                 }
             }
-            button = button {
-                value = "Increment"
-                onClick { count.value++ }
-                partStyle(Button.Part.ROOT) { borderRadius = CornerRadii(4f) }
-            }
-            checkbox {
-                label = "Enabled"
-                bindValue(checked)
-            }
-            slider {
-                label = "Volume"
-                bindValue(volume)
-            }
-            field = textField {
-                placeholder = "Query"
-                bindValue(query)
-            }
-            painted = block {
-                style {
-                    width = 48.px
-                    height = 40.px
-                    background = ShowcasePaint(ShowcasePaintKind.SAMPLE)
-                    border = edges(2.px)
-                    borderPaint = rgb(40, 40, 40)
-                    borderRadius = CornerRadii(8f)
-                    boxShadows = listOf(BoxShadow(Point(2f, 2f), 3f, paint = rgb(0, 0, 0, 80)))
-                    clipShape = RoundedRect(Rect(0f, 0f, 48f, 40f), CornerRadii(8f))
-                }
-            }
+            button =
+                button(
+                    value = "Increment",
+                    onClick = { count.value++ },
+                    partStyles =
+                        mapOf(Button.Part.ROOT to style { borderRadius = CornerRadii(4f) }),
+                )
+            checkbox(checked = checked, label = "Enabled")
+            slider(value = volume, label = "Volume")
+            field = textField(value = query, placeholder = "Query")
+            painted =
+                block(
+                    style =
+                        style {
+                            width = 48.px
+                            height = 40.px
+                            background = ShowcasePaint(ShowcasePaintKind.SAMPLE)
+                            border = edges(2.px)
+                            borderPaint = rgb(40, 40, 40)
+                            borderRadius = CornerRadii(8f)
+                            boxShadows =
+                                listOf(BoxShadow(Point(2f, 2f), 3f, paint = rgb(0, 0, 0, 80)))
+                            clipShape = RoundedRect(Rect(0f, 0f, 48f, 40f), CornerRadii(8f))
+                        }
+                )
             painted.content =
                 object : Content {
                     override fun record(recorder: PaintRecorder, bounds: Rect) {
@@ -208,11 +209,13 @@ fun runCoreShowcase(): CoreShowcaseProof {
                     }
                 }
             retained = element(retainedContent)
-            scroll {
-                style {
-                    width = 120.px
-                    height = 32.px
-                }
+            scroll(
+                style =
+                    style {
+                        width = 120.px
+                        height = 32.px
+                    }
+            ) {
                 column { repeat(3) { text("Scroll item $it") } }
             }
         }
@@ -281,83 +284,89 @@ fun runTaffyLayoutProof(): TaffyLayoutProof {
     lateinit var first: Element
     lateinit var second: Element
     val grid =
-        root.scope.grid {
-            style {
-                display = Display.GRID
-                itemIsTable = false
-                itemIsReplaced = false
-                boxSizing = BoxSizing.BORDER_BOX
-                direction = Direction.LTR
-                overflowX = Overflow.CLIP
-                overflowY = Overflow.AUTO
-                scrollbarWidth = 6.px
-                floatValue = FloatLayout.NONE
-                clear = Clear.NONE
-                position = Position.RELATIVE
-                inset = edges(Auto)
-                width = 240.px
-                height = 120.px
-                minWidth = 160.px
-                minHeight = 80.px
-                maxWidth = 280.px
-                maxHeight = 160.px
-                aspectRatio = 2f
-                margin = edges(4.px)
-                padding = edges(6.px)
-                border = edges(1.px)
-                alignItems = AlignItems.STRETCH
-                alignSelf = AlignItems.START
-                justifyItems = AlignItems.STRETCH
-                justifySelf = AlignItems.START
-                alignContent = AlignContent.START
-                justifyContent = AlignContent.START
-                columnGap = 8.px
-                rowGap = 10.px
-                flexDirection = FlexDirection.ROW
-                flexWrap = FlexWrap.WRAP
-                flexBasis = Auto
-                flexGrow = 0f
-                flexShrink = 1f
-                gridTemplateColumns =
-                    listOf(
-                        GridTemplateComponent.Single(GridTrackSizing.fixed(80.px)),
-                        GridTemplateComponent.Single(GridTrackSizing.flex(1)),
-                    )
-                gridTemplateRows =
-                    listOf(
-                        GridTemplateComponent.Single(GridTrackSizing.fixed(40.px)),
-                        GridTemplateComponent.Single(GridTrackSizing.flex(1)),
-                    )
-                gridAutoColumns = listOf(GridTrackSizing.Auto)
-                gridAutoRows = listOf(GridTrackSizing.Auto)
-                gridAutoFlow = GridAutoFlow.ROW_DENSE
-                gridTemplateAreas = null
-                gridTemplateColumnNames = listOf(emptyList(), emptyList(), emptyList())
-                gridTemplateRowNames = listOf(emptyList(), emptyList(), emptyList())
-                gridRow = GridLine()
-                gridColumn = GridLine()
-                background = rgb(245, 245, 245)
-                opacity = 1f
-                zIndex = 1
-                visibility = Visibility.VISIBLE
-                pointerEvents = PointerEvents.AUTO
-                fontSize = 14.sp
-                color = rgb(20, 20, 20)
-            }
-            first = text {
-                value = "Grid A"
+        root.scope.grid(
+            style =
                 style {
-                    gridColumn = GridLine(GridPlacement.Line(1), GridPlacement.Line(2))
-                    gridRow = GridLine(GridPlacement.Line(1), GridPlacement.Line(2))
+                    display = Display.GRID
+                    itemIsTable = false
+                    itemIsReplaced = false
+                    boxSizing = BoxSizing.BORDER_BOX
+                    direction = Direction.LTR
+                    overflowX = Overflow.CLIP
+                    overflowY = Overflow.AUTO
+                    scrollbarWidth = 6.px
+                    floatValue = FloatLayout.NONE
+                    clear = Clear.NONE
+                    position = Position.RELATIVE
+                    inset = edges(Auto)
+                    width = 240.px
+                    height = 120.px
+                    minWidth = 160.px
+                    minHeight = 80.px
+                    maxWidth = 280.px
+                    maxHeight = 160.px
+                    aspectRatio = 2f
+                    margin = edges(4.px)
+                    padding = edges(6.px)
+                    border = edges(1.px)
+                    alignItems = AlignItems.STRETCH
+                    alignSelf = AlignItems.START
+                    justifyItems = AlignItems.STRETCH
+                    justifySelf = AlignItems.START
+                    alignContent = AlignContent.START
+                    justifyContent = AlignContent.START
+                    columnGap = 8.px
+                    rowGap = 10.px
+                    flexDirection = FlexDirection.ROW
+                    flexWrap = FlexWrap.WRAP
+                    flexBasis = Auto
+                    flexGrow = 0f
+                    flexShrink = 1f
+                    gridTemplateColumns =
+                        listOf(
+                            GridTemplateComponent.Single(GridTrackSizing.fixed(80.px)),
+                            GridTemplateComponent.Single(GridTrackSizing.flex(1)),
+                        )
+                    gridTemplateRows =
+                        listOf(
+                            GridTemplateComponent.Single(GridTrackSizing.fixed(40.px)),
+                            GridTemplateComponent.Single(GridTrackSizing.flex(1)),
+                        )
+                    gridAutoColumns = listOf(GridTrackSizing.Auto)
+                    gridAutoRows = listOf(GridTrackSizing.Auto)
+                    gridAutoFlow = GridAutoFlow.ROW_DENSE
+                    gridTemplateAreas = null
+                    gridTemplateColumnNames = listOf(emptyList(), emptyList(), emptyList())
+                    gridTemplateRowNames = listOf(emptyList(), emptyList(), emptyList())
+                    gridRow = GridLine()
+                    gridColumn = GridLine()
+                    background = rgb(245, 245, 245)
+                    opacity = 1f
+                    zIndex = 1
+                    visibility = Visibility.VISIBLE
+                    pointerEvents = PointerEvents.AUTO
+                    fontSize = 14.sp
+                    color = rgb(20, 20, 20)
                 }
-            }
-            second = text {
-                value = "Grid B"
-                style {
-                    gridColumn = GridLine(GridPlacement.Line(2), GridPlacement.Line(3))
-                    gridRow = GridLine(GridPlacement.Line(1), GridPlacement.Span(2))
-                }
-            }
+        ) {
+            first =
+                text(
+                    value = "Grid A",
+                    style =
+                        style {
+                            gridColumn = GridLine(GridPlacement.Line(1), GridPlacement.Line(2))
+                            gridRow = GridLine(GridPlacement.Line(1), GridPlacement.Line(2))
+                        },
+                )
+            second =
+                text(
+                    value = "Grid B",
+                    style =
+                        style {
+                            gridColumn = GridLine(GridPlacement.Line(2), GridPlacement.Line(3))
+                            gridRow = GridLine(GridPlacement.Line(1), GridPlacement.Span(2))
+                        },
+                )
         }
     root.requestFrame()
     root.frame(1_000_000L)
@@ -394,22 +403,20 @@ fun runReactiveProof(): ReactiveProof {
     var generatedEvent: Boolean? = null
     lateinit var proof: ProofComponent
     root.scope.column {
-        proofComponent {
-            proof = component
-            title { "Generated value: ${generatedTitle.value}" }
-            bindChecked(generatedValue)
-            onChange { generatedEvent = it }
-            content { text { value = "Generated slot" } }
+        proofComponent(
+            instance = ProofComponent().also { proof = it },
+            title = formula { "Generated value: ${generatedTitle.value}" },
+            checked = bind(generatedValue),
+            onChange = { generatedEvent = it },
+        ) {
+            text(value = "Generated slot")
         }
-        text { "Derived value: ${doubledTitle.value}" }
+        text(value = { "Derived value: ${doubledTitle.value}" })
         text("Lumentika core")
-        button {
-            value = "Toggle"
-            onClick { checked.value = !checked.value }
-        }
-        checkbox { bindValue(checked) }
-        slider { value = 0.5f }
-        textField {}
+        button(value = "Toggle", onClick = { checked.value = !checked.value })
+        checkbox(checked = checked)
+        slider(value = 0.5f)
+        textField()
     }
     root.requestFrame()
     root.frame(1_000_000L)

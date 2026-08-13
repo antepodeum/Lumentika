@@ -1,11 +1,25 @@
 package com.antepod.lumentika.ksp
 
 import com.google.devtools.ksp.getDeclaredProperties
-import com.google.devtools.ksp.processing.*
-import com.google.devtools.ksp.symbol.*
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.ClassKind
+import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.KSTypeParameter
+import com.google.devtools.ksp.symbol.Modifier
+import com.google.devtools.ksp.symbol.Nullability
+import com.google.devtools.ksp.symbol.Variance
 import com.google.devtools.ksp.validate
 
-/** KSP entry point that generates type-safe DSL builders for `@UIComponent` classes. */
+/** KSP entry point that generates typed argument factories for `@UIComponent` classes. */
 public class LumentikaProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
         LumentikaProcessor(environment.codeGenerator, environment.logger)
@@ -71,34 +85,37 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
                 }
                 .mapNotNull(::componentDeclaration)
                 .toList()
-        val file = code.createNewFile(Dependencies(false, source), pkg, "${name}Dsl")
-        val factory = name.replaceFirstChar { it.lowercase() }
+        val slots = declarations.filter { it.kind.isSlot }
+        val canonicalSlot = slots.firstOrNull { it.name == "content" } ?: slots.firstOrNull()
         val className = name.identifier()
-        val builderName = "${name}Builder".identifier()
-        val factoryName = factory.identifier()
+        val parameters = buildList {
+            add("instance: $className = $className()")
+            declarations.filterNot { it.kind.isSlot }.forEach { add(it.parameter()) }
+            slots.filterNot { it == canonicalSlot }.forEach { add(it.parameter()) }
+            canonicalSlot?.let { add(it.parameter()) }
+        }
+        val file = code.createNewFile(Dependencies(false, source), pkg, "${name}Dsl")
+        val factoryName = name.replaceFirstChar { it.lowercase() }.identifier()
         file.writer().use { out ->
             out.appendLine("package $pkg")
                 .appendLine()
-                .appendLine("import com.antepod.lumentika.runtime.*")
                 .appendLine("import com.antepod.lumentika.component.*")
                 .appendLine("import com.antepod.lumentika.reactive.*")
+                .appendLine("import com.antepod.lumentika.runtime.*")
                 .appendLine()
-                .appendLine("/** Type-safe configuration builder for [$className]. */")
-                .appendLine("@UiDsl")
-                .appendLine(
-                    "public class $builderName internal constructor(public val component: $className) {"
-                )
-            declarations.forEach { declaration -> declaration.writeTo(out) }
+                .appendLine("/** Creates, configures, and persistently mounts a [$className]. */")
+            if (parameters.isEmpty()) {
+                out.appendLine("public fun UiScope.$factoryName(): Element {")
+            } else {
+                out.appendLine("public fun UiScope.$factoryName(")
+                parameters.forEach { out.appendLine("    $it,") }
+                out.appendLine("): Element {")
+            }
+            declarations.filterNot { it.kind.isSlot }.forEach { it.writeConfiguration(out) }
+            slots.filterNot { it == canonicalSlot }.forEach { it.writeConfiguration(out) }
+            canonicalSlot?.writeConfiguration(out)
+            out.appendLine("    return instance.mount(this)")
             out.appendLine("}")
-                .appendLine()
-                .appendLine("/** Creates, configures, and mounts a [$className]. */")
-                .appendLine(
-                    "public fun UiScope.$factoryName(block: $builderName.() -> Unit = {}): Element {"
-                )
-                .appendLine("    val component = $className()")
-                .appendLine("    $builderName(component).apply(block)")
-                .appendLine("    return component.mount(this)")
-                .appendLine("}")
         }
     }
 
@@ -154,12 +171,18 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
     }
 }
 
-private enum class DeclarationKind(val qualifiedName: String, val hasTypeArgument: Boolean = true) {
+private enum class DeclarationKind(
+    val qualifiedName: String,
+    val hasTypeArgument: Boolean = true,
+) {
     PROP("com.antepod.lumentika.component.Prop"),
     BINDING("com.antepod.lumentika.component.Binding"),
     EVENT("com.antepod.lumentika.component.Event"),
     SLOT("com.antepod.lumentika.component.Slot", false),
-    SLOT_LIST("com.antepod.lumentika.component.SlotList", false),
+    SLOT_LIST("com.antepod.lumentika.component.SlotList", false);
+
+    val isSlot: Boolean
+        get() = this == SLOT || this == SLOT_LIST
 }
 
 private data class ComponentDeclaration(
@@ -167,66 +190,53 @@ private data class ComponentDeclaration(
     val kind: DeclarationKind,
     val valueType: String?,
 ) {
-    fun writeTo(out: Appendable) {
+    private val identifier: String
+        get() = name.identifier()
+
+    private val eventName: String
+        get() = ("on" + name.replaceFirstChar { it.uppercase() }).identifier()
+
+    fun parameter(): String =
         when (kind) {
             DeclarationKind.PROP,
-            DeclarationKind.BINDING -> writeValue(out)
-            DeclarationKind.EVENT -> writeEvent(out)
+            DeclarationKind.BINDING ->
+                "$identifier: ComponentInput<${requireNotNull(valueType)}> = ComponentInput.Omitted"
+            DeclarationKind.EVENT ->
+                "$eventName: (${eventListenerType(requireNotNull(valueType))})? = null"
             DeclarationKind.SLOT,
-            DeclarationKind.SLOT_LIST -> writeSlot(out)
+            DeclarationKind.SLOT_LIST -> "$identifier: UiScope.() -> Unit = {}"
+        }
+
+    fun writeConfiguration(out: Appendable) {
+        when (kind) {
+            DeclarationKind.PROP,
+            DeclarationKind.BINDING ->
+                out.appendLine(
+                    "    $identifier.applyTo(instance.$identifier, instance.componentScope)"
+                )
+            DeclarationKind.EVENT -> writeEventConfiguration(out)
+            DeclarationKind.SLOT,
+            DeclarationKind.SLOT_LIST ->
+                out.appendLine("    instance.$identifier.configure($identifier)")
         }
     }
 
-    private fun writeValue(out: Appendable) {
+    private fun writeEventConfiguration(out: Appendable) {
         val type = requireNotNull(valueType)
-        val identifier = name.identifier()
-        out.appendLine("    /** Direct value assigned to the `$name` declaration. */")
-        out.appendLine("    public var $identifier: $type")
-        out.appendLine("        get() = component.$identifier.value")
-        out.appendLine("        set(value) { component.$identifier.set(value) }")
-        out.appendLine()
-        out.appendLine("    /** Binds `$name` to a one-way reactive source. */")
-        out.appendLine("    public fun $identifier(source: Readable<$type>) {")
-        out.appendLine("        component.$identifier.source(source, component.componentScope)")
-        out.appendLine("    }")
-        out.appendLine()
-        out.appendLine("    /** Computes `$name` reactively in the component scope. */")
-        out.appendLine("    public fun $identifier(block: () -> $type) {")
-        out.appendLine("        component.$identifier.source(component.componentScope, block)")
-        out.appendLine("    }")
-        if (kind == DeclarationKind.BINDING) {
-            val bindName = ("bind" + name.replaceFirstChar { it.uppercase() }).identifier()
-            out.appendLine()
-            out.appendLine("    /** Binds `$name` bidirectionally to a mutable source. */")
-            out.appendLine("    public fun $bindName(source: Mutable<$type>) {")
-            out.appendLine("        component.$identifier.bind(source, component.componentScope)")
-            out.appendLine("    }")
+        out.appendLine("    $eventName?.let { listener ->")
+        if (type == "kotlin.Unit") {
+            out.appendLine("        val handle = instance.$identifier.listen { listener() }")
+        } else {
+            out.appendLine("        val handle = instance.$identifier.listen(listener)")
         }
-        out.appendLine()
-    }
-
-    private fun writeEvent(out: Appendable) {
-        val type = requireNotNull(valueType)
-        val identifier = name.identifier()
-        val eventName = ("on" + name.replaceFirstChar { it.uppercase() }).identifier()
-        out.appendLine("    /** Registers a listener for the `$name` event. */")
-        out.appendLine("    public fun $eventName(listener: ($type) -> Unit) {")
-        out.appendLine("        val handle = component.$identifier.listen(listener)")
-        out.appendLine("        withComponentScope(component.componentScope) {")
+        out.appendLine("        withComponentScope(instance.componentScope) {")
         out.appendLine("            onCleanup { handle.close() }")
         out.appendLine("        }")
         out.appendLine("    }")
-        out.appendLine()
     }
 
-    private fun writeSlot(out: Appendable) {
-        val identifier = name.identifier()
-        out.appendLine("    /** Configures content for the `$name` slot. */")
-        out.appendLine("    public fun $identifier(content: UiScope.() -> Unit) {")
-        out.appendLine("        component.$identifier.configure(content)")
-        out.appendLine("    }")
-        out.appendLine()
-    }
+    private fun eventListenerType(type: String): String =
+        if (type == "kotlin.Unit") "() -> kotlin.Unit" else "($type) -> kotlin.Unit"
 }
 
 private fun String.identifier(): String = "`$this`"

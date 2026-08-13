@@ -27,6 +27,36 @@ public annotation class UIComponent
 
 private object Missing
 
+/** A strongly typed generated-component argument. */
+public sealed interface ComponentInput<out T> {
+    /** Leaves a declaration at its component-defined default. */
+    public data object Omitted : ComponentInput<Nothing>
+
+    /** Supplies a constant value. */
+    public data class Constant<T>(public val value: T) : ComponentInput<T>
+
+    /** Supplies a one-way reactive source. */
+    public data class Source<T>(public val value: Readable<T>) : ComponentInput<T>
+
+    /** Supplies a scope-owned tracked formula. */
+    public data class Formula<T>(public val value: () -> T) : ComponentInput<T>
+
+    /** Supplies a mutable source, interpreted as two-way only by a [Binding]. */
+    public data class Bound<T>(public val value: Mutable<T>) : ComponentInput<T>
+}
+
+/** Creates a constant generated-component argument. */
+public fun <T> constant(value: T): ComponentInput<T> = ComponentInput.Constant(value)
+
+/** Creates a one-way generated-component argument. */
+public fun <T> source(value: Readable<T>): ComponentInput<T> = ComponentInput.Source(value)
+
+/** Creates a two-way generated-component binding argument. */
+public fun <T> bind(value: Mutable<T>): ComponentInput<T> = ComponentInput.Bound(value)
+
+/** Creates a tracked-formula generated-component argument. */
+public fun <T> formula(value: () -> T): ComponentInput<T> = ComponentInput.Formula(value)
+
 /** Base class for externally configured component values. */
 public sealed class Declaration<T>(initial: Any?) {
     private enum class ExternalMode {
@@ -133,6 +163,28 @@ public class Binding<T> internal constructor(initial: Any?) : Declaration<T>(ini
     internal override fun dispose() {
         super.dispose()
         bound = null
+    }
+}
+
+/** Applies this generated argument to a one-way [Prop]. */
+public fun <T> ComponentInput<T>.applyTo(declaration: Prop<T>, scope: ComponentScope) {
+    when (this) {
+        ComponentInput.Omitted -> Unit
+        is ComponentInput.Constant -> declaration.set(value)
+        is ComponentInput.Source -> declaration.source(value, scope)
+        is ComponentInput.Formula -> declaration.source(scope, value)
+        is ComponentInput.Bound -> declaration.source(value, scope)
+    }
+}
+
+/** Applies this generated argument to a [Binding], preserving two-way mutable semantics. */
+public fun <T> ComponentInput<T>.applyTo(declaration: Binding<T>, scope: ComponentScope) {
+    when (this) {
+        ComponentInput.Omitted -> Unit
+        is ComponentInput.Constant -> declaration.set(value)
+        is ComponentInput.Source -> declaration.source(value, scope)
+        is ComponentInput.Formula -> declaration.source(scope, value)
+        is ComponentInput.Bound -> declaration.bind(value, scope)
     }
 }
 

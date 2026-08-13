@@ -51,15 +51,13 @@ class ComponentsTest {
         lateinit var button: ControlHandle
         lateinit var checkbox: ControlHandle
         root.scope.theme(skin) {
-            button = button {
-                value(label)
-                partStyle(Button.Part.LABEL) { color = instanceLabel }
-                style { background = rgb(1, 2, 3) }
-            }
-            checkbox = checkbox {
-                bindValue(checked)
-                this.label = "check"
-            }
+            button =
+                button(
+                    value = label,
+                    partStyles = mapOf(Button.Part.LABEL to style { color = instanceLabel }),
+                    style = style { background = rgb(1, 2, 3) },
+                )
+            checkbox = checkbox(checked = checked, label = "check")
         }
         root.requestFrame()
         root.frame(1)
@@ -124,14 +122,11 @@ class ComponentsTest {
         val root = Element()
         val ui = UiScope(root)
         var clicks = 0
-        val button = ui.button {
-            value = "Go"
-            onClick { clicks++ }
-        }
+        val button = ui.button(value = "Go", onClick = { clicks++ })
         val checked = state(false)
-        val checkbox = ui.checkbox { bindValue(checked) }
+        val checkbox = ui.checkbox(checked = checked)
         val sliderValue = state(0f)
-        val slider = ui.slider { bindValue(sliderValue) }
+        val slider = ui.slider(value = sliderValue)
         val field = ui.textField()
         assertEquals(
             listOf(
@@ -181,22 +176,19 @@ class ComponentsTest {
         val root = Element()
         val ui = UiScope(root)
         var clicks = 0
-        val button = ui.button {
-            value = "Go"
-            onClick { clicks++ }
-        }
+        val button = ui.button(value = "Go", onClick = { clicks++ })
         button.gestures!!.down(1, Point(0f, 0f), 0)
         button.gestures.up(Point(0f, 0f), 1)
         assertEquals(1, clicks)
 
         val sliderValue = state(0f)
-        val slider = ui.slider { bindValue(sliderValue) }
+        val slider = ui.slider(value = sliderValue)
         slider.gestures!!.down(2, Point(0f, 0f), 0)
         slider.gestures.move(Point(20f, 0f), 10_000_000)
         assertEquals(0.2f, sliderValue.value)
 
         val controller = TextEditingController(TextEditingValue("abcd", TextRange(0, 0)))
-        val field = ui.textField { this.controller = controller }
+        val field = ui.textField(controller = controller)
         field.gestures!!.down(3, Point(0f, 0f), 0)
         field.gestures.advance(500_000_000)
         field.gestures.move(Point(16f, 0f), 510_000_000)
@@ -211,9 +203,8 @@ class ComponentsTest {
         val outerState = com.antepod.lumentika.gesture.ScrollState()
         val innerState = com.antepod.lumentika.gesture.ScrollState()
         lateinit var inner: Element
-        UiScope(root).scroll {
-            state = outerState
-            inner = scroll { state = innerState }
+        UiScope(root).scroll(state = outerState) {
+            inner = scroll(state = innerState)
         }
         outerState.setRange(0f, 100f)
         innerState.setRange(0f, 10f)
@@ -236,8 +227,8 @@ class ComponentsTest {
         val ui = UiScope(root)
         val checked = state(false)
         val sliderValue = state(0.25f)
-        val checkbox = ui.checkbox { bindValue(checked) }
-        val slider = ui.slider { bindValue(sliderValue) }
+        val checkbox = ui.checkbox(checked = checked)
+        val slider = ui.slider(value = sliderValue)
 
         checked.value = true
         sliderValue.value = 0.75f
@@ -277,13 +268,14 @@ class ComponentsTest {
         val readableValue = state("readable-1")
         val readable = ui.text(readableValue)
         val computedValue = state(1)
-        val computed = ui.text { "computed-${computedValue.value}" }
-        val configured = ui.text {
-            value = "configured"
-            alignment = TextAlign.END
-            direction = Direction.RTL
-            semantics { label = "configured label" }
-        }
+        val computed = ui.text(value = { "computed-${computedValue.value}" })
+        val configured =
+            ui.text(
+                value = "configured",
+                alignment = TextAlign.END,
+                direction = Direction.RTL,
+                semantics = semantics { label = "configured label" },
+            )
 
         assertEquals("direct", (direct.content as TextContent).text)
         assertEquals("readable-1", (readable.content as TextContent).text)
@@ -305,30 +297,21 @@ class ComponentsTest {
     }
 
     @Test
-    fun `uniform control builders preserve reactive values and two way bindings`() {
+    fun `typed control arguments preserve reactive values and two way bindings`() {
         val root = Element()
         val ui = UiScope(root)
         val buttonLabel = state("before")
         var clicks = 0
-        val button = ui.button {
-            value(buttonLabel)
-            onClick { clicks++ }
-        }
+        val button = ui.button(value = buttonLabel, onClick = { clicks++ })
         val checked = state(false)
         var checkboxChange: Boolean? = null
-        val checkbox = ui.checkbox {
-            bindValue(checked)
-            onChange { checkboxChange = it }
-        }
+        val checkbox = ui.checkbox(checked = checked, onChange = { checkboxChange = it })
         val sliderValue = state(0.25f)
-        val slider = ui.slider { bindValue(sliderValue) }
+        val slider = ui.slider(value = sliderValue)
         val fieldValue = state("initial")
         val selection = state(TextRange(0, 0))
-        val field = ui.textField {
-            bindValue(fieldValue)
-            bindSelection(selection)
-        }
-        val placeholderField = ui.textField { placeholder = "Name" }
+        val field = ui.textField(value = fieldValue, selection = selection)
+        val placeholderField = ui.textField(placeholder = "Name")
 
         buttonLabel.value = "after"
         button.activate()
@@ -357,11 +340,7 @@ class ComponentsTest {
     @Test
     fun `secure text field masks paint content and redacts semantics`() {
         val root = Element()
-        val field =
-            UiScope(root).textField {
-                value = "s😀"
-                secure = true
-            }
+        val field = UiScope(root).textField(value = "s😀", secure = true)
 
         assertEquals("••", (field.partElement(TextField.Part.TEXT)!!.content as TextContent).text)
         assertNull(field.semantics.value)
@@ -370,7 +349,7 @@ class ComponentsTest {
     }
 
     @Test
-    fun `image and tooltip builders update reactive primary values`() {
+    fun `image and tooltip arguments update reactive primary values`() {
         val root = Element()
         val clock = UiAnimationClock()
         val renderProperties = mutableMapOf<Element, RenderProperties>()
@@ -383,12 +362,12 @@ class ComponentsTest {
             )
         val ui = UiScope(root, context)
         val imageSource = state<ImageSource>(ImageSource.Uri("first"))
-        val image = ui.image { source(imageSource) }
+        val image = ui.image(source = imageSource)
         val tooltipText = state("first tip")
-        val tooltip = ui.tooltip {
-            value(tooltipText)
-            text("anchor")
-        }
+        val tooltip =
+            ui.tooltip(value = tooltipText) {
+                text("anchor")
+            }
 
         imageSource.value = ImageSource.Uri("second")
         tooltipText.value = "second tip"
@@ -457,11 +436,11 @@ class ComponentsTest {
                 ui.list(),
                 ui.text("text"),
                 ui.image(ImageSource.Bytes(byteArrayOf(1), "image/test")),
-                ui.button { value = "button" }.element,
-                ui.checkbox { value = false }.element,
-                ui.slider { value = 0f }.element,
+                ui.button(value = "button").element,
+                ui.checkbox(checked = false).element,
+                ui.slider(value = 0f).element,
                 ui.textField().element,
-                ui.tooltip { value = "tip" },
+                ui.tooltip(value = "tip"),
             )
         assertEquals(15, elements.size)
         assertTrue(elements[6].attachment(GestureAttachment) != null)

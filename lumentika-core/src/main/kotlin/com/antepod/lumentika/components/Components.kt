@@ -194,41 +194,97 @@ private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = Attac
 private val ScrollIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 
-/** Mounts a block-layout container. */
-public fun UiScope.block(content: ContainerBuilder.() -> Unit = {}): Element =
-    container(style {}, content)
+private fun UiScope.mountContainer(
+    structuralStyle: Style,
+    style: Style?,
+    semantics: SemanticsConfiguration?,
+    content: UiScope.() -> Unit,
+): Element {
+    val element = element()
+    context.attachStyle(element, structuralStyle)
+    style?.let { context.attachStyle(element, it) }
+    semantics?.let { element.attach(SemanticsAttachment, it) }
+    nested(element).content()
+    return element
+}
 
-/** Mounts a generic flex-layout container. */
-public fun UiScope.flex(content: ContainerBuilder.() -> Unit = {}): Element =
-    container(style { display = Display.FLEX }, content)
+/** Mounts a block-layout container; trailing [content] mounts children only. */
+public fun UiScope.block(
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element = mountContainer(com.antepod.lumentika.style.style {}, style, semantics, content)
 
-/** Mounts a horizontal flex container. */
-public fun UiScope.row(content: ContainerBuilder.() -> Unit = {}): Element =
-    container(
-        style {
+/** Mounts a generic flex-layout container; trailing [content] mounts children only. */
+public fun UiScope.flex(
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element =
+    mountContainer(
+        com.antepod.lumentika.style.style { display = Display.FLEX },
+        style,
+        semantics,
+        content,
+    )
+
+/** Mounts a horizontal flex container; trailing [content] mounts children only. */
+public fun UiScope.row(
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element =
+    mountContainer(
+        com.antepod.lumentika.style.style {
             display = Display.FLEX
             flexDirection = FlexDirection.ROW
         },
+        style,
+        semantics,
         content,
     )
 
-/** Mounts a vertical flex container. */
-public fun UiScope.column(content: ContainerBuilder.() -> Unit = {}): Element =
-    container(
-        style {
+/** Mounts a vertical flex container; trailing [content] mounts children only. */
+public fun UiScope.column(
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element =
+    mountContainer(
+        com.antepod.lumentika.style.style {
             display = Display.FLEX
             flexDirection = FlexDirection.COLUMN
         },
+        style,
+        semantics,
         content,
     )
 
-/** Mounts a grid-layout container. */
-public fun UiScope.grid(content: ContainerBuilder.() -> Unit = {}): Element =
-    container(style { display = Display.GRID }, content)
+/** Mounts a grid-layout container; trailing [content] mounts children only. */
+public fun UiScope.grid(
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element =
+    mountContainer(
+        com.antepod.lumentika.style.style { display = Display.GRID },
+        style,
+        semantics,
+        content,
+    )
 
-/** Mounts an overlay stack container. */
-public fun UiScope.stack(content: ContainerBuilder.() -> Unit = {}): Element =
-    container(style { display = Display.GRID }, content)
+/** Mounts an overlay stack container; trailing [content] mounts children only. */
+public fun UiScope.stack(
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element =
+    mountContainer(
+        com.antepod.lumentika.style.style { display = Display.GRID },
+        style,
+        semantics,
+        content,
+    )
 
 internal fun UiScope.mountScroll(
     element: Element,
@@ -434,27 +490,6 @@ internal constructor(
     private fun flatten(current: Element): List<Element> =
         listOf(current) + current.children.flatMap(::flatten)
 }
-
-/** Mounts static text. */
-public fun UiScope.text(value: String): Element =
-    element(TextContent(value, context.textLayout)).also {
-        it.attach(
-            SemanticsAttachment,
-            SemanticsConfiguration(role = SemanticRole.TEXT, label = value),
-        )
-    }
-
-/** Mounts text backed by a reactive [value]. */
-public fun UiScope.text(value: Readable<String>): Element = text { value(value) }
-
-/** Mounts an image using [source] and optional intrinsic [size]. */
-public fun UiScope.image(
-    source: ImageSource,
-    size: com.antepod.lumentika.geometry.Size? = null,
-): Element =
-    element(ImageContent(source, size ?: context.images?.intrinsicSize(source))).also {
-        it.attach(SemanticsAttachment, SemanticsConfiguration(role = SemanticRole.IMAGE))
-    }
 
 /** Preferred placement of a tooltip relative to its anchor. */
 public enum class TooltipPlacement {
@@ -1220,14 +1255,4 @@ private fun handleEditorKey(
     event: KeyboardEvent,
 ) {
     editor.handleKey(event.logicalKey, event.text, event.physicalKey, event.modifiers)
-}
-
-private fun UiScope.container(
-    defaultStyle: Style,
-    content: ContainerBuilder.() -> Unit,
-): Element {
-    val element = element()
-    context.attachStyle(element, defaultStyle)
-    ContainerBuilder(element, context).content()
-    return element
 }

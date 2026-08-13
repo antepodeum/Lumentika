@@ -6,7 +6,6 @@ import com.antepod.lumentika.gesture.ScrollState
 import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.Readable
-import com.antepod.lumentika.reactive.State
 import com.antepod.lumentika.reactive.effect
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.reactive.untracked
@@ -15,7 +14,6 @@ import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.ImageContent
 import com.antepod.lumentika.runtime.ImageSource
 import com.antepod.lumentika.runtime.TextContent
-import com.antepod.lumentika.runtime.UiContext
 import com.antepod.lumentika.runtime.UiScope
 import com.antepod.lumentika.semantics.CollectionInfo
 import com.antepod.lumentika.semantics.CollectionItemInfo
@@ -26,10 +24,11 @@ import com.antepod.lumentika.semantics.SemanticRole
 import com.antepod.lumentika.semantics.SemanticsAttachment
 import com.antepod.lumentika.semantics.SemanticsConfiguration
 import com.antepod.lumentika.style.Direction
+import com.antepod.lumentika.style.Display
+import com.antepod.lumentika.style.FlexDirection
 import com.antepod.lumentika.style.Overflow
 import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.StylePart
-import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillConfiguration
 import com.antepod.lumentika.text.TextAlign
 import com.antepod.lumentika.text.TextEditingController
@@ -37,107 +36,7 @@ import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextLayoutRequest
 import com.antepod.lumentika.text.TextRange
 
-/** Base DSL builder for element styling, semantics, and child mounting. */
-public open class ElementBuilder
-internal constructor(
-    public val element: Element,
-    context: UiContext,
-) : UiScope(element, context) {
-    private val semanticUpdates = mutableListOf<SemanticsBuilder.() -> Unit>()
-    internal var hasConfiguration: Boolean = false
-        private set
-
-    /** Attaches [value] as this element's style source. */
-    public fun style(value: Style) {
-        hasConfiguration = true
-        context.attachStyle(element, value)
-        context.requestFrame(true)
-    }
-
-    /** Builds and attaches a style. */
-    public fun style(block: com.antepod.lumentika.style.StyleBuilder.() -> Unit) {
-        style(com.antepod.lumentika.style.style(block))
-    }
-
-    /** Sets component-instance styling for one typed persistent visual part. */
-    public fun <T : Any> partStyle(part: StylePart<T>, value: Style) {
-        hasConfiguration = true
-        context.attachPartStyle(element, part, value)
-        context.requestFrame(true)
-    }
-
-    /** Builds component-instance styling for one typed persistent visual part. */
-    public fun <T : Any> partStyle(
-        part: StylePart<T>,
-        block: com.antepod.lumentika.style.StyleBuilder.() -> Unit,
-    ) {
-        partStyle(part, com.antepod.lumentika.style.style(block))
-    }
-
-    /** Updates this element's accessibility semantics. */
-    public fun semantics(block: SemanticsBuilder.() -> Unit) {
-        hasConfiguration = true
-        semanticUpdates += block
-        applySemantics()
-    }
-
-    internal fun applySemantics() {
-        if (semanticUpdates.isEmpty()) return
-        val current = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
-        val builder = SemanticsBuilder(current)
-        semanticUpdates.forEach { update -> builder.update() }
-        element.attach(SemanticsAttachment, builder.build())
-        context.requestFrame(false)
-    }
-}
-
-/** Builder for layout containers that accept arbitrary child elements. */
-public open class ContainerBuilder internal constructor(element: Element, context: UiContext) :
-    ElementBuilder(element, context)
-
-/** Configures scroll state, gesture thresholds, and nested scrolling. */
-public open class ScrollBuilder internal constructor(element: Element, context: UiContext) :
-    ContainerBuilder(element, context) {
-    public var state: ScrollState = ScrollState()
-    public var gestures: GestureConfiguration = context.gestureConfiguration()
-    public var nestedScroll: NestedScrollConnection? = null
-
-    internal fun mount(): Element = mountScroll(element, state, gestures, nestedScroll)
-}
-
-/** Mounts a scrollable container. */
-public fun UiScope.scroll(block: ScrollBuilder.() -> Unit = {}): Element {
-    val element = element()
-    context.attachStyle(element, style { overflow = Overflow.SCROLL })
-    return ScrollBuilder(element, context).apply(block).mount()
-}
-
-/** Builder for a scrollable semantic list. */
-public class ListBuilder internal constructor(element: Element, context: UiContext) :
-    ScrollBuilder(element, context)
-
-/** Mounts a scrollable container with list semantics. */
-public fun UiScope.list(block: ListBuilder.() -> Unit = {}): Element {
-    val element = element()
-    context.attachStyle(
-        element,
-        style {
-            display = com.antepod.lumentika.style.Display.FLEX
-            flexDirection = com.antepod.lumentika.style.FlexDirection.COLUMN
-            overflow = Overflow.SCROLL
-        },
-    )
-    val builder = ListBuilder(element, context).apply(block)
-    builder.mount()
-    val semantics = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
-    element.attach(
-        SemanticsAttachment,
-        semantics.copy(role = SemanticRole.LIST),
-    )
-    return element
-}
-
-/** Mutable DSL projection of an element's accessibility semantics. */
+/** Mutable projection used to construct an immutable accessibility configuration. */
 public class SemanticsBuilder internal constructor(private val initial: SemanticsConfiguration) {
     public var role: SemanticRole = initial.role
     public var label: String? = initial.label
@@ -185,429 +84,821 @@ public class SemanticsBuilder internal constructor(private val initial: Semantic
         )
 }
 
-/** Configures static or reactive text content. */
-public class TextBuilder internal constructor(element: Element, context: UiContext) :
-    ElementBuilder(element, context) {
-    private var source: () -> String = { "" }
-    private var explicit = false
+/** Builds an immutable accessibility configuration. */
+public fun semantics(block: SemanticsBuilder.() -> Unit): SemanticsConfiguration =
+    SemanticsBuilder(SemanticsConfiguration()).apply(block).build()
 
-    public var value: String
-        get() = source()
-        set(value) {
-            explicit = true
-            source = { value }
-        }
+private fun UiScope.configure(
+    element: Element,
+    style: Style?,
+    partStyles: Map<out StylePart<*>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+) {
+    style?.let { context.attachStyle(element, it) }
+    partStyles.forEach { (part, value) -> context.attachPartStyle(element, part, value) }
+    semantics?.let { element.attach(SemanticsAttachment, it) }
+    if (style != null || partStyles.isNotEmpty()) context.requestFrame(true)
+    if (semantics != null) context.requestFrame(false)
+}
 
-    public var alignment: TextAlign = TextAlign.START
+/** Mounts a scrollable container. Function arguments configure it; [content] mounts children. */
+public fun UiScope.scroll(
+    state: ScrollState = ScrollState(),
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    nestedScroll: NestedScrollConnection? = null,
+    style: Style? = null,
+    partStyles: Map<StylePart<Scroll>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element {
+    val element = element()
+    context.attachStyle(element, com.antepod.lumentika.style.style { overflow = Overflow.SCROLL })
+    mountScroll(element, state, gestures, nestedScroll)
+    configure(element, style, partStyles, semantics)
+    nested(element).content()
+    return element
+}
 
-    public var direction: Direction = Direction.LTR
+/** Mounts a scrollable vertical list. Function arguments configure it; [content] mounts items. */
+public fun UiScope.list(
+    state: ScrollState = ScrollState(),
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    nestedScroll: NestedScrollConnection? = null,
+    style: Style? = null,
+    partStyles: Map<StylePart<Scroll>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element {
+    val element = element()
+    context.attachStyle(
+        element,
+        com.antepod.lumentika.style.style {
+            display = Display.FLEX
+            flexDirection = FlexDirection.COLUMN
+            overflow = Overflow.SCROLL
+        },
+    )
+    mountScroll(element, state, gestures, nestedScroll)
+    configure(
+        element,
+        style,
+        partStyles,
+        semantics ?: SemanticsConfiguration(role = SemanticRole.LIST),
+    )
+    nested(element).content()
+    return element
+}
 
-    public fun value(source: Readable<String>) {
-        explicit = true
-        this.source = { source.value }
-    }
-
-    public fun value(block: () -> String) {
-        explicit = true
-        source = block
-    }
-
-    internal fun configure(block: TextBuilder.() -> Any?) {
-        val result = block()
-        if (!explicit) {
-            require(!hasConfiguration) {
-                "configured text must set value/value { }; shorthand text must only return String"
-            }
-            require(result is String) {
-                "text shorthand must return String; use value/value { } in multi-property blocks"
-            }
-            source = {
-                val next = block()
-                require(next is String) { "text shorthand must keep returning String" }
-                next
-            }
-        }
-    }
-
-    internal fun mount() {
-        withComponentScope(element.scope) {
-            effect {
-                val value = source()
-                element.content =
-                    TextContent(
-                        TextLayoutRequest(value, alignment = alignment, direction = direction),
-                        context.textLayout,
-                    )
-                val semantics = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
+private fun UiScope.mountText(
+    source: () -> String,
+    alignment: TextAlign,
+    direction: Direction,
+    style: Style?,
+    semantics: SemanticsConfiguration?,
+): Element {
+    val element = element()
+    configure(element, style, semantics = semantics)
+    withComponentScope(element.scope) {
+        effect {
+            val value = source()
+            element.content =
+                TextContent(
+                    TextLayoutRequest(value, alignment = alignment, direction = direction),
+                    context.textLayout,
+                )
+            val current = element.attachment(SemanticsAttachment)
+            if (current == null) {
                 element.attach(
                     SemanticsAttachment,
-                    semantics.copy(role = SemanticRole.TEXT, label = semantics.label ?: value),
+                    SemanticsConfiguration(role = SemanticRole.TEXT, label = value),
                 )
-                context.requestFrame(true)
             }
+            context.requestFrame(true)
         }
-    }
-}
-
-/** Mounts text configured by [block], including shorthand blocks that return a string. */
-public fun UiScope.text(block: TextBuilder.() -> Any?): Element {
-    val element = element()
-    TextBuilder(element, context).also {
-        it.configure(block)
-        it.mount()
     }
     return element
 }
 
-/** Base builder for controls whose displayed value can come from a reactive source. */
-public abstract class ValueElementBuilder<T>
-internal constructor(element: Element, context: UiContext, initial: T) :
-    ElementBuilder(element, context) {
-    protected val local: State<T> = state(initial)
-    private var configured = false
+/** Mounts constant text. */
+public fun UiScope.text(
+    value: String,
+    alignment: TextAlign = TextAlign.START,
+    direction: Direction = Direction.LTR,
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+): Element = mountText({ value }, alignment, direction, style, semantics)
 
-    public var value: T
-        get() = local.value
-        set(value) {
-            check(!configured) { "value source already configured" }
-            local.value = value
+/** Mounts text backed by a one-way reactive source. */
+public fun UiScope.text(
+    value: Readable<String>,
+    alignment: TextAlign = TextAlign.START,
+    direction: Direction = Direction.LTR,
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+): Element = mountText({ value.value }, alignment, direction, style, semantics)
+
+/** Mounts text computed by a scope-owned tracked formula. */
+public fun UiScope.text(
+    value: () -> String,
+    alignment: TextAlign = TextAlign.START,
+    direction: Direction = Direction.LTR,
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+): Element = mountText(value, alignment, direction, style, semantics)
+
+private fun <T> UiScope.controlValue(
+    source: () -> T,
+    element: Element,
+): com.antepod.lumentika.reactive.State<T> {
+    val local = state(untracked(source))
+    withComponentScope(element.scope) {
+        effect {
+            val next = source()
+            if (untracked { local.value } != next) local.value = next
         }
-
-    public fun value(source: Readable<T>) {
-        check(!configured) { "value source already configured" }
-        configured = true
-        withComponentScope(element.scope) { effect { local.value = source.value } }
     }
-
-    public fun value(block: () -> T) {
-        check(!configured) { "value source already configured" }
-        configured = true
-        withComponentScope(element.scope) { effect { local.value = block() } }
-    }
-
-    protected fun bind(source: Mutable<T>) {
-        value(source)
-        withComponentScope(element.scope) {
-            effect {
-                val next = local.value
-                if (untracked { source.value } != next) source.value = next
-            }
-        }
-    }
+    return local
 }
 
-/** Configures a pressable button. */
-public class ButtonBuilder internal constructor(element: Element, context: UiContext) :
-    ValueElementBuilder<String>(element, context, "") {
-    public var gestures: GestureConfiguration = context.gestureConfiguration()
-    public var enabled: Boolean = true
-    private var click: () -> Unit = {}
-
-    /** Registers the semantic activation callback. */
-    public fun onClick(listener: () -> Unit) {
-        click = listener
-    }
-
-    internal fun mount(): ControlHandle {
-        val handle = buttonControl(element, local, gestures, enabled) { click() }
-        applySemantics()
-        return handle
-    }
-}
-
-/** Mounts a button and returns its interaction handle. */
-public fun UiScope.button(block: ButtonBuilder.() -> Unit): ControlHandle {
+private fun UiScope.mountButton(
+    source: () -> String,
+    gestures: GestureConfiguration,
+    enabled: Boolean,
+    style: Style?,
+    partStyles: Map<StylePart<Button>, Style>,
+    semantics: SemanticsConfiguration?,
+    onClick: () -> Unit,
+): ControlHandle {
     val element = element()
-    return ButtonBuilder(element, context).apply(block).mount()
+    val handle = buttonControl(element, controlValue(source, element), gestures, enabled, onClick)
+    configure(element, style, partStyles, semantics)
+    return handle
 }
 
-/** Configures a boolean checkbox control. */
-public class CheckboxBuilder internal constructor(element: Element, context: UiContext) :
-    ValueElementBuilder<Boolean>(element, context, false) {
-    public var label: String? = null
-    public var gestures: GestureConfiguration = context.gestureConfiguration()
-    public var enabled: Boolean = true
-    private var changed: (Boolean) -> Unit = {}
+/** Mounts a button with a constant label. */
+public fun UiScope.button(
+    value: String = "",
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Button>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onClick: () -> Unit = {},
+): ControlHandle = mountButton({ value }, gestures, enabled, style, partStyles, semantics, onClick)
 
-    /** Binds the checked value bidirectionally to [source]. */
-    public fun bindValue(source: Mutable<Boolean>) = bind(source)
+/** Mounts a button with a one-way reactive label. */
+public fun UiScope.button(
+    value: Readable<String>,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Button>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onClick: () -> Unit = {},
+): ControlHandle =
+    mountButton({ value.value }, gestures, enabled, style, partStyles, semantics, onClick)
 
-    /** Registers a callback for committed checked-value changes. */
-    public fun onChange(listener: (Boolean) -> Unit) {
-        changed = listener
-    }
+/** Mounts a button with a label computed by a tracked formula. */
+public fun UiScope.button(
+    value: () -> String,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Button>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onClick: () -> Unit = {},
+): ControlHandle = mountButton(value, gestures, enabled, style, partStyles, semantics, onClick)
 
-    internal fun mount(): ControlHandle {
-        val handle = checkboxControl(element, local, label, gestures, enabled) { changed(it) }
-        applySemantics()
-        return handle
-    }
-}
-
-/** Mounts a checkbox and returns its interaction handle. */
-public fun UiScope.checkbox(block: CheckboxBuilder.() -> Unit): ControlHandle {
+private fun UiScope.mountCheckbox(
+    source: () -> Boolean,
+    binding: Mutable<Boolean>?,
+    label: String?,
+    gestures: GestureConfiguration,
+    enabled: Boolean,
+    style: Style?,
+    partStyles: Map<StylePart<Checkbox>, Style>,
+    semantics: SemanticsConfiguration?,
+    onChange: (Boolean) -> Unit,
+): ControlHandle {
     val element = element()
-    return CheckboxBuilder(element, context).apply(block).mount()
+    val local = controlValue(source, element)
+    val handle =
+        checkboxControl(element, local, label, gestures, enabled) { next ->
+            binding?.let { if (it.value != next) it.value = next }
+            onChange(next)
+        }
+    configure(element, style, partStyles, semantics)
+    return handle
 }
 
-/** Configures a bounded numeric slider. */
-public class SliderBuilder internal constructor(element: Element, context: UiContext) :
-    ValueElementBuilder<Float>(element, context, 0f) {
-    public var min: Float = 0f
-    public var max: Float = 1f
-    public var gestures: GestureConfiguration = context.gestureConfiguration()
-    public var enabled: Boolean = true
-    public var step: Float? = null
-    public var label: String? = null
-    private var input: (Float) -> Unit = {}
-    private var changed: (Float) -> Unit = {}
+/** Mounts a checkbox with a constant local value. */
+public fun UiScope.checkbox(
+    checked: Boolean = false,
+    label: String? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Checkbox>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onChange: (Boolean) -> Unit = {},
+): ControlHandle =
+    mountCheckbox(
+        { checked },
+        null,
+        label,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onChange,
+    )
 
-    /** Binds the slider value bidirectionally to [source]. */
-    public fun bindValue(source: Mutable<Float>) = bind(source)
+/** Mounts a checkbox with a one-way reactive value. */
+public fun UiScope.checkbox(
+    checked: Readable<Boolean>,
+    label: String? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Checkbox>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onChange: (Boolean) -> Unit = {},
+): ControlHandle =
+    mountCheckbox(
+        { checked.value },
+        null,
+        label,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onChange,
+    )
 
-    /** Registers a callback for committed slider changes. */
-    public fun onChange(listener: (Float) -> Unit) {
-        changed = listener
-    }
+/** Mounts a checkbox bidirectionally bound to [checked]. */
+public fun UiScope.checkbox(
+    checked: Mutable<Boolean>,
+    label: String? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Checkbox>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onChange: (Boolean) -> Unit = {},
+): ControlHandle =
+    mountCheckbox(
+        { checked.value },
+        checked,
+        label,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onChange,
+    )
 
-    /** Registers a callback for intermediate slider input. */
-    public fun onInput(listener: (Float) -> Unit) {
-        input = listener
-    }
+/** Mounts a checkbox with a value computed by a tracked formula. */
+public fun UiScope.checkbox(
+    checked: () -> Boolean,
+    label: String? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Checkbox>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onChange: (Boolean) -> Unit = {},
+): ControlHandle =
+    mountCheckbox(
+        checked,
+        null,
+        label,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onChange,
+    )
 
-    internal fun mount(): ControlHandle {
-        require(max >= min) { "slider max must be greater than or equal to min" }
-        require(step == null || step!!.isFinite() && step!! > 0f)
-        val handle =
-            sliderControl(
-                element,
-                local,
-                min,
-                max,
-                step,
-                label,
-                gestures,
-                enabled,
-                onInput = input,
-                onChange = changed,
-            )
-        applySemantics()
-        return handle
-    }
-}
-
-/** Mounts a slider and returns its interaction handle. */
-public fun UiScope.slider(block: SliderBuilder.() -> Unit): ControlHandle {
+private fun UiScope.mountSlider(
+    source: () -> Float,
+    binding: Mutable<Float>?,
+    min: Float,
+    max: Float,
+    step: Float?,
+    label: String?,
+    gestures: GestureConfiguration,
+    enabled: Boolean,
+    style: Style?,
+    partStyles: Map<StylePart<Slider>, Style>,
+    semantics: SemanticsConfiguration?,
+    onInput: (Float) -> Unit,
+    onChange: (Float) -> Unit,
+): ControlHandle {
+    require(max >= min) { "slider max must be greater than or equal to min" }
+    require(step == null || step.isFinite() && step > 0f)
     val element = element()
-    return SliderBuilder(element, context).apply(block).mount()
-}
-
-/** Configures an editable text field and its native-input integration. */
-public class TextFieldBuilder internal constructor(element: Element, context: UiContext) :
-    ElementBuilder(element, context) {
-    private var source: () -> String = { "" }
-    private var bound: Mutable<String>? = null
-    private var changed: (String) -> Unit = {}
-    private var boundSelection: Mutable<TextRange>? = null
-    private var inputConfigured = false
-    private var externalController: TextEditingController? = null
-    public var controller: TextEditingController?
-        get() = externalController
-        set(value) {
-            check(!inputConfigured) { "text field input already configured" }
-            inputConfigured = value != null
-            externalController = value
-        }
-
-    public var multiline: Boolean = false
-    public var secure: Boolean = false
-    public var placeholder: String? = null
-    public var autofill: AutofillConfiguration? = null
-    public var gestures: GestureConfiguration = context.gestureConfiguration()
-    public var enabled: Boolean = true
-
-    public var value: String
-        get() = source()
-        set(value) {
-            check(!inputConfigured) { "text field input already configured" }
-            inputConfigured = true
-            source = { value }
-        }
-
-    public fun value(source: Readable<String>) {
-        check(!inputConfigured) { "text field input already configured" }
-        inputConfigured = true
-        this.source = { source.value }
-    }
-
-    public fun value(block: () -> String) {
-        check(!inputConfigured) { "text field input already configured" }
-        inputConfigured = true
-        source = block
-    }
-
-    /** Binds editable text bidirectionally to [source]. */
-    public fun bindValue(source: Mutable<String>) {
-        check(!inputConfigured) { "text field input already configured" }
-        inputConfigured = true
-        bound = source
-        this.source = { source.value }
-    }
-
-    /** Registers a callback for text changes. */
-    public fun onChange(listener: (String) -> Unit) {
-        changed = listener
-    }
-
-    /** Binds text selection bidirectionally to [source]. */
-    public fun bindSelection(source: Mutable<TextRange>) {
-        check(boundSelection == null) { "selection binding already configured" }
-        boundSelection = source
-    }
-
-    internal fun mount(): ControlHandle {
-        val initial = source()
-        val activeController =
-            externalController
-                ?: TextEditingController(
-                    TextEditingValue(initial, TextRange(initial.length, initial.length))
-                )
-        var lastChangedText = initial
-        withComponentScope(element.scope) {
-            if (externalController == null) {
-                effect {
-                    val next = source()
-                    untracked { activeController.reconcileExternal(next) }
-                }
-            }
-            boundSelection?.let { selection ->
-                effect {
-                    val next = selection.value
-                    untracked {
-                        val current = activeController.value
-                        if (current.selection != next) {
-                            activeController.value = current.copy(selection = next)
-                        }
-                    }
-                }
-            }
-            effect {
-                val editingValue = activeController.value
-                val text = editingValue.text
-                bound?.let { if (untracked { it.value } != text) it.value = text }
-                boundSelection?.let {
-                    if (untracked { it.value } != editingValue.selection) {
-                        it.value = editingValue.selection
-                    }
-                }
-                if (text != lastChangedText) {
-                    lastChangedText = text
-                    changed(text)
-                }
-            }
-        }
-        val handle =
-            textFieldControl(
-                element,
-                activeController,
-                gestures,
-                multiline,
-                secure,
-                placeholder,
-                autofill,
-                enabled,
-            )
-        applySemantics()
-        return handle
-    }
-}
-
-/** Mounts an editable text field and returns its interaction handle. */
-public fun UiScope.textField(block: TextFieldBuilder.() -> Unit = {}): ControlHandle {
-    val element = element()
-    return TextFieldBuilder(element, context).apply(block).mount()
-}
-
-/** Configures image content, intrinsic size, and accessibility description. */
-public class ImageBuilder internal constructor(element: Element, context: UiContext) :
-    ElementBuilder(element, context) {
-    private var sourceProvider: (() -> ImageSource)? = null
-    public var source: ImageSource
-        get() = requireNotNull(sourceProvider) { "image source is required" }.invoke()
-        set(value) {
-            check(sourceProvider == null) { "image source already configured" }
-            sourceProvider = { value }
-        }
-
-    public var size: Size? = null
-    public var description: String? = null
-    public var decorative: Boolean = false
-
-    public fun source(value: Readable<ImageSource>) {
-        check(sourceProvider == null) { "image source already configured" }
-        sourceProvider = { value.value }
-    }
-
-    public fun source(block: () -> ImageSource) {
-        check(sourceProvider == null) { "image source already configured" }
-        sourceProvider = block
-    }
-
-    internal fun mount() {
-        val provider = requireNotNull(sourceProvider) { "image source is required" }
-        withComponentScope(element.scope) {
-            effect {
-                val source = provider()
-                element.content =
-                    ImageContent(source, size ?: context.images?.intrinsicSize(source))
-                context.requestFrame(true)
-            }
-        }
-        element.attach(
-            SemanticsAttachment,
-            SemanticsConfiguration(
-                role = SemanticRole.IMAGE,
-                label = description,
-                hidden = decorative,
-            ),
-        )
-        applySemantics()
-    }
-}
-
-/** Mounts an image configured by [block]. */
-public fun UiScope.image(block: ImageBuilder.() -> Unit): Element {
-    val element = element()
-    ImageBuilder(element, context).apply(block).mount()
-    return element
-}
-
-/** Configures delayed tooltip content and placement. */
-public class TooltipBuilder internal constructor(element: Element, context: UiContext) :
-    ValueElementBuilder<String>(element, context, "") {
-    public var showDelayMillis: Long = 500
-    public var hideDelayMillis: Long = 100
-    public var placement: TooltipPlacement = TooltipPlacement.AUTO
-    public var offset: Float = 8f
-
-    internal fun mount(): Element {
-        require(showDelayMillis >= 0 && hideDelayMillis >= 0)
-        require(offset.isFinite() && offset >= 0f)
-        mountTooltip(
+    val local = controlValue(source, element)
+    val handle =
+        sliderControl(
             element,
             local,
-            showDelayMillis,
-            hideDelayMillis,
-            placement,
-            offset,
+            min,
+            max,
+            step,
+            label,
+            gestures,
+            enabled,
+            onInput = { next ->
+                binding?.let { if (it.value != next) it.value = next }
+                onInput(next)
+            },
+            onChange = onChange,
         )
-        applySemantics()
-        return element
-    }
+    configure(element, style, partStyles, semantics)
+    return handle
 }
 
-/** Mounts a tooltip anchor and its popup content. */
-public fun UiScope.tooltip(block: TooltipBuilder.() -> Unit): Element {
+/** Mounts a slider with a constant local value. */
+public fun UiScope.slider(
+    value: Float = 0f,
+    min: Float = 0f,
+    max: Float = 1f,
+    step: Float? = null,
+    label: String? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Slider>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onInput: (Float) -> Unit = {},
+    onChange: (Float) -> Unit = {},
+): ControlHandle =
+    mountSlider(
+        { value },
+        null,
+        min,
+        max,
+        step,
+        label,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onInput,
+        onChange,
+    )
+
+/** Mounts a slider with a one-way reactive value. */
+public fun UiScope.slider(
+    value: Readable<Float>,
+    min: Float = 0f,
+    max: Float = 1f,
+    step: Float? = null,
+    label: String? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Slider>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onInput: (Float) -> Unit = {},
+    onChange: (Float) -> Unit = {},
+): ControlHandle =
+    mountSlider(
+        { value.value },
+        null,
+        min,
+        max,
+        step,
+        label,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onInput,
+        onChange,
+    )
+
+/** Mounts a slider bidirectionally bound to [value]. */
+public fun UiScope.slider(
+    value: Mutable<Float>,
+    min: Float = 0f,
+    max: Float = 1f,
+    step: Float? = null,
+    label: String? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Slider>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onInput: (Float) -> Unit = {},
+    onChange: (Float) -> Unit = {},
+): ControlHandle =
+    mountSlider(
+        { value.value },
+        value,
+        min,
+        max,
+        step,
+        label,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onInput,
+        onChange,
+    )
+
+/** Mounts a slider with a value computed by a tracked formula. */
+public fun UiScope.slider(
+    value: () -> Float,
+    min: Float = 0f,
+    max: Float = 1f,
+    step: Float? = null,
+    label: String? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<Slider>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onInput: (Float) -> Unit = {},
+    onChange: (Float) -> Unit = {},
+): ControlHandle =
+    mountSlider(
+        value,
+        null,
+        min,
+        max,
+        step,
+        label,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onInput,
+        onChange,
+    )
+
+private fun UiScope.mountTextField(
+    source: () -> String,
+    binding: Mutable<String>?,
+    controller: TextEditingController?,
+    selection: Mutable<TextRange>?,
+    multiline: Boolean,
+    secure: Boolean,
+    placeholder: String?,
+    autofill: AutofillConfiguration?,
+    gestures: GestureConfiguration,
+    enabled: Boolean,
+    style: Style?,
+    partStyles: Map<StylePart<TextField>, Style>,
+    semantics: SemanticsConfiguration?,
+    onChange: (String) -> Unit,
+): ControlHandle {
     val element = element()
-    return TooltipBuilder(element, context).apply(block).mount()
+    val initial = untracked(source)
+    val activeController =
+        controller
+            ?: TextEditingController(
+                TextEditingValue(initial, TextRange(initial.length, initial.length))
+            )
+    var lastChangedText = initial
+    withComponentScope(element.scope) {
+        if (controller == null) {
+            effect {
+                val next = source()
+                untracked { activeController.reconcileExternal(next) }
+            }
+        }
+        selection?.let { selected ->
+            effect {
+                val next = selected.value
+                untracked {
+                    val current = activeController.value
+                    if (current.selection != next) {
+                        activeController.value = current.copy(selection = next)
+                    }
+                }
+            }
+        }
+        effect {
+            val editingValue = activeController.value
+            val text = editingValue.text
+            binding?.let { if (untracked { it.value } != text) it.value = text }
+            selection?.let {
+                if (untracked { it.value } != editingValue.selection) {
+                    it.value = editingValue.selection
+                }
+            }
+            if (text != lastChangedText) {
+                lastChangedText = text
+                onChange(text)
+            }
+        }
+    }
+    val handle =
+        textFieldControl(
+            element,
+            activeController,
+            gestures,
+            multiline,
+            secure,
+            placeholder,
+            autofill,
+            enabled,
+        )
+    configure(element, style, partStyles, semantics)
+    return handle
 }
+
+/** Mounts a text field with a constant local value. */
+public fun UiScope.textField(
+    value: String = "",
+    controller: TextEditingController? = null,
+    selection: Mutable<TextRange>? = null,
+    placeholder: String? = null,
+    multiline: Boolean = false,
+    secure: Boolean = false,
+    autofill: AutofillConfiguration? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<TextField>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onChange: (String) -> Unit = {},
+): ControlHandle =
+    mountTextField(
+        { value },
+        null,
+        controller,
+        selection,
+        multiline,
+        secure,
+        placeholder,
+        autofill,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onChange,
+    )
+
+/** Mounts a text field with a one-way reactive value. */
+public fun UiScope.textField(
+    value: Readable<String>,
+    controller: TextEditingController? = null,
+    selection: Mutable<TextRange>? = null,
+    placeholder: String? = null,
+    multiline: Boolean = false,
+    secure: Boolean = false,
+    autofill: AutofillConfiguration? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<TextField>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onChange: (String) -> Unit = {},
+): ControlHandle =
+    mountTextField(
+        { value.value },
+        null,
+        controller,
+        selection,
+        multiline,
+        secure,
+        placeholder,
+        autofill,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onChange,
+    )
+
+/** Mounts a text field bidirectionally bound to [value]. */
+public fun UiScope.textField(
+    value: Mutable<String>,
+    controller: TextEditingController? = null,
+    selection: Mutable<TextRange>? = null,
+    placeholder: String? = null,
+    multiline: Boolean = false,
+    secure: Boolean = false,
+    autofill: AutofillConfiguration? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<TextField>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onChange: (String) -> Unit = {},
+): ControlHandle =
+    mountTextField(
+        { value.value },
+        value,
+        controller,
+        selection,
+        multiline,
+        secure,
+        placeholder,
+        autofill,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onChange,
+    )
+
+/** Mounts a text field with a value computed by a tracked formula. */
+public fun UiScope.textField(
+    value: () -> String,
+    controller: TextEditingController? = null,
+    selection: Mutable<TextRange>? = null,
+    placeholder: String? = null,
+    multiline: Boolean = false,
+    secure: Boolean = false,
+    autofill: AutofillConfiguration? = null,
+    enabled: Boolean = true,
+    gestures: GestureConfiguration = context.gestureConfiguration(),
+    style: Style? = null,
+    partStyles: Map<StylePart<TextField>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    onChange: (String) -> Unit = {},
+): ControlHandle =
+    mountTextField(
+        value,
+        null,
+        controller,
+        selection,
+        multiline,
+        secure,
+        placeholder,
+        autofill,
+        gestures,
+        enabled,
+        style,
+        partStyles,
+        semantics,
+        onChange,
+    )
+
+private fun UiScope.mountImage(
+    source: () -> ImageSource,
+    size: Size?,
+    description: String?,
+    decorative: Boolean,
+    style: Style?,
+    semantics: SemanticsConfiguration?,
+): Element {
+    val element = element()
+    withComponentScope(element.scope) {
+        effect {
+            val next = source()
+            element.content = ImageContent(next, size ?: context.images?.intrinsicSize(next))
+            context.requestFrame(true)
+        }
+    }
+    configure(
+        element,
+        style,
+        semantics =
+            semantics
+                ?: SemanticsConfiguration(
+                    role = SemanticRole.IMAGE,
+                    label = description,
+                    hidden = decorative,
+                ),
+    )
+    return element
+}
+
+/** Mounts a constant image source. */
+public fun UiScope.image(
+    source: ImageSource,
+    size: Size? = null,
+    description: String? = null,
+    decorative: Boolean = false,
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+): Element = mountImage({ source }, size, description, decorative, style, semantics)
+
+/** Mounts a one-way reactive image source. */
+public fun UiScope.image(
+    source: Readable<ImageSource>,
+    size: Size? = null,
+    description: String? = null,
+    decorative: Boolean = false,
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+): Element = mountImage({ source.value }, size, description, decorative, style, semantics)
+
+/** Mounts an image source computed by a tracked formula. */
+public fun UiScope.image(
+    source: () -> ImageSource,
+    size: Size? = null,
+    description: String? = null,
+    decorative: Boolean = false,
+    style: Style? = null,
+    semantics: SemanticsConfiguration? = null,
+): Element = mountImage(source, size, description, decorative, style, semantics)
+
+private fun UiScope.mountTooltipComponent(
+    source: () -> String,
+    showDelayMillis: Long,
+    hideDelayMillis: Long,
+    placement: TooltipPlacement,
+    offset: Float,
+    style: Style?,
+    partStyles: Map<StylePart<Tooltip>, Style>,
+    semantics: SemanticsConfiguration?,
+    content: UiScope.() -> Unit,
+): Element {
+    require(showDelayMillis >= 0 && hideDelayMillis >= 0)
+    require(offset.isFinite() && offset >= 0f)
+    val element = element()
+    val local = controlValue(source, element)
+    mountTooltip(element, local, showDelayMillis, hideDelayMillis, placement, offset)
+    configure(element, style, partStyles, semantics)
+    nested(element).content()
+    return element
+}
+
+/** Mounts a tooltip anchor; trailing [content] is anchor content only. */
+public fun UiScope.tooltip(
+    value: String,
+    showDelayMillis: Long = 500,
+    hideDelayMillis: Long = 100,
+    placement: TooltipPlacement = TooltipPlacement.AUTO,
+    offset: Float = 8f,
+    style: Style? = null,
+    partStyles: Map<StylePart<Tooltip>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element =
+    mountTooltipComponent(
+        { value },
+        showDelayMillis,
+        hideDelayMillis,
+        placement,
+        offset,
+        style,
+        partStyles,
+        semantics,
+        content,
+    )
+
+/** Mounts a tooltip anchor with one-way reactive tooltip text. */
+public fun UiScope.tooltip(
+    value: Readable<String>,
+    showDelayMillis: Long = 500,
+    hideDelayMillis: Long = 100,
+    placement: TooltipPlacement = TooltipPlacement.AUTO,
+    offset: Float = 8f,
+    style: Style? = null,
+    partStyles: Map<StylePart<Tooltip>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element =
+    mountTooltipComponent(
+        { value.value },
+        showDelayMillis,
+        hideDelayMillis,
+        placement,
+        offset,
+        style,
+        partStyles,
+        semantics,
+        content,
+    )
+
+/** Mounts a tooltip anchor with tooltip text computed by a tracked formula. */
+public fun UiScope.tooltip(
+    value: () -> String,
+    showDelayMillis: Long = 500,
+    hideDelayMillis: Long = 100,
+    placement: TooltipPlacement = TooltipPlacement.AUTO,
+    offset: Float = 8f,
+    style: Style? = null,
+    partStyles: Map<StylePart<Tooltip>, Style> = emptyMap(),
+    semantics: SemanticsConfiguration? = null,
+    content: UiScope.() -> Unit = {},
+): Element =
+    mountTooltipComponent(
+        value,
+        showDelayMillis,
+        hideDelayMillis,
+        placement,
+        offset,
+        style,
+        partStyles,
+        semantics,
+        content,
+    )
