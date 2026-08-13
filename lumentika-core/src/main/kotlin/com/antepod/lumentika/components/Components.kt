@@ -1,5 +1,8 @@
 package com.antepod.lumentika.components
 
+import com.antepod.lumentika.component.Component
+import com.antepod.lumentika.component.ComponentOutput
+import com.antepod.lumentika.component.UIComponent
 import com.antepod.lumentika.geometry.Matrix3
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
@@ -54,12 +57,38 @@ import com.antepod.lumentika.text.TextEditorRuntime
 import com.antepod.lumentika.text.TextInputConfiguration
 import com.antepod.lumentika.text.TextLayoutRequest
 
-/** Stable theme-part namespace for buttons. */
-public object Button {
+/** Standard button declared through the same component model used by application components. */
+@UIComponent
+public class Button : Component(), ComponentOutput<ControlHandle> {
+    public val value = prop("")
+    public val enabled = prop(true)
+    public val gestures = prop<GestureConfiguration?>(null)
+    public val style = prop<Style?>(null)
+    public val partStyles = prop<Map<StylePart<Button>, Style>>(emptyMap())
+    public val semantics = prop<ElementSemantics?>(null)
+    public val click = event<Unit>()
+
+    override lateinit var componentOutput: ControlHandle
+
     public object Part {
         public val ROOT: StylePart<Button> = StylePart()
         public val LABEL: StylePart<Button> = StylePart()
         public val ICON: StylePart<Button> = StylePart()
+    }
+
+    override fun view(): Element {
+        val element = ui.element()
+        componentOutput =
+            ui.buttonControl(
+                element,
+                value,
+                gestures.value ?: ui.context.gestureConfiguration(),
+                enabled,
+            ) {
+                click.emit(Unit)
+            }
+        ui.configure(element, style.value, partStyles.value, semantics.value)
+        return element
     }
 }
 
@@ -753,22 +782,33 @@ private fun UiScope.installHoverAndFocusStates(
 
 private fun UiScope.installControlInteraction(
     element: Element,
-    enabled: Boolean,
+    enabled: Readable<Boolean>,
     activate: () -> Unit,
     cursor: PointerCursorRole,
     keyAction: (LogicalKey) -> Boolean = { false },
 ) {
-    context.setStyleState(element, DISABLED, !enabled)
-    if (!enabled) return
     installHoverAndFocusStates(element, cursor)
     context.focus?.let { focus ->
-        focus.configure(element, FocusProperties(focusable = true))
+        withComponentScope(element.scope) {
+            effect {
+                val active = enabled.value
+                focus.configure(element, FocusProperties(focusable = active))
+                context.setStyleState(element, DISABLED, !active)
+                if (!active) context.setStyleState(element, ACTIVE, false)
+            }
+        }
         element.scope.own { focus.unconfigure(element) }
+    }
+    if (context.focus == null) {
+        withComponentScope(element.scope) {
+            effect { context.setStyleState(element, DISABLED, !enabled.value) }
+        }
     }
     val cleanups = mutableListOf<AutoCloseable>()
     context.events?.let { events ->
         cleanups +=
             events.on(element, EventType.POINTER_DOWN) {
+                if (!enabled.value) return@on
                 context.setStyleState(element, ACTIVE, true)
                 context.focus?.focus(element, FocusCause.POINTER)
                 context.feedback?.perform(UiFeedbackRequest(UiFeedbackType.PRESS))
@@ -783,6 +823,7 @@ private fun UiScope.installControlInteraction(
             }
         cleanups +=
             events.on(element, EventType.KEY_DOWN) { event ->
+                if (!enabled.value) return@on
                 event as KeyboardEvent
                 val handled =
                     keyAction(event.logicalKey) ||
@@ -805,7 +846,7 @@ internal fun UiScope.buttonControl(
     e: Element,
     label: Readable<String>,
     gestures: GestureConfiguration,
-    enabled: Boolean,
+    enabled: Readable<Boolean>,
     onClick: () -> Unit,
 ): ControlHandle {
     val parts =
@@ -817,7 +858,7 @@ internal fun UiScope.buttonControl(
         )
     val labelElement = parts.getValue(Button.Part.LABEL)
     val action = {
-        if (enabled) {
+        if (enabled.value) {
             onClick()
             context.feedback?.perform(UiFeedbackRequest(UiFeedbackType.CONFIRM))
         }
@@ -828,10 +869,10 @@ internal fun UiScope.buttonControl(
             SemanticsConfiguration(
                 role = SemanticRole.BUTTON,
                 label = label.value,
-                enabled = enabled,
+                enabled = enabled.value,
                 mergeDescendants = true,
                 actions =
-                    if (enabled)
+                    if (enabled.value)
                         mapOf(
                             SemanticAction.CLICK to
                                 {
@@ -851,6 +892,26 @@ internal fun UiScope.buttonControl(
             labelElement.content = TextContent(next, context.textLayout)
             e.attach(SemanticsAttachment, handle.semantics.copy(label = next))
             context.requestFrame(true)
+        }
+        effect {
+            val active = enabled.value
+            e.attach(
+                SemanticsAttachment,
+                handle.semantics.copy(
+                    enabled = active,
+                    actions =
+                        if (active)
+                            mapOf(
+                                SemanticAction.CLICK to
+                                    {
+                                        action()
+                                        true
+                                    }
+                            )
+                        else emptyMap(),
+                ),
+            )
+            context.requestFrame(false)
         }
     }
     return handle
@@ -905,7 +966,12 @@ internal fun UiScope.checkboxControl(
             action,
             ControlGestureHandle(TapRecognizer(gestures, action)),
         )
-    installControlInteraction(e, enabled, action, PointerCursorRole.POINTER)
+    installControlInteraction(
+        e,
+        com.antepod.lumentika.reactive.state(enabled),
+        action,
+        PointerCursorRole.POINTER,
+    )
     withComponentScope(e.scope) {
         effect {
             context.setStyleState(e, ControlStyleState.CHECKED, value.value)
@@ -1005,7 +1071,7 @@ internal fun UiScope.sliderControl(
         )
     installControlInteraction(
         e,
-        enabled,
+        com.antepod.lumentika.reactive.state(enabled),
         activate = { setValue(value.value + (step ?: (maximum - minimum) / 10f), true) },
         cursor = PointerCursorRole.POINTER,
         keyAction = { key ->

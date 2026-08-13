@@ -96,7 +96,7 @@ internal fun Element.applySemantics(value: ElementSemantics?) {
     attach(SemanticsAttachment, SemanticsBuilder(current).apply(value.update).build())
 }
 
-private fun UiScope.configure(
+internal fun UiScope.configure(
     element: Element,
     style: Style?,
     partStyles: Map<out StylePart<*>, Style> = emptyMap(),
@@ -241,7 +241,8 @@ private fun UiScope.mountButton(
     onClick: () -> Unit,
 ): ControlHandle {
     val element = element()
-    val handle = buttonControl(element, controlValue(source, element), gestures, enabled, onClick)
+    val handle =
+        buttonControl(element, controlValue(source, element), gestures, state(enabled), onClick)
     configure(element, style, partStyles, semantics)
     return handle
 }

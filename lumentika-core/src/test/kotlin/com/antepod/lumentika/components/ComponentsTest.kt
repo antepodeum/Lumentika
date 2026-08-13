@@ -2,6 +2,7 @@ package com.antepod.lumentika.components
 
 import com.antepod.lumentika.animation.UiAnimationClock
 import com.antepod.lumentika.component.forEach
+import com.antepod.lumentika.component.source
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.headlessRoot
 import com.antepod.lumentika.input.EventDispatcher
@@ -24,6 +25,37 @@ import com.antepod.lumentika.text.TextRange
 import kotlin.test.*
 
 class ComponentsTest {
+    @Test
+    fun `generated button props stay reactive without two way prop semantics`() {
+        val root = Element()
+        val label = state("before")
+        val enabled = state(false)
+        var clicks = 0
+        val button =
+            UiScope(root)
+                .button(
+                    value = source(label),
+                    enabled = source(enabled),
+                    onClick = { clicks++ },
+                )
+
+        button.activate()
+        assertEquals(0, clicks)
+        assertFalse(button.semantics.enabled)
+
+        label.value = "after"
+        enabled.value = true
+        button.activate()
+
+        assertEquals(1, clicks)
+        assertTrue(button.semantics.enabled)
+        assertEquals(
+            "after",
+            (button.partElement(Button.Part.LABEL)!!.content as TextContent).text,
+        )
+        root.close()
+    }
+
     @Test
     fun `theme and instance part styles resolve from owner state on stable elements`() {
         val themedLabel = rgb(10, 20, 30)
