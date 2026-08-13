@@ -17,9 +17,12 @@ import com.antepod.lumentika.style.Percent
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.ResolvedStyle
 import com.antepod.lumentika.style.resolveLength
+import com.antepod.taffy.geometry.Rect as TaffyRect
 import com.antepod.taffy.geometry.Size as TaffySize
 import com.antepod.taffy.style.AvailableSpace
 import com.antepod.taffy.style.Dimension as TaffyDimension
+import com.antepod.taffy.style.LengthPercentage as TaffyLengthPercentage
+import com.antepod.taffy.style.LengthPercentageAuto as TaffyLengthPercentageAuto
 import com.antepod.taffy.style.Style as TaffyStyle
 import com.antepod.taffy.tree.NodeId
 import com.antepod.taffy.tree.TaffyTree
@@ -162,6 +165,9 @@ public class LayoutRuntime(
     private fun project(style: ResolvedStyle, environment: UiEnvironment): TaffyStyle {
         val width = dimension(style[Properties.Width], environment, environment.viewport.width)
         val height = dimension(style[Properties.Height], environment, environment.viewport.height)
+        val padding = style[Properties.Padding]
+        val margin = style[Properties.Margin]
+        val gap = lengthPercentage(style[Properties.Gap], environment, environment.viewport.width)
         return TaffyStyle.builder()
             .display(
                 when (style[Properties.Display]) {
@@ -192,6 +198,27 @@ public class LayoutRuntime(
                     ),
                 )
             )
+            .padding(
+                TaffyRect(
+                    lengthPercentage(padding.left, environment, environment.viewport.width),
+                    lengthPercentage(padding.right, environment, environment.viewport.width),
+                    lengthPercentage(padding.top, environment, environment.viewport.height),
+                    lengthPercentage(padding.bottom, environment, environment.viewport.height),
+                )
+            )
+            .margin(
+                TaffyRect(
+                    lengthPercentageAuto(margin.left, environment, environment.viewport.width),
+                    lengthPercentageAuto(margin.right, environment, environment.viewport.width),
+                    lengthPercentageAuto(margin.top, environment, environment.viewport.height),
+                    lengthPercentageAuto(margin.bottom, environment, environment.viewport.height),
+                )
+            )
+            .gap(TaffySize(gap, gap))
+            .overflow(
+                taffyOverflow(style[Properties.Overflow]),
+                taffyOverflow(style[Properties.Overflow]),
+            )
             .flexDirection(
                 when (style[Properties.FlexDirection]) {
                     FlexDirection.ROW -> com.antepod.taffy.style.FlexDirection.ROW
@@ -205,6 +232,42 @@ public class LayoutRuntime(
             .flexShrink(style[Properties.FlexShrink])
             .build()
     }
+
+    private fun lengthPercentage(
+        value: DimensionValue,
+        environment: UiEnvironment,
+        basis: Float,
+    ): TaffyLengthPercentage =
+        when (value) {
+            is Percent -> TaffyLengthPercentage.percent(value.fraction)
+            else ->
+                TaffyLengthPercentage.length(resolveLength(value, environment, units, basis) ?: 0f)
+        }
+
+    private fun taffyOverflow(
+        value: com.antepod.lumentika.style.Overflow
+    ): com.antepod.taffy.style.Overflow =
+        when (value) {
+            com.antepod.lumentika.style.Overflow.VISIBLE -> com.antepod.taffy.style.Overflow.VISIBLE
+            com.antepod.lumentika.style.Overflow.CLIP -> com.antepod.taffy.style.Overflow.CLIP
+            com.antepod.lumentika.style.Overflow.HIDDEN -> com.antepod.taffy.style.Overflow.HIDDEN
+            com.antepod.lumentika.style.Overflow.SCROLL -> com.antepod.taffy.style.Overflow.SCROLL
+            com.antepod.lumentika.style.Overflow.AUTO -> com.antepod.taffy.style.Overflow.DEFAULT
+        }
+
+    private fun lengthPercentageAuto(
+        value: DimensionValue,
+        environment: UiEnvironment,
+        basis: Float,
+    ): TaffyLengthPercentageAuto =
+        when (value) {
+            Auto -> TaffyLengthPercentageAuto.AUTO
+            is Percent -> TaffyLengthPercentageAuto.percent(value.fraction)
+            else ->
+                TaffyLengthPercentageAuto.length(
+                    resolveLength(value, environment, units, basis) ?: 0f
+                )
+        }
 
     private fun dimension(
         value: DimensionValue,

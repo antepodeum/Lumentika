@@ -12,6 +12,8 @@ import com.antepod.lumentika.runtime.TextContent
 import com.antepod.lumentika.runtime.UiScope
 import com.antepod.lumentika.style.StyleRuntime
 import com.antepod.lumentika.style.dp
+import com.antepod.lumentika.style.edges
+import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,6 +21,46 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class LayoutRuntimeTest {
+    @Test
+    fun `padding margin and gap are projected into real Taffy geometry`() {
+        val root = Element("root")
+        val first = Element("first").also(root::append)
+        val second = Element("second").also(root::append)
+        val styles = StyleRuntime()
+        styles.attach(
+            root,
+            state(
+                style {
+                    display = com.antepod.lumentika.style.Display.FLEX
+                    width = 100.px
+                    height = 100.px
+                    flexDirection = com.antepod.lumentika.style.FlexDirection.COLUMN
+                    padding = edges(10.px)
+                    gap = 5.px
+                }
+            ),
+        )
+        styles.attach(
+            first,
+            state(
+                style {
+                    height = 10.px
+                    margin = edges(2.px)
+                }
+            ),
+        )
+        styles.attach(second, state(style { height = 10.px }))
+        val runtime = LayoutRuntime(root, LogicalUnitResolver, { styles.resolve(it).first })
+
+        runtime.frame(1, UiEnvironment(Size(100f, 100f)))
+
+        assertEquals(12f, first.geometry.x)
+        assertEquals(12f, first.geometry.y)
+        assertEquals(29f, second.geometry.y)
+        runtime.close()
+        root.close()
+    }
+
     @Test
     fun `real Taffy projects stable tree and computes at most once per frame`() {
         val root = Element("root")
