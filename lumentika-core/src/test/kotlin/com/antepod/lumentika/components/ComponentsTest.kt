@@ -67,6 +67,23 @@ class ComponentsTest {
     }
 
     @Test
+    fun `stateful control semantics follow bound values`() {
+        val root = Element("root")
+        val ui = UiScope(root)
+        val checked = state(false)
+        val sliderValue = state(0.25f)
+        val checkbox = ui.checkbox(checked)
+        val slider = ui.slider(sliderValue)
+
+        checked.value = true
+        sliderValue.value = 0.75f
+
+        assertEquals(true, checkbox.semantics.checked)
+        assertEquals(0.75f, slider.semantics.range?.current)
+        root.close()
+    }
+
+    @Test
     fun `all universal components mount expected behavior and semantics`() {
         val root = Element("root")
         val ui = UiScope(root)

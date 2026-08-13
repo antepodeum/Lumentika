@@ -573,6 +573,22 @@ public class StyleBuilder internal constructor(private val condition: StyleCondi
         get() = error("write-only")
         set(value) = set(Properties.ZIndex, value)
 
+    public var visibility: Visibility
+        get() = error("write-only")
+        set(value) = set(Properties.Visibility, value)
+
+    public var pointerEvents: PointerEvents
+        get() = error("write-only")
+        set(value) = set(Properties.PointerEvents, value)
+
+    public var fontSize: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.FontSize, value)
+
+    public var color: Paint
+        get() = error("write-only")
+        set(value) = set(Properties.Color, value)
+
     internal fun build(): Style = Style(StyleProgram.compile(entries))
 }
 

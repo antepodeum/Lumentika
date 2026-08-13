@@ -6,6 +6,8 @@ import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.input.EventDispatcher
 import com.antepod.lumentika.input.FocusManager
 import com.antepod.lumentika.reactive.ComponentScope
+import com.antepod.lumentika.style.Paint
+import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.text.HeadlessTextLayoutService
 import com.antepod.lumentika.text.TextInputService
 import com.antepod.lumentika.text.TextLayoutService
@@ -43,11 +45,13 @@ public sealed interface PaintCommand {
         val request: com.antepod.lumentika.text.TextLayoutRequest,
         val layout: com.antepod.lumentika.text.TextLayoutResult,
         val rect: Rect,
-        val color: Int,
+        val paint: Paint,
     ) : PaintCommand {
         public val text: String
             get() = request.text
     }
+
+    public data class Fill(val rect: Rect, val paint: Paint) : PaintCommand
 
     public data class DrawImage(val source: ImageSource, val rect: Rect) : PaintCommand
 
@@ -120,7 +124,7 @@ public class TextContent(
                 request.copy(maxWidth = bounds.width),
                 result,
                 bounds,
-                0xff000000.toInt(),
+                rgb(0, 0, 0),
             )
         )
     }

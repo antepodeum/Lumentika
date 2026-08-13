@@ -247,20 +247,26 @@ public class RenderRuntime(
         val topLayer = parent.topLayer || config.topLayer
         val propertyState = PaintPropertyState(transformId, clipId, effectId, scrollId, stackId)
         val content = element.content
-        if (content != null) {
-            val key: Any? = content
+        val paintStyle = PaintStyleKey(style.paint.background, style.inherited.color)
+        if (content != null || paintStyle.background != null) {
+            val key: Any? = content to paintStyle
             val cached = paintCache[element]
             val commands =
                 if (cached?.first == key) cached!!.second
                 else
                     mutableListOf<PaintCommand>().also { list ->
-                        content.record(
+                        val bounds = Rect(0f, 0f, element.geometry.width, element.geometry.height)
+                        paintStyle.background?.let { list += PaintCommand.Fill(bounds, it) }
+                        content?.record(
                             object : PaintRecorder {
                                 override fun record(command: PaintCommand) {
-                                    list += command
+                                    list +=
+                                        if (command is PaintCommand.DrawText)
+                                            command.copy(paint = paintStyle.foreground)
+                                        else command
                                 }
                             },
-                            Rect(0f, 0f, element.geometry.width, element.geometry.height),
+                            bounds,
                         )
                         paintCache[element] = key to list
                         recordCount++
@@ -318,6 +324,11 @@ public class RenderRuntime(
         val scrollId: PropertyNodeId? = null,
         val stackId: PropertyNodeId? = null,
         val topLayer: Boolean = false,
+    )
+
+    private data class PaintStyleKey(
+        val background: com.antepod.lumentika.style.Paint?,
+        val foreground: com.antepod.lumentika.style.Paint,
     )
 
     private class Builder {

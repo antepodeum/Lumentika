@@ -11,6 +11,7 @@ import com.antepod.lumentika.runtime.PaintRecorder
 import com.antepod.lumentika.runtime.SceneContent
 import com.antepod.lumentika.runtime.TextContent
 import com.antepod.lumentika.style.StyleRuntime
+import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.style.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,6 +19,37 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class RenderTest {
+    @Test
+    fun `resolved background and inherited text paint are replayable commands`() {
+        val root = Element("root")
+        val text =
+            Element("text").also {
+                it.content = TextContent("styled")
+                it.geometry = Rect(0f, 0f, 60f, 20f)
+                root.append(it)
+            }
+        root.geometry = Rect(0f, 0f, 100f, 100f)
+        val styles = StyleRuntime()
+        val background = rgb(10, 20, 30)
+        val foreground = rgb(200, 210, 220)
+        styles.attach(
+            text,
+            state(
+                style {
+                    this.background = background
+                    color = foreground
+                }
+            ),
+        )
+        val runtime = RenderRuntime(root) { styles.resolve(it).first }
+
+        val commands = runtime.commit().paint.chunks.single().commands
+
+        assertEquals(background, (commands[0] as PaintCommand.Fill).paint)
+        assertEquals(foreground, (commands[1] as PaintCommand.DrawText).paint)
+        root.close()
+    }
+
     @Test
     fun `paint hit and transform share committed property chain`() {
         val root = Element("root").apply { geometry = Rect(0f, 0f, 100f, 100f) }

@@ -30,10 +30,13 @@ import com.antepod.lumentika.text.TextRange
 
 public class ControlHandle(
     public val element: Element,
-    public val semantics: SemanticsConfiguration,
+    private val initialSemantics: SemanticsConfiguration,
     public val activate: () -> Unit = {},
     public val gestures: ControlGestureHandle? = null,
-)
+) {
+    public val semantics: SemanticsConfiguration
+        get() = element.attachment(SemanticsAttachment) ?: initialSemantics
+}
 
 public class ControlGestureHandle(public val recognizer: GestureRecognizer) : AutoCloseable {
     public fun down(
@@ -156,23 +159,31 @@ public fun UiScope.checkbox(
 ): ControlHandle {
     val action = { value.value = !value.value }
     val e = element("checkbox")
-    return control(
-        e,
-        SemanticsConfiguration(
-            role = SemanticRole.CHECKBOX,
-            checked = value.value,
-            actions =
-                mapOf(
-                    SemanticAction.CLICK to
-                        {
-                            action()
-                            true
-                        }
-                ),
-        ),
-        action,
-        ControlGestureHandle(TapRecognizer(gestures, action)),
-    )
+    val handle =
+        control(
+            e,
+            SemanticsConfiguration(
+                role = SemanticRole.CHECKBOX,
+                checked = value.value,
+                actions =
+                    mapOf(
+                        SemanticAction.CLICK to
+                            {
+                                action()
+                                true
+                            }
+                    ),
+            ),
+            action,
+            ControlGestureHandle(TapRecognizer(gestures, action)),
+        )
+    withComponentScope(e.scope) {
+        effect {
+            e.attach(SemanticsAttachment, handle.semantics.copy(checked = value.value))
+            context.requestFrame(false)
+        }
+    }
+    return handle
 }
 
 public fun UiScope.slider(
@@ -197,22 +208,33 @@ public fun UiScope.slider(
                 },
             )
         )
-    return control(
-        e,
-        SemanticsConfiguration(
-            role = SemanticRole.SLIDER,
-            range = SemanticRange(value.value, minimum, maximum),
-            actions =
-                mapOf(
-                    SemanticAction.SET_VALUE to
-                        { v ->
-                            value.value = (v as Number).toFloat().coerceIn(minimum, maximum)
-                            true
-                        }
-                ),
-        ),
-        gestures = gesture,
-    )
+    val handle =
+        control(
+            e,
+            SemanticsConfiguration(
+                role = SemanticRole.SLIDER,
+                range = SemanticRange(value.value, minimum, maximum),
+                actions =
+                    mapOf(
+                        SemanticAction.SET_VALUE to
+                            { v ->
+                                value.value = (v as Number).toFloat().coerceIn(minimum, maximum)
+                                true
+                            }
+                    ),
+            ),
+            gestures = gesture,
+        )
+    withComponentScope(e.scope) {
+        effect {
+            e.attach(
+                SemanticsAttachment,
+                handle.semantics.copy(range = SemanticRange(value.value, minimum, maximum)),
+            )
+            context.requestFrame(false)
+        }
+    }
+    return handle
 }
 
 public fun UiScope.textField(
