@@ -5,9 +5,12 @@ import com.antepod.lumentika.gesture.DragAxis
 import com.antepod.lumentika.gesture.DragRecognizer
 import com.antepod.lumentika.gesture.GestureArena
 import com.antepod.lumentika.gesture.GestureRecognizer
+import com.antepod.lumentika.gesture.NestedScrollConnection
+import com.antepod.lumentika.gesture.ScrollAxis
 import com.antepod.lumentika.gesture.ScrollDelta
 import com.antepod.lumentika.gesture.ScrollSource
 import com.antepod.lumentika.gesture.ScrollState
+import com.antepod.lumentika.gesture.ScrollbarController
 import com.antepod.lumentika.gesture.SelectionDragRecognizer
 import com.antepod.lumentika.gesture.TapRecognizer
 import com.antepod.lumentika.gesture.TextSelectionRecognizer
@@ -15,6 +18,8 @@ import com.antepod.lumentika.input.EventType
 import com.antepod.lumentika.input.FocusCause
 import com.antepod.lumentika.input.FocusProperties
 import com.antepod.lumentika.input.KeyboardEvent
+import com.antepod.lumentika.input.LogicalKey
+import com.antepod.lumentika.input.PointerType
 import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.platform.TransferContent
 import com.antepod.lumentika.reactive.Mutable
@@ -44,13 +49,18 @@ public class ControlHandle(
         get() = element.attachment(SemanticsAttachment) ?: initialSemantics
 }
 
-public class ControlGestureHandle(public val recognizer: GestureRecognizer) : AutoCloseable {
+public class ControlGestureHandle(
+    public val recognizer: GestureRecognizer,
+    private val pointerStarted: (PointerType) -> Unit = {},
+) : AutoCloseable {
     public fun down(
         pointer: Int,
         point: Point,
         timeNanos: Long,
         arena: GestureArena = GestureArena(),
+        pointerType: PointerType = PointerType.UNKNOWN,
     ) {
+        pointerStarted(pointerType)
         arena.add(pointer, recognizer)
         recognizer.down(point, timeNanos)
     }
@@ -74,6 +84,7 @@ public val GestureAttachment: AttachmentKey<ControlGestureHandle> = AttachmentKe
 public val TextEditorAttachment: AttachmentKey<TextEditorRuntime> = AttachmentKey()
 public val ReceiveContentAttachment: AttachmentKey<(TransferContent) -> TransferContent> =
     AttachmentKey()
+public val ScrollRuntimeAttachment: AttachmentKey<ScrollRuntimeHandle> = AttachmentKey()
 private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
@@ -114,7 +125,33 @@ internal fun UiScope.mountScroll(
     element: Element,
     state: ScrollState,
     gestures: GestureConfiguration,
+    explicitConnection: NestedScrollConnection?,
 ): Element = element.also {
+    val parentScroll = {
+        generateSequence(element.parent) { it.parent }
+            .mapNotNull { it.attachment(ScrollRuntimeAttachment) }
+            .firstOrNull()
+    }
+    val connection =
+        explicitConnection
+            ?: object : NestedScrollConnection {
+                override fun postScroll(
+                    consumed: ScrollDelta,
+                    remaining: ScrollDelta,
+                    source: ScrollSource,
+                ): ScrollDelta =
+                    parentScroll()?.state?.scroll(remaining, source) ?: ScrollDelta(0f, 0f)
+
+                override fun postFling(
+                    consumed: ScrollDelta,
+                    remaining: ScrollDelta,
+                ): ScrollDelta {
+                    val parent = parentScroll() ?: return ScrollDelta(0f, 0f)
+                    parent.state.fling(remaining, gestures, context.animationClock)
+                    return remaining
+                }
+            }
+    var dragSource = ScrollSource.TOUCH_DRAG
     val handle =
         ControlGestureHandle(
             DragRecognizer(
@@ -123,10 +160,24 @@ internal fun UiScope.mountScroll(
                 onUpdate = { update ->
                     state.scroll(
                         ScrollDelta(-update.delta.x, -update.delta.y),
-                        ScrollSource.TOUCH_DRAG,
+                        dragSource,
+                        connection,
                     )
                 },
-            )
+                onEnd = { velocity ->
+                    state.fling(
+                        ScrollDelta(-velocity.x, -velocity.y),
+                        gestures,
+                        context.animationClock,
+                        connection,
+                    )
+                    context.requestFrame(false)
+                },
+            ),
+            pointerStarted = { type ->
+                dragSource =
+                    if (type == PointerType.PEN) ScrollSource.PEN_DRAG else ScrollSource.TOUCH_DRAG
+            },
         )
     element.attach(GestureAttachment, handle)
     val updateRender = {
@@ -142,12 +193,93 @@ internal fun UiScope.mountScroll(
             events.on(element, EventType.WHEEL) { event ->
                 if (!event.defaultPrevented) {
                     event as com.antepod.lumentika.input.WheelEvent
-                    state.scroll(ScrollDelta(event.deltaX, event.deltaY), ScrollSource.WHEEL)
+                    state.scroll(
+                        ScrollDelta(event.deltaX, event.deltaY),
+                        ScrollSource.WHEEL,
+                        connection,
+                    )
                 }
             },
         )
     }
+    val runtime = ScrollRuntimeHandle(element, state)
+    element.attach(ScrollRuntimeAttachment, runtime)
+    context.focus?.let { focus ->
+        focus.configure(element, FocusProperties(focusable = true))
+        element.scope.own { focus.unconfigure(element) }
+    }
+    context.events?.let { events ->
+        val keyListener =
+            events.on(element, EventType.KEY_DOWN) { event ->
+                event as KeyboardEvent
+                val delta =
+                    when (event.logicalKey) {
+                        LogicalKey.ARROW_UP -> ScrollDelta(0f, -40f)
+                        LogicalKey.ARROW_DOWN -> ScrollDelta(0f, 40f)
+                        LogicalKey.ARROW_LEFT -> ScrollDelta(-40f, 0f)
+                        LogicalKey.ARROW_RIGHT -> ScrollDelta(40f, 0f)
+                        LogicalKey.HOME -> ScrollDelta(-state.x, -state.y)
+                        LogicalKey.END -> ScrollDelta(state.maxX - state.x, state.maxY - state.y)
+                        else -> return@on
+                    }
+                if (state.scroll(delta, ScrollSource.KEYBOARD, connection) != ScrollDelta(0f, 0f)) {
+                    event.preventDefault()
+                }
+            }
+        element.scope.own(keyListener::close)
+    }
+    val semanticStep = { direction: Float ->
+        state.scroll(
+            ScrollDelta(0f, runtime.viewportHeight * .8f * direction),
+            ScrollSource.ACCESSIBILITY,
+            connection,
+        ) != ScrollDelta(0f, 0f)
+    }
+    element.attach(
+        SemanticsAttachment,
+        SemanticsConfiguration(
+            role = SemanticRole.SCROLL_VIEW,
+            actions =
+                mapOf(
+                    SemanticAction.SCROLL_FORWARD to { semanticStep(1f) },
+                    SemanticAction.SCROLL_BACKWARD to { semanticStep(-1f) },
+                ),
+        ),
+    )
     updateRender()
+}
+
+public class ScrollRuntimeHandle
+internal constructor(
+    private val element: Element,
+    public val state: ScrollState,
+) {
+    public val horizontal: ScrollbarController = ScrollbarController(state, ScrollAxis.HORIZONTAL)
+    public val vertical: ScrollbarController = ScrollbarController(state, ScrollAxis.VERTICAL)
+    public var viewportWidth: Float = 0f
+        private set
+
+    public var viewportHeight: Float = 0f
+        private set
+
+    public fun updateLayout() {
+        viewportWidth = element.geometry.width
+        viewportHeight = element.geometry.height
+        val descendants = element.children.flatMap(::flatten)
+        val contentRight = descendants.maxOfOrNull { it.geometry.right } ?: element.geometry.x
+        val contentBottom = descendants.maxOfOrNull { it.geometry.bottom } ?: element.geometry.y
+        val contentWidth = (contentRight - element.geometry.x).coerceAtLeast(viewportWidth)
+        val contentHeight = (contentBottom - element.geometry.y).coerceAtLeast(viewportHeight)
+        state.setRange(
+            (contentWidth - viewportWidth).coerceAtLeast(0f),
+            (contentHeight - viewportHeight).coerceAtLeast(0f),
+        )
+        horizontal.updateExtents(viewportWidth, contentWidth)
+        vertical.updateExtents(viewportHeight, contentHeight)
+    }
+
+    private fun flatten(current: Element): List<Element> =
+        listOf(current) + current.children.flatMap(::flatten)
 }
 
 public fun UiScope.list(content: ContainerBuilder.() -> Unit = {}): Element =

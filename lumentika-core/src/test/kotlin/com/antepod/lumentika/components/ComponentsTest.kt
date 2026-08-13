@@ -2,6 +2,7 @@ package com.antepod.lumentika.components
 
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.headlessRoot
+import com.antepod.lumentika.input.PointerType
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
@@ -101,6 +102,31 @@ class ComponentsTest {
         field.gestures.move(Point(16f, 0f), 510_000_000)
         assertEquals(TextRange(0, 2), controller.value.selection)
 
+        root.close()
+    }
+
+    @Test
+    fun `nested mounted scroll chains unconsumed drag to parent`() {
+        val root = Element("root")
+        val outerState = com.antepod.lumentika.gesture.ScrollState()
+        val innerState = com.antepod.lumentika.gesture.ScrollState()
+        lateinit var inner: Element
+        UiScope(root).scroll {
+            state = outerState
+            inner = scroll { state = innerState }
+        }
+        outerState.setRange(0f, 100f)
+        innerState.setRange(0f, 10f)
+        innerState.scroll(
+            com.antepod.lumentika.gesture.ScrollDelta(0f, 10f),
+            com.antepod.lumentika.gesture.ScrollSource.PROGRAMMATIC,
+        )
+        val gesture = inner.attachment(GestureAttachment)!!
+        gesture.down(1, Point(0f, 0f), 0, pointerType = PointerType.TOUCH)
+        gesture.move(Point(0f, -20f), 10_000_000)
+
+        assertEquals(10f, innerState.y)
+        assertEquals(20f, outerState.y)
         root.close()
     }
 

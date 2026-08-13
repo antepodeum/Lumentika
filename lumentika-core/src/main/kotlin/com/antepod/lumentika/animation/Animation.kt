@@ -267,8 +267,9 @@ public class UiAnimationClock {
         callbacks += callback
     }
 
-    public fun frame(timeNanos: Long) {
+    public fun frame(timeNanos: Long): Boolean {
         frameTimeNanos = timeNanos
         callbacks.removeIf { !it(timeNanos) }
+        return callbacks.isNotEmpty()
     }
 }

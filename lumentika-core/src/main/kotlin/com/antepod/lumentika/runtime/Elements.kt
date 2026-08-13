@@ -6,6 +6,7 @@ import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.input.EventDispatcher
 import com.antepod.lumentika.input.FocusManager
 import com.antepod.lumentika.platform.ClipboardService
+import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.ComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.style.Paint
@@ -271,6 +272,7 @@ public data class UiContext(
     val configureRender: (Element, RenderProperties) -> Unit = { _, _ -> },
     val attachStyle: (Element, Style) -> Unit = { _, _ -> },
     val committedBounds: (Element) -> Rect? = { null },
+    val gestureConfiguration: () -> GestureConfiguration = { GestureConfiguration() },
 )
 
 @UiDsl

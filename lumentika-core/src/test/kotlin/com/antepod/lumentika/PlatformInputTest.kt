@@ -1,5 +1,6 @@
 package com.antepod.lumentika
 
+import com.antepod.lumentika.components.ScrollRuntimeAttachment
 import com.antepod.lumentika.components.button
 import com.antepod.lumentika.components.column
 import com.antepod.lumentika.components.image
@@ -9,8 +10,12 @@ import com.antepod.lumentika.components.textField
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
+import com.antepod.lumentika.gesture.NestedScrollConnection
+import com.antepod.lumentika.gesture.ScrollDelta
+import com.antepod.lumentika.gesture.ScrollSource
 import com.antepod.lumentika.gesture.ScrollState
 import com.antepod.lumentika.input.EventType
+import com.antepod.lumentika.input.FocusCause
 import com.antepod.lumentika.input.KeyModifiers
 import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.input.PointerType
@@ -24,6 +29,9 @@ import com.antepod.lumentika.render.RenderBackend
 import com.antepod.lumentika.runtime.ImageService
 import com.antepod.lumentika.runtime.ImageSource
 import com.antepod.lumentika.runtime.PaintCommand
+import com.antepod.lumentika.semantics.SemanticAction
+import com.antepod.lumentika.semantics.SemanticRole
+import com.antepod.lumentika.semantics.SemanticsAttachment
 import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillArtifact
@@ -48,6 +56,78 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class PlatformInputTest {
+    @Test
+    fun `mounted scroll integrates ranges pen keyboard accessibility and scrollbar`() {
+        val sources = mutableListOf<ScrollSource>()
+        val connection =
+            object : NestedScrollConnection {
+                override fun preScroll(
+                    delta: ScrollDelta,
+                    source: ScrollSource,
+                ): ScrollDelta {
+                    sources += source
+                    return ScrollDelta(0f, 0f)
+                }
+            }
+        val root = headlessRoot(100f, 100f)
+        val state = ScrollState()
+        lateinit var child: com.antepod.lumentika.runtime.Element
+        val scroll =
+            root.scope.scroll {
+                this.state = state
+                nestedScroll = connection
+                child = text("overflow")
+            }
+        root.styles.attach(
+            scroll,
+            com.antepod.lumentika.reactive.state(
+                style {
+                    width = 100.px
+                    height = 100.px
+                }
+            ),
+        )
+        root.styles.attach(
+            child,
+            com.antepod.lumentika.reactive.state(
+                style {
+                    width = 100.px
+                    height = 300.px
+                }
+            ),
+        )
+        root.requestFrame()
+        root.frame(1)
+
+        val runtime = scroll.attachment(ScrollRuntimeAttachment)!!
+        assertEquals(200f, state.maxY)
+        assertEquals(1f / 3f, runtime.vertical.thumbFraction)
+        assertEquals(SemanticRole.SCROLL_VIEW, scroll.attachment(SemanticsAttachment)!!.role)
+
+        root.focus.focus(scroll, FocusCause.KEYBOARD)
+        assertFalse(root.dispatchKey(EventType.KEY_DOWN, LogicalKey.ARROW_DOWN, "ArrowDown", 2))
+        assertEquals(40f, state.y)
+        assertTrue(
+            scroll
+                .attachment(SemanticsAttachment)!!
+                .actions
+                .getValue(SemanticAction.SCROLL_FORWARD)(null)
+        )
+        assertEquals(120f, state.y)
+
+        root.dispatchPointer(
+            PointerInput(PointerInputPhase.DOWN, 5, PointerType.PEN, Point(50f, 80f), 3)
+        )
+        root.dispatchPointer(
+            PointerInput(PointerInputPhase.MOVE, 5, PointerType.PEN, Point(50f, 60f), 4)
+        )
+        assertTrue(ScrollSource.PEN_DRAG in sources)
+        root.dispatchPointer(
+            PointerInput(PointerInputPhase.CANCEL, 5, PointerType.PEN, Point(50f, 60f), 5)
+        )
+        root.close()
+    }
+
     @Test
     fun `text field integrates clipboard receive content and committed autofill geometry`() {
         var clipboardText: String? = null
@@ -298,7 +378,7 @@ class PlatformInputTest {
     @Test
     fun `wheel scroll updates descendant transform without layout or paint recording`() {
         val root = headlessRoot(100f, 100f)
-        val state = ScrollState().also { it.maxY = 200f }
+        val state = ScrollState()
         lateinit var child: com.antepod.lumentika.runtime.Element
         val scroll =
             root.scope.scroll {
@@ -314,10 +394,20 @@ class PlatformInputTest {
                 }
             ),
         )
+        root.styles.attach(
+            child,
+            com.antepod.lumentika.reactive.state(
+                style {
+                    width = 100.px
+                    height = 300.px
+                }
+            ),
+        )
         root.requestFrame()
         root.frame(1)
         val layouts = root.layoutComputeCount
         val records = root.renderRecordCount
+        assertEquals(200f, state.maxY)
         val before =
             root.committedRender.hitTest.entries.single { it.element === child }.rootTransform
 

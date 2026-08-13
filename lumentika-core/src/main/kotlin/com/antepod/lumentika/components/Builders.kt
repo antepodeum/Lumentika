@@ -1,6 +1,7 @@
 package com.antepod.lumentika.components
 
 import com.antepod.lumentika.geometry.Size
+import com.antepod.lumentika.gesture.NestedScrollConnection
 import com.antepod.lumentika.gesture.ScrollState
 import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.Mutable
@@ -73,9 +74,10 @@ public open class ContainerBuilder internal constructor(element: Element, contex
 public class ScrollBuilder internal constructor(element: Element, context: UiContext) :
     ContainerBuilder(element, context) {
     public var state: ScrollState = ScrollState()
-    public var gestures: GestureConfiguration = GestureConfiguration()
+    public var gestures: GestureConfiguration = context.gestureConfiguration()
+    public var nestedScroll: NestedScrollConnection? = null
 
-    internal fun mount(): Element = mountScroll(element, state, gestures)
+    internal fun mount(): Element = mountScroll(element, state, gestures, nestedScroll)
 }
 
 public fun UiScope.scroll(block: ScrollBuilder.() -> Unit = {}): Element {
@@ -227,7 +229,7 @@ internal constructor(element: Element, context: UiContext, initial: T) :
 
 public class ButtonBuilder internal constructor(element: Element, context: UiContext) :
     ValueElementBuilder<String>(element, context, "") {
-    public var gestures: GestureConfiguration = GestureConfiguration()
+    public var gestures: GestureConfiguration = context.gestureConfiguration()
     private var click: () -> Unit = {}
 
     public fun onClick(listener: () -> Unit) {
@@ -249,7 +251,7 @@ public fun UiScope.button(block: ButtonBuilder.() -> Unit): ControlHandle {
 public class CheckboxBuilder internal constructor(element: Element, context: UiContext) :
     ValueElementBuilder<Boolean>(element, context, false) {
     public var label: String? = null
-    public var gestures: GestureConfiguration = GestureConfiguration()
+    public var gestures: GestureConfiguration = context.gestureConfiguration()
     private var changed: (Boolean) -> Unit = {}
 
     public fun bindValue(source: Mutable<Boolean>) = bind(source)
@@ -274,7 +276,7 @@ public class SliderBuilder internal constructor(element: Element, context: UiCon
     ValueElementBuilder<Float>(element, context, 0f) {
     public var min: Float = 0f
     public var max: Float = 1f
-    public var gestures: GestureConfiguration = GestureConfiguration()
+    public var gestures: GestureConfiguration = context.gestureConfiguration()
     private var changed: (Float) -> Unit = {}
 
     public fun bindValue(source: Mutable<Float>) = bind(source)
@@ -316,7 +318,7 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
     public var secure: Boolean = false
     public var placeholder: String? = null
     public var autofill: AutofillConfiguration? = null
-    public var gestures: GestureConfiguration = GestureConfiguration()
+    public var gestures: GestureConfiguration = context.gestureConfiguration()
 
     public var value: String
         get() = source()

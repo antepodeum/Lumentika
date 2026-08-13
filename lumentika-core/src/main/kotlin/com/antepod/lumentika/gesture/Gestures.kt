@@ -192,6 +192,7 @@ public class DragRecognizer(
     private val config: GestureConfiguration,
     private val axis: DragAxis = DragAxis.FREE,
     private val onUpdate: (DragUpdate) -> Unit,
+    private val onEnd: (ScrollDelta) -> Unit = {},
     team: Any? = null,
 ) : SinglePointerRecognizer(team) {
     private val velocity = VelocityTracker()
@@ -233,6 +234,7 @@ public class DragRecognizer(
 
     override fun up(point: Point, timeNanos: Long) {
         move(point, timeNanos)
+        if (thresholdCrossed && accepted && !rejected) onEnd(velocity.velocity(config))
     }
 }
 
@@ -422,6 +424,7 @@ public object ExponentialFling : FlingBehavior {
 
 public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
     private val listeners = linkedSetOf<(ScrollState) -> Unit>()
+    private var flingGeneration = 0L
     public var x = initialX
         private set
 
@@ -463,6 +466,24 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
         return AutoCloseable { listeners -= listener }
     }
 
+    public fun setRange(maxX: Float, maxY: Float) {
+        require(maxX.isFinite() && maxX >= 0f && maxY.isFinite() && maxY >= 0f)
+        this.maxX = maxX
+        this.maxY = maxY
+        val nextX = x.coerceAtMost(maxX)
+        val nextY = y.coerceAtMost(maxY)
+        if (nextX != x || nextY != y) {
+            x = nextX
+            y = nextY
+            listeners.toList().forEach { it(this) }
+        }
+    }
+
+    public fun stop() {
+        flingGeneration++
+        isScrolling = false
+    }
+
     public fun fling(
         velocity: ScrollDelta,
         config: GestureConfiguration,
@@ -470,6 +491,7 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
         connection: NestedScrollConnection? = null,
         behavior: FlingBehavior = ExponentialFling,
     ) {
+        stop()
         val clamped =
             ScrollDelta(
                 velocity.x.coerceIn(-config.maximumFlingVelocity, config.maximumFlingVelocity),
@@ -477,21 +499,47 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
             )
         if (hypot(clamped.x.toDouble(), clamped.y.toDouble()) < config.minimumFlingVelocity) return
         val pre = bounded(connection?.preFling(clamped) ?: ScrollDelta(0f, 0f), clamped)
-        val local = clamped - pre
+        val available = clamped - pre
+        val local =
+            ScrollDelta(
+                available.x.takeIf { maxX > 0f && (it > 0f && x < maxX || it < 0f && x > 0f) }
+                    ?: 0f,
+                available.y.takeIf { maxY > 0f && (it > 0f && y < maxY || it < 0f && y > 0f) }
+                    ?: 0f,
+            )
+        val unsupported = available - local
+        if (unsupported != ScrollDelta(0f, 0f)) {
+            connection?.postFling(ScrollDelta(0f, 0f), unsupported)
+        }
+        if (local == ScrollDelta(0f, 0f)) return
+        val generation = ++flingGeneration
         var prior = 0L
+        var current = local
         isScrolling = true
         clock.animate { time ->
-            if (prior == 0L) {
+            if (generation != flingGeneration) {
+                false
+            } else if (prior == 0L) {
                 prior = time
                 true
             } else {
                 val elapsed = (time - prior) / 1_000_000_000f
                 prior = time
-                val consumed = scroll(behavior.delta(local, elapsed), ScrollSource.FLING)
-                val remaining = local - consumed
-                connection?.postFling(consumed, remaining)
-                val active = abs(local.x) + abs(local.y) > 1f && overscroll == ScrollDelta(0f, 0f)
-                if (!active) isScrolling = false
+                val requested = behavior.delta(current, elapsed)
+                val consumed = scroll(requested, ScrollSource.FLING, connection)
+                val decay = kotlin.math.exp(-4f * elapsed)
+                current *= decay
+                val active =
+                    consumed != ScrollDelta(0f, 0f) &&
+                        hypot(current.x.toDouble(), current.y.toDouble()) >=
+                            config.minimumFlingVelocity
+                if (!active) {
+                    isScrolling = false
+                    connection?.postFling(
+                        local - current,
+                        current.takeIf { consumed == ScrollDelta(0f, 0f) } ?: ScrollDelta(0f, 0f),
+                    )
+                }
                 active
             }
         }
@@ -508,6 +556,65 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
             value.x.coerceIn(minOf(0f, available.x), maxOf(0f, available.x)),
             value.y.coerceIn(minOf(0f, available.y), maxOf(0f, available.y)),
         )
+}
+
+public enum class ScrollAxis {
+    HORIZONTAL,
+    VERTICAL,
+}
+
+public class ScrollbarController(
+    private val state: ScrollState,
+    public val axis: ScrollAxis,
+    public val minimumThumbFraction: Float = 0.05f,
+) {
+    public var viewportExtent: Float = 0f
+        private set
+
+    public var contentExtent: Float = 0f
+        private set
+
+    public val thumbFraction: Float
+        get() =
+            if (contentExtent <= 0f) 1f
+            else (viewportExtent / contentExtent).coerceIn(minimumThumbFraction, 1f)
+
+    public val offsetFraction: Float
+        get() {
+            val range = if (axis == ScrollAxis.HORIZONTAL) state.maxX else state.maxY
+            val offset = if (axis == ScrollAxis.HORIZONTAL) state.x else state.y
+            return if (range == 0f) 0f else offset / range
+        }
+
+    public fun updateExtents(viewport: Float, content: Float) {
+        require(viewport.isFinite() && viewport >= 0f && content.isFinite() && content >= 0f)
+        viewportExtent = viewport
+        contentExtent = content
+    }
+
+    public fun dragThumb(delta: Float, trackExtent: Float): Float {
+        val movableTrack = trackExtent * (1f - thumbFraction)
+        if (movableTrack <= 0f) return 0f
+        val range = if (axis == ScrollAxis.HORIZONTAL) state.maxX else state.maxY
+        return scroll(delta / movableTrack * range)
+    }
+
+    public fun clickTrack(position: Float, trackExtent: Float): Float {
+        if (trackExtent <= 0f) return 0f
+        val thumbStart = offsetFraction * trackExtent * (1f - thumbFraction)
+        val page = viewportExtent * if (position < thumbStart) -1f else 1f
+        return scroll(page)
+    }
+
+    private fun scroll(delta: Float): Float {
+        val consumed =
+            if (axis == ScrollAxis.HORIZONTAL) {
+                state.scroll(ScrollDelta(delta, 0f), ScrollSource.SCROLLBAR).x
+            } else {
+                state.scroll(ScrollDelta(0f, delta), ScrollSource.SCROLLBAR).y
+            }
+        return consumed
+    }
 }
 
 public class VelocityTracker {

@@ -5,6 +5,7 @@ import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.platform.GestureConfiguration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class GesturesTest {
@@ -194,8 +195,23 @@ class GesturesTest {
         val clock = UiAnimationClock()
         state.fling(ScrollDelta(0f, -100f), config, clock, connection)
         clock.frame(1_000_000_000)
-        clock.frame(1_016_000_000)
+        repeat(200) { clock.frame(1_016_000_000 + it * 16_000_000L) }
         assertTrue("preFling" in trace)
         assertTrue("postFling" in trace)
+        assertTrue(state.y < 50f)
+        assertFalse(state.isScrolling)
+    }
+
+    @Test
+    fun `scrollbar derives thumb and maps drag and track clicks`() {
+        val state = ScrollState().also { it.setRange(0f, 300f) }
+        val scrollbar = ScrollbarController(state, ScrollAxis.VERTICAL)
+        scrollbar.updateExtents(viewport = 100f, content = 400f)
+
+        assertEquals(.25f, scrollbar.thumbFraction)
+        assertEquals(100f, scrollbar.dragThumb(25f, 100f))
+        assertEquals(100f / 300f, scrollbar.offsetFraction)
+        assertEquals(100f, scrollbar.clickTrack(100f, 100f))
+        assertEquals(200f, state.y)
     }
 }

@@ -5,6 +5,7 @@ import com.antepod.lumentika.animation.UiAnimationClock
 import com.antepod.lumentika.components.ControlGestureHandle
 import com.antepod.lumentika.components.GestureAttachment
 import com.antepod.lumentika.components.ReceiveContentAttachment
+import com.antepod.lumentika.components.ScrollRuntimeAttachment
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.gesture.GestureArena
@@ -96,6 +97,7 @@ public class UiRoot(
                 configureRender = ::configureRender,
                 attachStyle = { target, source -> styles.attach(target, state(source)) },
                 committedBounds = ::committedBounds,
+                gestureConfiguration = { environment.value.gesture },
             ),
         )
     public val styleAnimations =
@@ -232,14 +234,16 @@ public class UiRoot(
     public fun frame(timeNanos: Long) {
         frame.consume()
         frameTimeNanos = timeNanos
-        animations.frame(timeNanos)
+        val animationsActive = animations.frame(timeNanos)
         layout.frame(timeNanos, environment.value)
+        updateScrollRanges(element)
         val commit = render.commit()
         val changes = semantics.commit(commit.hitTest)
         services.accessibility?.onArtifactCommitted(semantics.artifact, changes)
         val (autofillArtifact, autofillChanges) = autofill.commit()
         services.autofill?.onArtifactCommitted(autofillArtifact, autofillChanges)
         render.replay(backend)
+        if (animationsActive) frame.requestFrame()
     }
 
     public fun applyAutofill(id: AutofillNodeId, text: String): Boolean = autofill.apply(id, text)
@@ -271,7 +275,13 @@ public class UiRoot(
                         .mapNotNull { it.attachment(GestureAttachment) }
                         .toList()
                 handles.forEach {
-                    it.down(input.pointerId, input.position, input.timestampNanos, arena)
+                    it.down(
+                        input.pointerId,
+                        input.position,
+                        input.timestampNanos,
+                        arena,
+                        input.pointerType,
+                    )
                 }
                 if (handles.isNotEmpty()) {
                     pointerGestures[input.pointerId] = PointerGestureSession(arena, handles)
@@ -291,6 +301,11 @@ public class UiRoot(
 
     private fun cancelPointerGestures(pointerId: Int) {
         pointerGestures.remove(pointerId)?.arena?.cancel(pointerId)
+    }
+
+    private fun updateScrollRanges(current: Element) {
+        current.attachment(ScrollRuntimeAttachment)?.updateLayout()
+        current.children.forEach(::updateScrollRanges)
     }
 
     private fun committedBounds(target: Element): com.antepod.lumentika.geometry.Rect? {
