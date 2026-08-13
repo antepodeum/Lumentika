@@ -185,6 +185,9 @@ public val ReceiveContentAttachment: AttachmentKey<(TransferContent) -> Transfer
 /** Element attachment exposing scroll runtime state to the root. */
 public val ScrollRuntimeAttachment: AttachmentKey<ScrollRuntimeHandle> = AttachmentKey()
 
+/** Element attachment updating control-part transforms after committed Taffy geometry changes. */
+public val ControlVisualLayoutAttachment: AttachmentKey<() -> Unit> = AttachmentKey()
+
 /** Element attachment exposing tooltip lifecycle state. */
 public val TooltipRuntimeAttachment: AttachmentKey<TooltipRuntimeHandle> = AttachmentKey()
 private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
@@ -539,7 +542,17 @@ internal constructor(
                     ),
                 )
                 wrapper.append(it)
-                context.attachStyle(it, style { position = Position.ABSOLUTE })
+                context.attachPart(
+                    wrapper,
+                    it,
+                    Tooltip.Part.POPUP,
+                    style { position = Position.ABSOLUTE },
+                )
+                wrapper.attach(
+                    VisualPartsAttachment,
+                    wrapper.attachment(VisualPartsAttachment).orEmpty() +
+                        (Tooltip.Part.POPUP to it),
+                )
                 context.configureRender(it, RenderProperties(topLayer = true))
             }
         this.popup = popup
@@ -552,6 +565,10 @@ internal constructor(
         val popup = popup ?: return
         this.popup = null
         placementRequest = null
+        wrapper.attach(
+            VisualPartsAttachment,
+            wrapper.attachment(VisualPartsAttachment).orEmpty() - Tooltip.Part.POPUP,
+        )
         wrapper.remove(popup)
         context.requestFrame(true)
     }
@@ -615,6 +632,8 @@ internal fun UiScope.mountTooltip(
     placement: TooltipPlacement,
     offset: Float,
 ) {
+    context.attachPart(element, element, Tooltip.Part.ROOT, style {})
+    element.attach(VisualPartsAttachment, mapOf(Tooltip.Part.ROOT to element))
     val runtime =
         TooltipRuntimeHandle(
             element,
@@ -756,6 +775,7 @@ internal fun UiScope.buttonControl(
             e,
             Button.Part.ROOT to style { display = Display.FLEX },
             Button.Part.LABEL to style {},
+            Button.Part.ICON to style {},
         )
     val labelElement = parts.getValue(Button.Part.LABEL)
     val action = {
@@ -966,13 +986,26 @@ internal fun UiScope.sliderControl(
         },
     )
     withComponentScope(e.scope) {
-        effect {
+        var lastWidth = Float.NaN
+        var lastFraction = Float.NaN
+        val updateVisual = {
             val fraction =
                 if (maximum == minimum) 0f else (value.value - minimum) / (maximum - minimum)
-            context.configureRender(
-                parts.getValue(Slider.Part.THUMB),
-                RenderProperties(transform = Matrix3.translation(e.geometry.width * fraction, 0f)),
-            )
+            if (e.geometry.width != lastWidth || fraction != lastFraction) {
+                lastWidth = e.geometry.width
+                lastFraction = fraction
+                context.configureRender(
+                    parts.getValue(Slider.Part.THUMB),
+                    RenderProperties(
+                        transform = Matrix3.translation(e.geometry.width * fraction, 0f)
+                    ),
+                )
+            }
+        }
+        e.attach(ControlVisualLayoutAttachment, updateVisual)
+        effect {
+            value.value
+            updateVisual()
             e.attach(
                 SemanticsAttachment,
                 handle.semantics.copy(range = SemanticRange(value.value, minimum, maximum, step)),
@@ -1004,12 +1037,20 @@ internal fun UiScope.textFieldControl(
                 style {
                     position = Position.ABSOLUTE
                     width = 1.px
+                    height = 1.px
                 },
             TextField.Part.SCROLLBAR_TRACK to style { position = Position.ABSOLUTE },
             TextField.Part.SCROLLBAR_THUMB to style { position = Position.ABSOLUTE },
         )
     val textElement = parts.getValue(TextField.Part.TEXT)
     val placeholderElement = parts.getValue(TextField.Part.PLACEHOLDER)
+    context.attachStyle(
+        parts.getValue(TextField.Part.SELECTION),
+        style {
+            width = 1.px
+            height = 1.px
+        },
+    )
     val editor =
         TextEditorRuntime(
             controller,
@@ -1024,6 +1065,68 @@ internal fun UiScope.textFieldControl(
             context.clipboard,
         )
     e.attach(TextEditorAttachment, editor)
+    var lastCursorTransform: Matrix3? = null
+    var lastSelectionRender: RenderProperties? = null
+    e.attach(ControlVisualLayoutAttachment) {
+        val geometry = editor.cursorGeometry
+        val caret = geometry.caret
+        val cursorTransform =
+            Matrix3.translation(caret.x - editor.scrollX, caret.y - editor.scrollY) *
+                Matrix3.scale(
+                    if (geometry.visible) caret.width.coerceAtLeast(1f) else 0f,
+                    caret.height,
+                )
+        if (cursorTransform != lastCursorTransform) {
+            lastCursorTransform = cursorTransform
+            context.configureRender(
+                parts.getValue(TextField.Part.CURSOR),
+                RenderProperties(transform = cursorTransform),
+            )
+        }
+        val selection = geometry.selection
+        val union =
+            selection
+                .takeIf { it.isNotEmpty() }
+                ?.let { rects ->
+                    Rect(
+                        rects.minOf { it.x },
+                        rects.minOf { it.y },
+                        rects.maxOf { it.right } - rects.minOf { it.x },
+                        rects.maxOf { it.bottom } - rects.minOf { it.y },
+                    )
+                }
+        val selectionRender =
+            union?.let {
+                val contours = selection.flatMap { rect ->
+                    val width = it.width.coerceAtLeast(1e-6f)
+                    val height = it.height.coerceAtLeast(1e-6f)
+                    val left = (rect.x - it.x) / width
+                    val top = (rect.y - it.y) / height
+                    val right = (rect.right - it.x) / width
+                    val bottom = (rect.bottom - it.y) / height
+                    listOf(
+                        com.antepod.lumentika.geometry.PathSegment.MoveTo(Point(left, top)),
+                        com.antepod.lumentika.geometry.PathSegment.LineTo(Point(right, top)),
+                        com.antepod.lumentika.geometry.PathSegment.LineTo(Point(right, bottom)),
+                        com.antepod.lumentika.geometry.PathSegment.LineTo(Point(left, bottom)),
+                        com.antepod.lumentika.geometry.PathSegment.Close,
+                    )
+                }
+                RenderProperties(
+                    transform =
+                        Matrix3.translation(it.x - editor.scrollX, it.y - editor.scrollY) *
+                            Matrix3.scale(it.width, it.height),
+                    clip = com.antepod.lumentika.geometry.Path(contours),
+                )
+            } ?: RenderProperties(transform = Matrix3.scale(0f))
+        if (selectionRender != lastSelectionRender) {
+            lastSelectionRender = selectionRender
+            context.configureRender(
+                parts.getValue(TextField.Part.SELECTION),
+                selectionRender,
+            )
+        }
+    }
     e.attach(ReceiveContentAttachment, editor::receive)
     autofill?.let { configured ->
         val configuration = if (secure) configured.copy(sensitive = true) else configured

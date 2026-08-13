@@ -54,6 +54,19 @@ root.requestFrame()
 root.frame(1_000_000L)
 ```
 
+Apply a typed component theme at any subtree boundary:
+
+```kotlin
+val controls = theme {
+    style(Button.Part.ROOT, style { borderRadius = CornerRadii(6f) })
+    style(Button.Part.LABEL, style { color = rgb(255, 255, 255) })
+}
+
+root.scope.theme(controls) {
+    button { value = "Continue" }
+}
+```
+
 Builder calls mount persistent elements. Reactive reads inside supported value blocks update their
 owned value without rebuilding the complete tree:
 

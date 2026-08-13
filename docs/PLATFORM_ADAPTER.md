@@ -47,6 +47,8 @@ their transform, clip, scroll, and effect IDs through `artifact.trees`.
 Replay these core commands:
 
 - `PaintCommand.Fill` and `FillRect`
+- `PaintCommand.FillRoundedRect`, `FillPath`, and `StrokePath`
+- `PaintCommand.DrawBorder` and `DrawBoxShadow`
 - `PaintCommand.DrawText`
 - `PaintCommand.DrawImage`
 - adapter-defined `PaintCommand.Backend`
@@ -55,8 +57,27 @@ Apply opacity, blur, and path-draw state from the effect tree. Restore renderer 
 chunks. The `TextLayoutResult` stored in `DrawText` must be the same shaped object used for intrinsic
 measurement and caret geometry.
 
-Use `BackendPaintCommand` for native drawing operations that do not belong in core. Use
+Implement `Paint` and return a `BackendPaintCommand` from `backendCommand` for drawing operations
+owned by one rendering backend. Such paints survive normal style resolution and are recorded as
+`PaintCommand.Backend`. Use
 `SceneContent` when custom content also needs local hit regions and `UiRoot.raycast` integration.
+
+Clip-tree nodes carry `ClipShape` plus the committed root transform. Apply every ancestor clip in
+order; rounded and path clips must match the core hit-test artifact.
+
+## Retained content changes
+
+Content whose identity stays stable can call:
+
+```kotlin
+element.invalidateContent(ContentInvalidation.PAINT)
+element.invalidateContent(ContentInvalidation.INTRINSIC_MEASUREMENT)
+element.invalidateContent(ContentInvalidation.TEXT_METRICS)
+```
+
+Implement `ContentInvalidationAware` when content owns caches that must clear before measurement or
+recording. Do not replace an element or mirror resource revisions through reactive state solely to
+invalidate retained content.
 
 ## Input bridge
 

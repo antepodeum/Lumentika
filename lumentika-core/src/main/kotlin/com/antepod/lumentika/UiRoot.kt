@@ -4,6 +4,7 @@ import com.antepod.lumentika.animation.ElementAnimationRuntime
 import com.antepod.lumentika.animation.StyleAnimationRuntime
 import com.antepod.lumentika.animation.UiAnimationClock
 import com.antepod.lumentika.components.ControlGestureHandle
+import com.antepod.lumentika.components.ControlVisualLayoutAttachment
 import com.antepod.lumentika.components.GestureAttachment
 import com.antepod.lumentika.components.ReceiveContentAttachment
 import com.antepod.lumentika.components.ScrollRuntimeAttachment
@@ -318,6 +319,7 @@ public class UiRoot(
         layout.frame(timeNanos, environment.value)
         updateScrollRanges(element)
         updateTextEditorViewports(element)
+        updateControlVisualLayouts(element)
         var commit = render.commit()
         if (elementAnimations.afterCommit()) commit = render.commit()
         val changes = semantics.commit(commit.hitTest)
@@ -425,6 +427,11 @@ public class UiRoot(
                 current.geometry.height,
             )
         current.children.forEach(::updateTextEditorViewports)
+    }
+
+    private fun updateControlVisualLayouts(current: Element) {
+        current.attachment(ControlVisualLayoutAttachment)?.invoke()
+        current.children.forEach(::updateControlVisualLayouts)
     }
 
     private fun committedBounds(target: Element): com.antepod.lumentika.geometry.Rect? {

@@ -7,7 +7,7 @@ public enum class BoxSizing {
     CONTENT_BOX,
 }
 
-/** Physical text and layout direction passed to the layout engine. */
+/** Physical text and layout direction projected into Taffy. */
 public enum class Direction {
     LTR,
     RTL,

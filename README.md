@@ -23,10 +23,11 @@ services.
 - Fine-grained state, derived values, effects, batching, async state, and owned cleanup
 - Kotlin component DSL with generated props, bindings, events, and slots
 - Block, flex, and grid layout backed by Taffy4J
-- Retained paint artifacts, property trees, clipping, compositing, hit testing, and scene content
+- Extensible paints; retained paths, rounded clips, borders, shadows, property trees, and hit testing
 - Pointer, keyboard, focus, gestures, nested scrolling, text editing, clipboard, drag/drop, and autofill contracts
 - Accessibility semantics with stable nodes, actions, ranges, collections, and live regions
 - Typed styles, state conditions, themes, logical units, and environment-aware values
+- Explicit paint, intrinsic-measurement, and text-metrics invalidation for retained content
 - Tween and spring style animation; enter/exit, keyed layout, draw, blur, and crossfade animation
 - Headless services for deterministic tests
 

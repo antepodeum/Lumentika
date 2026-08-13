@@ -3,18 +3,37 @@ package com.antepod.app
 import com.antepod.lumentika.HeadlessFrameScheduler
 import com.antepod.lumentika.PlatformServices
 import com.antepod.lumentika.UiRoot
+import com.antepod.lumentika.animation.FloatAnimationAdapter
+import com.antepod.lumentika.animation.Transition
+import com.antepod.lumentika.animation.TweenSpec
+import com.antepod.lumentika.animation.fade
+import com.antepod.lumentika.animation.transition
 import com.antepod.lumentika.component.Component
 import com.antepod.lumentika.component.UIComponent
+import com.antepod.lumentika.component.show
 import com.antepod.lumentika.components.*
+import com.antepod.lumentika.geometry.CornerRadii
+import com.antepod.lumentika.geometry.Matrix3
+import com.antepod.lumentika.geometry.Path
+import com.antepod.lumentika.geometry.PathSegment
+import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
+import com.antepod.lumentika.geometry.RoundedRect
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.reactive.derived
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.render.PaintArtifact
 import com.antepod.lumentika.render.RenderBackend
+import com.antepod.lumentika.render.RenderProperties
+import com.antepod.lumentika.runtime.BackendPaintCommand
+import com.antepod.lumentika.runtime.Content
+import com.antepod.lumentika.runtime.ContentInvalidation
 import com.antepod.lumentika.runtime.Element
+import com.antepod.lumentika.runtime.IntrinsicMeasurable
+import com.antepod.lumentika.runtime.IntrinsicMeasureInput
 import com.antepod.lumentika.runtime.PaintCommand
+import com.antepod.lumentika.runtime.PaintRecorder
 import com.antepod.lumentika.style.*
 
 @UIComponent
@@ -49,6 +68,200 @@ data class TaffyLayoutProof(
     val firstCell: Rect,
     val secondCell: Rect,
 )
+
+private data class ShowcaseBackendCommand(val id: String, val bounds: Rect) : BackendPaintCommand
+
+private data class ShowcasePaint(val id: String) : Paint {
+    override fun backendCommand(bounds: Rect): BackendPaintCommand =
+        ShowcaseBackendCommand(id, bounds)
+}
+
+private class ShowcaseContent(var size: Size) : Content, IntrinsicMeasurable {
+    var records = 0
+
+    override fun measure(input: IntrinsicMeasureInput): Size = size
+
+    override fun record(recorder: PaintRecorder, bounds: Rect) {
+        records++
+        recorder.record(PaintCommand.FillRect(bounds, 0xff778899.toInt()))
+    }
+}
+
+data class CoreShowcaseProof(
+    val derivedText: String,
+    val themedPartApplied: Boolean,
+    val customPaintReplayed: Boolean,
+    val pathRecorded: Boolean,
+    val retainedElementStable: Boolean,
+    val retainedContentRecords: Int,
+    val layoutComputes: Long,
+)
+
+fun runCoreShowcase(): CoreShowcaseProof {
+    val frames = HeadlessFrameScheduler()
+    var lastArtifact: PaintArtifact? = null
+    var customPaintReplayed = false
+    val root =
+        UiRoot(
+            UiEnvironment(Size(480f, 320f)),
+            PlatformServices(frames),
+            object : RenderBackend {
+                override fun replay(artifact: PaintArtifact) {
+                    lastArtifact = artifact
+                    customPaintReplayed =
+                        artifact.chunks
+                            .flatMap { it.commands }
+                            .filterIsInstance<PaintCommand.Backend>()
+                            .any { it.extension is ShowcaseBackendCommand }
+                }
+            },
+        )
+    val count = state(1)
+    val summary = derived { "Total: ${count.value * 2}" }
+    val visible = state(true)
+    val checked = state(false)
+    val volume = state(.25f)
+    val query = state("")
+    val labelPaint = rgb(30, 90, 180)
+    val skin = theme {
+        style(Button.Part.LABEL, style { color = labelPaint })
+        style(Checkbox.Part.INDICATOR, style { background = rgb(80, 160, 100) })
+        style(Slider.Part.THUMB, style { background = rgb(200, 120, 40) })
+        style(TextField.Part.CURSOR, style { background = rgb(20, 20, 20) })
+        style(Scroll.Part.SCROLLBAR_THUMB, style { background = rgb(100, 100, 100) })
+    }
+    val triangle =
+        Path(
+            listOf(
+                PathSegment.MoveTo(Point(0f, 0f)),
+                PathSegment.LineTo(Point(48f, 0f)),
+                PathSegment.LineTo(Point(24f, 40f)),
+                PathSegment.Close,
+            )
+        )
+    lateinit var button: ControlHandle
+    lateinit var field: ControlHandle
+    lateinit var painted: Element
+    lateinit var retained: Element
+    val retainedContent = ShowcaseContent(Size(40f, 16f))
+    root.scope.theme(skin) {
+        column {
+            style {
+                display = Display.FLEX
+                width = 420.px
+                gap = 6.px
+            }
+            text(summary)
+            show(visible, transition(fade(durationMillis = 80))) { text("Structural content") }
+            row {
+                block {
+                    text("Block")
+                    semantics { label = "Semantic block" }
+                }
+                flex { text("Flex") }
+                grid {
+                    style {
+                        gridTemplateColumns =
+                            listOf(GridTemplateComponent.Single(GridTrackSizing.flex(1)))
+                    }
+                    text("Grid")
+                }
+            }
+            button = button {
+                value = "Increment"
+                onClick { count.value++ }
+                partStyle(Button.Part.ROOT) { borderRadius = CornerRadii(4f) }
+            }
+            checkbox {
+                label = "Enabled"
+                bindValue(checked)
+            }
+            slider {
+                label = "Volume"
+                bindValue(volume)
+            }
+            field = textField {
+                placeholder = "Query"
+                bindValue(query)
+            }
+            painted = block {
+                style {
+                    width = 48.px
+                    height = 40.px
+                    background = ShowcasePaint("showcase")
+                    border = edges(2.px)
+                    borderPaint = rgb(40, 40, 40)
+                    borderRadius = CornerRadii(8f)
+                    boxShadows = listOf(BoxShadow(Point(2f, 2f), 3f, paint = rgb(0, 0, 0, 80)))
+                    clipShape = RoundedRect(Rect(0f, 0f, 48f, 40f), CornerRadii(8f))
+                }
+            }
+            painted.content =
+                object : Content {
+                    override fun record(recorder: PaintRecorder, bounds: Rect) {
+                        recorder.record(PaintCommand.FillPath(triangle, rgb(210, 80, 90)))
+                    }
+                }
+            retained = element("retained-showcase", retainedContent)
+            scroll {
+                style {
+                    width = 120.px
+                    height = 32.px
+                }
+                column { repeat(3) { text("Scroll item $it") } }
+            }
+        }
+    }
+    root.configureRender(painted, RenderProperties(transform = Matrix3.translation(3f, 2f)))
+    root.requestFrame()
+    root.frame(1_000_000L)
+    val stableRetained = retained
+    val initialComputes = root.layoutComputeCount
+
+    retained.invalidateContent(ContentInvalidation.PAINT)
+    root.frame(20_000_000L)
+    check(root.layoutComputeCount == initialComputes)
+
+    button.activate()
+    checked.value = true
+    volume.value = .75f
+    field.element.attachment(TextEditorAttachment)!!.controller.reconcileExternal("edited")
+    visible.value = false
+    root.styleAnimations.transition(
+        painted,
+        Properties.Opacity,
+        from = 1f,
+        to = .8f,
+        transition = Transition(TweenSpec(20), FloatAnimationAdapter),
+    )
+    root.frame(40_000_000L)
+
+    retainedContent.size = Size(40f, 24f)
+    retained.invalidateContent(ContentInvalidation.INTRINSIC_MEASUREMENT)
+    root.frame(70_000_000L)
+    val finalArtifact = requireNotNull(lastArtifact)
+    val proof =
+        CoreShowcaseProof(
+            derivedText = summary.value,
+            themedPartApplied =
+                root.styles
+                    .resolve(button.partElement(Button.Part.LABEL)!!)
+                    .first[Properties.Color] == labelPaint,
+            customPaintReplayed = customPaintReplayed,
+            pathRecorded =
+                finalArtifact.chunks
+                    .flatMap { it.commands }
+                    .any { it is PaintCommand.FillPath && it.path === triangle },
+            retainedElementStable = retained === stableRetained,
+            retainedContentRecords = retainedContent.records,
+            layoutComputes = root.layoutComputeCount,
+        )
+    check(query.value == "edited")
+    check(proof.derivedText == "Total: 4")
+    check(proof.themedPartApplied && proof.customPaintReplayed && proof.pathRecorded)
+    root.close()
+    return proof
+}
 
 fun runTaffyLayoutProof(): TaffyLayoutProof {
     val frames = HeadlessFrameScheduler()
@@ -250,11 +463,13 @@ fun runReactiveProof(): ReactiveProof {
 fun main() {
     val proof = runReactiveProof()
     val layout = runTaffyLayoutProof()
+    val showcase = runCoreShowcase()
     println(
         "Lumentika reactive proof passed: value=${proof.finalBindingValue}, " +
             "event=${proof.deliveredEvent}, derivedExecutions=${proof.derivedExecutions}, " +
             "viewExecutions=${proof.viewExecutions}; " +
-            "Taffy layout=${layout.grid.width}x${layout.grid.height}"
+            "Taffy layout=${layout.grid.width}x${layout.grid.height}; " +
+            "showcase=${showcase.derivedText}, customPaint=${showcase.customPaintReplayed}"
     )
 }
 

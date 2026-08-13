@@ -22,6 +22,7 @@ rendering adapter
 - styles and animation overlays;
 - Taffy layout projection and geometry;
 - retained paint, compositing, hit-test, and semantics artifacts;
+- persistent control-part identity and nearest-theme resolution;
 - event dispatch, focus, gestures, scrolling, text editing, and autofill;
 - lifecycle and cleanup.
 
@@ -57,8 +58,19 @@ not need direct access to renderer services.
 ## Extension points
 
 - `RenderBackend` for paint replay
-- `BackendPaintCommand` for adapter-specific drawing
+- external `Paint` implementations and `BackendPaintCommand` for adapter-specific drawing
 - `SceneContent` for custom scene rendering and raycasts
 - `TextLayoutService`, `TextInputService`, and `ImageService`
 - `PlatformServices` for optional native capabilities
 - `@UIComponent`, themes, parts, and custom animation adapters for higher-level libraries
+
+## Geometry and invalidation
+
+Taffy geometry is authoritative for layout. Rendering and hit testing consume one committed
+transform/clip chain containing rectangular, rounded, or path geometry. Paint shapes, transforms,
+and clips never feed back into Taffy.
+
+Persistent content calls `Element.invalidateContent` with `PAINT`, `INTRINSIC_MEASUREMENT`, or
+`TEXT_METRICS`. Paint invalidation rerecords only that element. Intrinsic invalidation dirties its
+Taffy measure node. Text metrics are remeasured against cached constraints and request layout only
+when measured size changes. Frame coalescing limits layout to one compute per root and frame.

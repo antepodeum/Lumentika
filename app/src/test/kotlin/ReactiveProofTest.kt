@@ -32,4 +32,17 @@ class ReactiveProofTest {
         assertTrue(proof.firstCell.width > 0f)
         assertTrue(proof.secondCell.x > proof.firstCell.x)
     }
+
+    @Test
+    fun `core showcase composes retained architecture end to end`() {
+        val proof = runCoreShowcase()
+
+        assertEquals("Total: 4", proof.derivedText)
+        assertTrue(proof.themedPartApplied)
+        assertTrue(proof.customPaintReplayed)
+        assertTrue(proof.pathRecorded)
+        assertTrue(proof.retainedElementStable)
+        assertTrue(proof.retainedContentRecords >= 3)
+        assertTrue(proof.layoutComputes >= 2)
+    }
 }

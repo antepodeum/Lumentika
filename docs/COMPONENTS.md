@@ -52,7 +52,18 @@ root.scope.column {
 ```
 
 Each control returns a `ControlHandle` containing its element, current semantics, activation entry
-point, and gesture handle when applicable.
+point, gesture handle when applicable, and typed access to persistent visual parts.
+
+| Control | Stable visual parts |
+| --- | --- |
+| `Button` | `ROOT`, `LABEL`, `ICON` |
+| `Checkbox` | `ROOT`, `INDICATOR`, `LABEL` |
+| `Slider` | `ROOT`, `TRACK`, `THUMB`, `LABEL` |
+| `TextField` | `ROOT`, `TEXT`, `PLACEHOLDER`, `CURSOR`, `SELECTION`, scrollbar parts |
+| `Scroll` | `ROOT`, `SCROLLBAR_TRACK`, `SCROLLBAR_THUMB` |
+
+Theme styles and builder `partStyle` calls target these tokens. Behavior and semantics remain on the
+owner control; visual child elements do not replace or remount when values change.
 
 ## Text and images
 
