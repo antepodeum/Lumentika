@@ -41,8 +41,14 @@ public object FloatAnimationAdapter : AnimationAdapter<Float> {
 /** Interpolates compatible dimension values that use the same unit family. */
 public object DimensionAnimationAdapter : AnimationAdapter<DimensionValue> {
     override fun canInterpolate(from: DimensionValue, to: DimensionValue): Boolean =
-        from::class == to::class &&
-            (from is Px || from is Dp || from is Sp || from is PhysicalPx || from is Percent)
+        when (from) {
+            is Px -> to is Px
+            is Dp -> to is Dp
+            is Sp -> to is Sp
+            is PhysicalPx -> to is PhysicalPx
+            is Percent -> to is Percent
+            else -> false
+        }
 
     override fun interpolate(
         from: DimensionValue,
