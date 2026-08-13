@@ -74,22 +74,26 @@ abstract class GenerateStylePropertyCatalog : DefaultTask() {
             import com.antepod.lumentika.style.DimensionValue
             import com.antepod.lumentika.style.Properties
 
-            // Generated with the style catalog. Only properties with compatible value families
-            // are exposed, so discrete style properties cannot accidentally be animated.
+            /** Animation adapter for the opacity style property. */
             public object GeneratedOpacityAnimationAdapter : AnimationAdapter<Float> by FloatAnimationAdapter
 
+            /** Animation adapter for the width style property. */
             public object GeneratedWidthAnimationAdapter : AnimationAdapter<DimensionValue> by DimensionAnimationAdapter
 
+            /** Animation adapter for the height style property. */
             public object GeneratedHeightAnimationAdapter : AnimationAdapter<DimensionValue> by DimensionAnimationAdapter
 
+            /** Motion specification applied to opacity by [transitions]. */
             public var TransitionBuilder.opacity: MotionSpec
                 get() = error("write-only")
                 set(value) = set(Properties.Opacity, value, GeneratedOpacityAnimationAdapter)
 
+            /** Motion specification applied to width by [transitions]. */
             public var TransitionBuilder.width: MotionSpec
                 get() = error("write-only")
                 set(value) = set(Properties.Width, value, GeneratedWidthAnimationAdapter)
 
+            /** Motion specification applied to height by [transitions]. */
             public var TransitionBuilder.height: MotionSpec
                 get() = error("write-only")
                 set(value) = set(Properties.Height, value, GeneratedHeightAnimationAdapter)

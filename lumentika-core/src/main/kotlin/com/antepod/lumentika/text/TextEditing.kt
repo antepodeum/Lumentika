@@ -14,6 +14,7 @@ import java.text.BreakIterator
 import java.util.Locale
 import java.util.regex.Pattern
 
+/** Half-open text range expressed in UTF-16 offsets. */
 public data class TextRange(val start: Int, val end: Int) {
     init {
         require(start >= 0 && end >= start)
@@ -23,11 +24,13 @@ public data class TextRange(val start: Int, val end: Int) {
         get() = start == end
 }
 
+/** Upstream or downstream visual affinity at a bidirectional text boundary. */
 public enum class CaretAffinity {
     UPSTREAM,
     DOWNSTREAM,
 }
 
+/** Atomic editable text, selection, composition, and caret-affinity state. */
 public data class TextEditingValue(
     val text: String = "",
     val selection: TextRange = TextRange(0, 0),
@@ -40,6 +43,7 @@ public data class TextEditingValue(
     }
 }
 
+/** Platform-neutral editing operation delivered by keyboard or IME input. */
 public sealed interface TextEditCommand {
     public data class CommitText(val text: String) : TextEditCommand
 
@@ -56,6 +60,7 @@ public sealed interface TextEditCommand {
     public data class DeleteSurroundingCodePoints(val before: Int, val after: Int) : TextEditCommand
 }
 
+/** Applies editing commands to observable [TextEditingValue] state. */
 public class TextEditingController(initial: TextEditingValue = TextEditingValue()) :
     Mutable<TextEditingValue> {
     private val state: State<TextEditingValue> = state(initial)
@@ -232,16 +237,19 @@ private fun String.offsetByCodePointsSafely(index: Int, delta: Int): Int {
     }
 }
 
+/** Native text-input options for one editing session. */
 public data class TextInputConfiguration(
     val multiline: Boolean = false,
     val secure: Boolean = false,
     val autofillHints: Set<String> = emptySet(),
 )
 
+/** Receives commands from an active native text-input session. */
 public interface TextInputClient {
     public fun apply(command: TextEditCommand)
 }
 
+/** Active connection to the native IME or text-input subsystem. */
 public interface TextInputSession : AutoCloseable {
     public fun update(value: TextEditingValue)
 
@@ -250,6 +258,7 @@ public interface TextInputSession : AutoCloseable {
     public fun hide()
 }
 
+/** Opens native text-input sessions for focused editors. */
 public interface TextInputService {
     public fun start(
         configuration: TextInputConfiguration,
@@ -257,8 +266,10 @@ public interface TextInputService {
     ): TextInputSession
 }
 
+/** Range and geometry of one shaped text line. */
 public data class TextLine(val range: TextRange, val baseline: Float, val bounds: Rect)
 
+/** Shaped text geometry shared by measurement, painting, carets, and hit testing. */
 public interface TextLayoutResult {
     public val size: Size
     public val lines: List<TextLine>
@@ -280,6 +291,7 @@ public interface TextLayoutResult {
         }
 }
 
+/** Deterministic monospace layout result used by the headless service. */
 public data class BasicTextLayoutResult(
     override val size: Size,
     override val lines: List<TextLine>,
@@ -295,16 +307,19 @@ public data class BasicTextLayoutResult(
         listOf(Rect(range.start * 8f, 0f, (range.end - range.start) * 8f, 16f))
 }
 
+/** Text and width constraint passed to a [TextLayoutService]. */
 public data class TextLayoutRequest(
     val text: String,
     val maxWidth: Float? = null,
     val fontSize: Float = 16f,
 )
 
+/** Shapes text and returns reusable layout geometry. */
 public interface TextLayoutService {
     public fun layout(request: TextLayoutRequest): TextLayoutResult
 }
 
+/** Deterministic monospace text layout for tests and non-rendering tools. */
 public object HeadlessTextLayoutService : TextLayoutService {
     override fun layout(request: TextLayoutRequest): TextLayoutResult {
         val width = minOf(request.maxWidth ?: Float.MAX_VALUE, request.text.length * 8f)
@@ -316,12 +331,14 @@ public object HeadlessTextLayoutService : TextLayoutService {
     }
 }
 
+/** Current caret, selection, and visibility geometry for an editor. */
 public data class TextCursorGeometry(
     val caret: Rect,
     val selection: List<Rect>,
     val visible: Boolean,
 )
 
+/** Coordinates controller state, shaping, selection gestures, scrolling, and native input. */
 public class TextEditorRuntime(
     public val controller: TextEditingController,
     private val service: TextInputService?,
@@ -587,6 +604,7 @@ public class TextEditorRuntime(
     override fun close() = blur()
 }
 
+/** Semantic autofill category understood by platform services. */
 public enum class AutofillHint {
     USERNAME,
     PASSWORD,
@@ -600,14 +618,17 @@ public enum class AutofillHint {
     ONE_TIME_CODE,
 }
 
+/** Autofill identity, hints, and sensitivity for one field. */
 public data class AutofillConfiguration(
     val hints: Set<AutofillHint>,
     val sensitive: Boolean = false,
     val enabled: Boolean = true,
 )
 
+/** Stable identity of a registered autofill field. */
 @JvmInline public value class AutofillNodeId(val value: Long)
 
+/** Immutable field data exposed to a platform autofill service. */
 public data class AutofillNode(
     val id: AutofillNodeId,
     val bounds: Rect,
@@ -615,19 +636,23 @@ public data class AutofillNode(
     val value: String?,
 )
 
+/** Immutable autofill field collection for a committed generation. */
 public data class AutofillArtifact(val nodes: List<AutofillNode>)
 
+/** Autofill nodes added, updated, and removed since the previous commit. */
 public data class AutofillChangeSet(
     val changedNodes: Set<AutofillNodeId>,
     val removedNodes: Set<AutofillNodeId>,
 )
 
+/** Receives autofill artifacts and displays native autofill UI. */
 public interface AutofillService {
     public fun onArtifactCommitted(artifact: AutofillArtifact, changes: AutofillChangeSet)
 
     public fun requestAutofill(node: AutofillNodeId)
 }
 
+/** Maintains stable autofill identities and applies platform-provided values. */
 public class AutofillRuntime {
     private data class Entry(
         val id: AutofillNodeId,

@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.*
 import com.google.devtools.ksp.symbol.*
 import com.google.devtools.ksp.validate
 
+/** KSP entry point that generates type-safe DSL builders for `@UIComponent` classes. */
 public class LumentikaProcessorProvider : SymbolProcessorProvider {
     override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
         LumentikaProcessor(environment.codeGenerator, environment.logger)
@@ -82,6 +83,7 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
                 .appendLine("import com.antepod.lumentika.component.*")
                 .appendLine("import com.antepod.lumentika.reactive.*")
                 .appendLine()
+                .appendLine("/** Type-safe configuration builder for [$className]. */")
                 .appendLine("@UiDsl")
                 .appendLine(
                     "public class $builderName internal constructor(public val component: $className) {"
@@ -89,6 +91,7 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
             declarations.forEach { declaration -> declaration.writeTo(out) }
             out.appendLine("}")
                 .appendLine()
+                .appendLine("/** Creates, configures, and mounts a [$className]. */")
                 .appendLine(
                     "public fun UiScope.$factoryName(block: $builderName.() -> Unit = {}): Element {"
                 )
@@ -177,20 +180,24 @@ private data class ComponentDeclaration(
     private fun writeValue(out: Appendable) {
         val type = requireNotNull(valueType)
         val identifier = name.identifier()
+        out.appendLine("    /** Direct value assigned to the `$name` declaration. */")
         out.appendLine("    public var $identifier: $type")
         out.appendLine("        get() = component.$identifier.value")
         out.appendLine("        set(value) { component.$identifier.set(value) }")
         out.appendLine()
+        out.appendLine("    /** Binds `$name` to a one-way reactive source. */")
         out.appendLine("    public fun $identifier(source: Readable<$type>) {")
         out.appendLine("        component.$identifier.source(source, component.componentScope)")
         out.appendLine("    }")
         out.appendLine()
+        out.appendLine("    /** Computes `$name` reactively in the component scope. */")
         out.appendLine("    public fun $identifier(block: () -> $type) {")
         out.appendLine("        component.$identifier.source(component.componentScope, block)")
         out.appendLine("    }")
         if (kind == DeclarationKind.BINDING) {
             val bindName = ("bind" + name.replaceFirstChar { it.uppercase() }).identifier()
             out.appendLine()
+            out.appendLine("    /** Binds `$name` bidirectionally to a mutable source. */")
             out.appendLine("    public fun $bindName(source: Mutable<$type>) {")
             out.appendLine("        component.$identifier.bind(source, component.componentScope)")
             out.appendLine("    }")
@@ -202,6 +209,7 @@ private data class ComponentDeclaration(
         val type = requireNotNull(valueType)
         val identifier = name.identifier()
         val eventName = ("on" + name.replaceFirstChar { it.uppercase() }).identifier()
+        out.appendLine("    /** Registers a listener for the `$name` event. */")
         out.appendLine("    public fun $eventName(listener: ($type) -> Unit) {")
         out.appendLine("        val handle = component.$identifier.listen(listener)")
         out.appendLine("        withComponentScope(component.componentScope) {")
@@ -213,6 +221,7 @@ private data class ComponentDeclaration(
 
     private fun writeSlot(out: Appendable) {
         val identifier = name.identifier()
+        out.appendLine("    /** Configures content for the `$name` slot. */")
         out.appendLine("    public fun $identifier(content: UiScope.() -> Unit) {")
         out.appendLine("        component.$identifier.configure(content)")
         out.appendLine("    }")

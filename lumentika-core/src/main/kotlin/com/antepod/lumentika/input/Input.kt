@@ -3,12 +3,14 @@ package com.antepod.lumentika.input
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.runtime.Element
 
+/** Capture, target, or bubble phase of event propagation. */
 public enum class EventPhase {
     CAPTURE,
     TARGET,
     BUBBLE,
 }
 
+/** Event kinds dispatched by the core input and focus runtime. */
 public enum class EventType {
     POINTER_DOWN,
     POINTER_MOVE,
@@ -25,6 +27,7 @@ public enum class EventType {
     FOCUS_OUT,
 }
 
+/** Mutable propagation contract shared by all dispatched UI events. */
 public interface UIEvent {
     public val target: Element
     public val currentTarget: Element
@@ -38,6 +41,7 @@ public interface UIEvent {
     public fun preventDefault()
 }
 
+/** Default [UIEvent] implementation with propagation and default-action flags. */
 public open class BaseEvent(
     final override val target: Element,
     public val cancelable: Boolean = true,
@@ -68,6 +72,7 @@ public open class BaseEvent(
     }
 }
 
+/** Native pointing-device category. */
 public enum class PointerType {
     MOUSE,
     TOUCH,
@@ -75,6 +80,7 @@ public enum class PointerType {
     UNKNOWN,
 }
 
+/** Modifier-key state attached to pointer and keyboard events. */
 public data class KeyModifiers(
     val shift: Boolean = false,
     val control: Boolean = false,
@@ -82,8 +88,10 @@ public data class KeyModifiers(
     val meta: Boolean = false,
 )
 
+/** Historical or coalesced pointer sample. */
 public data class PointerSample(val position: Point, val pressure: Float?, val timestampNanos: Long)
 
+/** Pointer event delivered through the element propagation path. */
 public class PointerEvent(
     target: Element,
     val pointerId: Int,
@@ -98,6 +106,7 @@ public class PointerEvent(
     cancelable: Boolean = true,
 ) : BaseEvent(target, cancelable)
 
+/** Wheel or trackpad scrolling event. */
 public class WheelEvent(
     target: Element,
     val position: Point,
@@ -106,6 +115,7 @@ public class WheelEvent(
     val timestampNanos: Long,
 ) : BaseEvent(target)
 
+/** Platform-neutral logical keys used by core controls and navigation. */
 public enum class LogicalKey {
     TAB,
     ENTER,
@@ -123,6 +133,7 @@ public enum class LogicalKey {
     UNKNOWN,
 }
 
+/** Keyboard event delivered to the focused element. */
 public class KeyboardEvent(
     target: Element,
     val logicalKey: LogicalKey,
@@ -135,6 +146,7 @@ public class KeyboardEvent(
 
 private data class Listener(val capture: Boolean, val callback: (UIEvent) -> Unit)
 
+/** Performs capture/target/bubble dispatch, pointer capture, and hover tracking. */
 public class EventDispatcher(private val root: Element) {
     private val listeners = mutableMapOf<Element, MutableMap<EventType, MutableList<Listener>>>()
     private val defaultActions = mutableMapOf<Element, MutableMap<EventType, (UIEvent) -> Unit>>()
@@ -306,6 +318,7 @@ public class EventDispatcher(private val root: Element) {
         )
 }
 
+/** Input source responsible for a focus change. */
 public enum class FocusCause {
     POINTER,
     KEYBOARD,
@@ -313,12 +326,14 @@ public enum class FocusCause {
     REPAIR,
 }
 
+/** Focusability, traversal order, and disabled state attached to an element. */
 public data class FocusProperties(
     val focusable: Boolean = false,
     val disabled: Boolean = false,
     val tabIndex: Int = 0,
 )
 
+/** Maintains input focus, traversal, focus events, and focus repair. */
 public class FocusManager(
     private val root: Element,
     private val dispatcher: EventDispatcher,

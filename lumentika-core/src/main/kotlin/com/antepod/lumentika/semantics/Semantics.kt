@@ -7,8 +7,10 @@ import com.antepod.lumentika.runtime.AttachmentKey
 import com.antepod.lumentika.runtime.Element
 import java.util.concurrent.atomic.AtomicLong
 
+/** Stable identity of a committed semantics node. */
 @JvmInline public value class SemanticsNodeId(val value: Long)
 
+/** Platform-neutral accessibility role of an element. */
 public enum class SemanticRole {
     NONE,
     BUTTON,
@@ -23,6 +25,7 @@ public enum class SemanticRole {
     TOOLTIP,
 }
 
+/** Accessibility action that can be performed on a semantic node. */
 public enum class SemanticAction {
     CLICK,
     LONG_CLICK,
@@ -39,12 +42,14 @@ public enum class SemanticAction {
     PASTE,
 }
 
+/** Announcement priority for changing semantic content. */
 public enum class LiveRegion {
     NONE,
     POLITE,
     ASSERTIVE,
 }
 
+/** Numeric range exposed by slider-like semantic nodes. */
 public data class SemanticRange(
     val current: Float,
     val minimum: Float,
@@ -52,8 +57,10 @@ public data class SemanticRange(
     val step: Float? = null,
 )
 
+/** Row, column, and hierarchy metadata for a semantic collection. */
 public data class CollectionInfo(val rows: Int, val columns: Int, val hierarchical: Boolean = false)
 
+/** Position and span metadata for an item in a semantic collection. */
 public data class CollectionItemInfo(
     val row: Int,
     val column: Int,
@@ -61,6 +68,7 @@ public data class CollectionItemInfo(
     val columnSpan: Int = 1,
 )
 
+/** Mutable-tree semantics attached to one retained element. */
 public data class SemanticsConfiguration(
     val role: SemanticRole = SemanticRole.NONE,
     val label: String? = null,
@@ -84,6 +92,7 @@ public data class SemanticsConfiguration(
     val actions: Map<SemanticAction, (Any?) -> Boolean> = emptyMap(),
 )
 
+/** Immutable semantic node committed for a platform adapter. */
 public data class SemanticsNode(
     val id: SemanticsNodeId,
     val elementId: Long,
@@ -92,6 +101,7 @@ public data class SemanticsNode(
     val children: List<SemanticsNodeId>,
 )
 
+/** Immutable flattened semantics tree for one committed generation. */
 public data class SemanticsArtifact(
     val generation: Long,
     val roots: List<SemanticsNodeId>,
@@ -99,20 +109,24 @@ public data class SemanticsArtifact(
     val accessibilityFocus: SemanticsNodeId?,
 )
 
+/** IDs added, updated, and removed since the previous semantics commit. */
 public data class SemanticsChangeSet(
     val added: Set<SemanticsNodeId>,
     val removed: Set<SemanticsNodeId>,
     val changed: Set<SemanticsNodeId>,
 )
 
+/** Receives committed semantics and performs native announcements. */
 public interface AccessibilityAdapter {
     public fun onArtifactCommitted(artifact: SemanticsArtifact, changes: SemanticsChangeSet)
 
     public fun announce(message: String, priority: LiveRegion)
 }
 
+/** Element attachment containing its semantic configuration. */
 public val SemanticsAttachment: AttachmentKey<SemanticsConfiguration> = AttachmentKey()
 
+/** Builds stable semantic artifacts and routes accessibility actions. */
 public class SemanticsRuntime(
     private val root: Element,
     private val announcementSink: (String, LiveRegion) -> Unit = { _, _ -> },

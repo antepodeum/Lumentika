@@ -13,16 +13,20 @@ import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.ResolvedStyle
 import com.antepod.lumentika.style.Visibility
 
+/** Stable index into one retained paint-property tree. */
 @JvmInline public value class PropertyNodeId(public val value: Int)
 
+/** Transform entry in a retained paint-property tree. */
 public data class TransformNode(
     val id: PropertyNodeId,
     val parent: PropertyNodeId?,
     val matrix: Matrix3,
 )
 
+/** Clip entry in a retained paint-property tree. */
 public data class ClipNode(val id: PropertyNodeId, val parent: PropertyNodeId?, val rect: Rect)
 
+/** Opacity, blur, and path-draw entry in a retained property tree. */
 public data class EffectNode(
     val id: PropertyNodeId,
     val parent: PropertyNodeId?,
@@ -32,14 +36,17 @@ public data class EffectNode(
     val drawProgress: Float = 1f,
 )
 
+/** Scroll-offset entry in a retained property tree. */
 public data class ScrollNode(val id: PropertyNodeId, val parent: PropertyNodeId?, val offset: Point)
 
+/** Stacking-context entry controlling retained paint order. */
 public data class StackingContextNode(
     val id: PropertyNodeId,
     val parent: PropertyNodeId?,
     val zIndex: Int,
 )
 
+/** Property-tree references active for one paint chunk. */
 public data class PaintPropertyState(
     val transform: PropertyNodeId,
     val clip: PropertyNodeId,
@@ -48,6 +55,7 @@ public data class PaintPropertyState(
     val stacking: PropertyNodeId,
 )
 
+/** Immutable retained transform, clip, effect, scroll, and stacking trees. */
 public data class PropertyTrees(
     val transforms: List<TransformNode>,
     val clips: List<ClipNode>,
@@ -56,6 +64,7 @@ public data class PropertyTrees(
     val stackingContexts: List<StackingContextNode>,
 )
 
+/** Ordered paint commands recorded for one element and property state. */
 public data class PaintChunk(
     val element: Element,
     val properties: PaintPropertyState,
@@ -64,12 +73,14 @@ public data class PaintChunk(
     val topLayer: Boolean,
 )
 
+/** Immutable retained output replayed by a platform [RenderBackend]. */
 public data class PaintArtifact(
     val generation: Long,
     val trees: PropertyTrees,
     val chunks: List<PaintChunk>,
 )
 
+/** Committed geometry and transform data used for one hit-test candidate. */
 public data class HitTestEntry(
     val element: Element,
     val localBounds: Rect,
@@ -81,8 +92,10 @@ public data class HitTestEntry(
     val scene: SceneContent? = null,
 )
 
+/** Adapter-owned scene object selected through a core element. */
 public data class SceneRaycastHit(val element: Element, val sceneObject: Any)
 
+/** Immutable front-to-back hit-test projection for a committed frame. */
 public data class HitTestArtifact(val generation: Long, val entries: List<HitTestEntry>) {
     public fun hitTest(point: Point): Element? =
         entries.asReversed().firstNotNullOfOrNull { entry ->
@@ -107,10 +120,12 @@ public data class HitTestArtifact(val generation: Long, val entries: List<HitTes
         }
 }
 
+/** Replays a committed [PaintArtifact] through a platform graphics API. */
 public fun interface RenderBackend {
     public fun replay(artifact: PaintArtifact)
 }
 
+/** Persistent render modifiers configured for an element. */
 public data class RenderProperties(
     val transform: Matrix3 = Matrix3.IDENTITY,
     val clip: Rect? = null,
@@ -118,6 +133,7 @@ public data class RenderProperties(
     val topLayer: Boolean = false,
 )
 
+/** Transient visual values sampled by structural animation. */
 public data class MotionRenderProperties(
     val transform: Matrix3 = Matrix3.IDENTITY,
     val opacity: Float = 1f,
@@ -134,14 +150,17 @@ public data class MotionRenderProperties(
     }
 }
 
+/** Paint and hit-test artifacts committed from the same render generation. */
 public data class RenderCommit(val paint: PaintArtifact, val hitTest: HitTestArtifact)
 
+/** Work category invalidated by a render-tree change. */
 public enum class RenderInvalidation {
     PROPERTY,
     PAINT,
     ORDER,
 }
 
+/** Builds, caches, commits, and replays retained render and hit-test artifacts. */
 public class RenderRuntime(
     private val root: Element,
     private val resolveStyle: (Element) -> ResolvedStyle,

@@ -53,6 +53,7 @@ import com.antepod.taffy.tree.NodeId
 import com.antepod.taffy.tree.TaffyTree
 import java.util.Optional
 
+/** Immutable committed geometry and scroll extent for one element. */
 public data class LayoutSnapshot(
     val generation: Long,
     val frameTimeNanos: Long,
@@ -60,6 +61,7 @@ public data class LayoutSnapshot(
 )
 
 /** Root-owned bridge. Taffy4J remains sole sizing/positioning algorithm. */
+/** Projects the mounted element tree into Taffy4J and commits logical geometry. */
 public class LayoutRuntime(
     private val logicalRoot: Element,
     private val units: UnitResolver,

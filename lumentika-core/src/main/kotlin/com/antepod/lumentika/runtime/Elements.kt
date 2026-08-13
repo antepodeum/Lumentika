@@ -22,8 +22,10 @@ import com.antepod.lumentika.text.TextInputService
 import com.antepod.lumentika.text.TextLayoutService
 import java.util.concurrent.atomic.AtomicLong
 
+/** Prevents accidental receiver mixing inside the UI builder DSL. */
 @DslMarker public annotation class UiDsl
 
+/** Constraints supplied when measuring intrinsic content. */
 public data class IntrinsicMeasureInput(
     val knownWidth: Float? = null,
     val knownHeight: Float? = null,
@@ -31,6 +33,7 @@ public data class IntrinsicMeasureInput(
     val availableHeight: MeasureSpace = MeasureSpace.MaxContent,
 )
 
+/** Definite or intrinsic available space for content measurement. */
 public sealed interface MeasureSpace {
     public data class Definite(val value: Float) : MeasureSpace
 
@@ -39,14 +42,17 @@ public sealed interface MeasureSpace {
     public data object MaxContent : MeasureSpace
 }
 
+/** Content that can report intrinsic dimensions to layout. */
 public interface IntrinsicMeasurable {
     public fun measure(input: IntrinsicMeasureInput): Size
 }
 
+/** Records immutable platform-neutral paint commands. */
 public interface PaintRecorder {
     public fun record(command: PaintCommand)
 }
 
+/** One platform-neutral or adapter-defined retained drawing command. */
 public sealed interface PaintCommand {
     public data class FillRect(val rect: Rect, val color: Int) : PaintCommand
 
@@ -67,12 +73,15 @@ public sealed interface PaintCommand {
     public data class Backend(val extension: BackendPaintCommand) : PaintCommand
 }
 
+/** Marker for a paint command interpreted only by a specific platform backend. */
 public interface BackendPaintCommand
 
+/** Resolves intrinsic image dimensions for layout. */
 public fun interface ImageService {
     public fun intrinsicSize(source: ImageSource): Size?
 }
 
+/** Byte-backed or URI-backed image reference. */
 public sealed interface ImageSource {
     public data class Bytes(val bytes: ByteArray, val mimeType: String) : ImageSource {
         override fun equals(other: Any?): Boolean =
@@ -84,6 +93,7 @@ public sealed interface ImageSource {
     public data class Uri(val value: String) : ImageSource
 }
 
+/** Terminal element content capable of recording paint commands. */
 public interface Content {
     public fun record(recorder: PaintRecorder, bounds: Rect)
 }
@@ -97,14 +107,17 @@ public interface PathMetrics {
         get() = 0f
 }
 
+/** Supplies custom local-coordinate hit testing for content. */
 public interface HitRegionSource {
     public fun hitTest(localPoint: com.antepod.lumentika.geometry.Point, bounds: Rect): Boolean
 }
 
+/** Custom rendered content that can return adapter-owned raycast objects. */
 public interface SceneContent : Content, HitRegionSource {
     public fun raycast(localPoint: com.antepod.lumentika.geometry.Point): Any?
 }
 
+/** Text content measured and recorded through a shared [TextLayoutService]. */
 public class TextContent(
     public val request: com.antepod.lumentika.text.TextLayoutRequest,
     private val layoutService: TextLayoutService = HeadlessTextLayoutService,
@@ -157,6 +170,7 @@ public class TextContent(
     }
 }
 
+/** Image content with optional known intrinsic dimensions. */
 public data class ImageContent(val source: ImageSource, val intrinsicSize: Size? = null) :
     Content, IntrinsicMeasurable {
     override fun measure(input: IntrinsicMeasureInput): Size =
@@ -169,6 +183,7 @@ public data class ImageContent(val source: ImageSource, val intrinsicSize: Size?
         recorder.record(PaintCommand.DrawImage(source, bounds))
 }
 
+/** Persistent node in the retained logical UI tree. */
 public open class Element(public val kind: String = "element") : AutoCloseable {
     public val id: Long = nextId.incrementAndGet()
     public var parent: Element? = null
@@ -268,10 +283,13 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
     }
 }
 
+/** Boxless structural element used to group child declarations. */
 public class Fragment : Element("fragment")
 
+/** Identity-based typed key for element-local runtime attachments. */
 public class AttachmentKey<T : Any>
 
+/** Services and root callbacks inherited by nested [UiScope] instances. */
 public data class UiContext(
     val textLayout: TextLayoutService = HeadlessTextLayoutService,
     val textInput: TextInputService? = null,
@@ -293,6 +311,7 @@ public data class UiContext(
 )
 
 @UiDsl
+/** DSL receiver that mounts elements beneath [parent]. */
 public open class UiScope(public val parent: Element, public val context: UiContext = UiContext()) {
     public fun element(
         kind: String = "element",

@@ -6,12 +6,14 @@ import com.antepod.lumentika.platform.GestureConfiguration
 import kotlin.math.abs
 import kotlin.math.hypot
 
+/** Result of a recognizer's participation in a gesture arena. */
 public enum class GestureDisposition {
     PENDING,
     ACCEPTED,
     REJECTED,
 }
 
+/** Competes for normalized pointer sequences in a [GestureArena]. */
 public interface GestureRecognizer : AutoCloseable {
     public val team: Any?
 
@@ -26,6 +28,7 @@ public interface GestureRecognizer : AutoCloseable {
     public fun resolve(disposition: GestureDisposition)
 }
 
+/** Resolves competing recognizers for each active pointer. */
 public class GestureArena {
     private val entries = mutableMapOf<Int, MutableList<GestureRecognizer>>()
 
@@ -49,6 +52,7 @@ public class GestureArena {
     }
 }
 
+/** Base recognizer that tracks one pointer and integrates with an arena team. */
 public abstract class SinglePointerRecognizer(final override val team: Any?) : GestureRecognizer {
     protected var start = Point(0f, 0f)
     protected var last = start
@@ -93,6 +97,7 @@ public abstract class SinglePointerRecognizer(final override val team: Any?) : G
     override fun close() = cancel()
 }
 
+/** Recognizes a short press and release within the touch-slop threshold. */
 public class TapRecognizer(
     private val config: GestureConfiguration,
     private val onTap: () -> Unit,
@@ -111,6 +116,7 @@ public class TapRecognizer(
     }
 }
 
+/** Recognizes two taps within the configured timeout and distance. */
 public class DoubleTapRecognizer(
     private val config: GestureConfiguration,
     private val onDoubleTap: () -> Unit,
@@ -141,6 +147,7 @@ public class DoubleTapRecognizer(
     }
 }
 
+/** Recognizes a press held beyond the configured timeout. */
 public class LongPressRecognizer(
     private val config: GestureConfiguration,
     private val onLongPress: () -> Unit,
@@ -175,12 +182,14 @@ public class LongPressRecognizer(
     }
 }
 
+/** Axis constraint applied by a drag recognizer. */
 public enum class DragAxis {
     FREE,
     HORIZONTAL,
     VERTICAL,
 }
 
+/** Position and delta delivered during a recognized drag. */
 public data class DragUpdate(
     val position: Point,
     val delta: Point,
@@ -188,6 +197,7 @@ public data class DragUpdate(
     val velocity: ScrollDelta,
 )
 
+/** Recognizes axis-constrained or free pointer dragging. */
 public class DragRecognizer(
     private val config: GestureConfiguration,
     private val axis: DragAxis = DragAxis.FREE,
@@ -238,6 +248,7 @@ public class DragRecognizer(
     }
 }
 
+/** Recognizes drag gestures used to extend a text selection. */
 public class SelectionDragRecognizer(
     private val config: GestureConfiguration,
     private val onUpdate: (DragUpdate) -> Unit,
@@ -281,6 +292,7 @@ public class SelectionDragRecognizer(
     }
 }
 
+/** Coordinates tap, long-press, and drag gestures for text selection. */
 public class TextSelectionRecognizer(
     private val config: GestureConfiguration,
     private val onCaret: (Point) -> Unit,
@@ -343,12 +355,14 @@ public class TextSelectionRecognizer(
     }
 }
 
+/** Focal point and scale delta for a multi-pointer scale gesture. */
 public data class ScaleGestureUpdate(
     val centroid: Point,
     val scaleDelta: Float,
     val accumulatedScale: Float,
 )
 
+/** Recognizes multi-pointer scale gestures. */
 public class ScaleRecognizer(
     private val minimumSpan: Float,
     private val onUpdate: (ScaleGestureUpdate) -> Unit,
@@ -383,6 +397,7 @@ public class ScaleRecognizer(
     }
 }
 
+/** Two-dimensional scroll consumption in logical pixels. */
 public data class ScrollDelta(val x: Float, val y: Float) {
     public operator fun minus(other: ScrollDelta) = ScrollDelta(x - other.x, y - other.y)
 
@@ -391,6 +406,7 @@ public data class ScrollDelta(val x: Float, val y: Float) {
     public operator fun times(scale: Float) = ScrollDelta(x * scale, y * scale)
 }
 
+/** Input source responsible for a scroll update. */
 public enum class ScrollSource {
     WHEEL,
     TOUCH_DRAG,
@@ -402,6 +418,7 @@ public enum class ScrollSource {
     SCROLLBAR,
 }
 
+/** Parent hook for pre- and post-consumption of descendant scrolling. */
 public interface NestedScrollConnection {
     public fun preScroll(delta: ScrollDelta, source: ScrollSource) = ScrollDelta(0f, 0f)
 
@@ -413,15 +430,18 @@ public interface NestedScrollConnection {
     public fun postFling(consumed: ScrollDelta, remaining: ScrollDelta) = ScrollDelta(0f, 0f)
 }
 
+/** Computes velocity decay for inertial scrolling. */
 public interface FlingBehavior {
     public fun delta(velocity: ScrollDelta, elapsedSeconds: Float): ScrollDelta
 }
 
+/** Default exponential velocity decay. */
 public object ExponentialFling : FlingBehavior {
     override fun delta(velocity: ScrollDelta, elapsedSeconds: Float): ScrollDelta =
         velocity * (elapsedSeconds * kotlin.math.exp(-4f * elapsedSeconds))
 }
 
+/** Mutable scroll offsets, ranges, nested connection, and fling lifecycle. */
 public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
     private val listeners = linkedSetOf<(ScrollState) -> Unit>()
     private var flingGeneration = 0L
@@ -569,11 +589,13 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
         )
 }
 
+/** Horizontal or vertical scrollbar axis. */
 public enum class ScrollAxis {
     HORIZONTAL,
     VERTICAL,
 }
 
+/** Maps pointer dragging and scroll state to one scrollbar thumb. */
 public class ScrollbarController(
     private val state: ScrollState,
     public val axis: ScrollAxis,
@@ -628,6 +650,7 @@ public class ScrollbarController(
     }
 }
 
+/** Estimates pointer velocity from recent timestamped samples. */
 public class VelocityTracker {
     private val samples = ArrayDeque<Pair<Long, Point>>()
 

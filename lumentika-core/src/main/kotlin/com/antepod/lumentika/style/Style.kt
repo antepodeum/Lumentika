@@ -46,27 +46,36 @@ public data object Auto : DimensionValue, LengthPercentageAutoValue
 public data class Calc(val terms: List<Pair<Float, DimensionValue>>) :
     DimensionValue, LengthPercentageValue, LengthPercentageAutoValue
 
+/** Converts this number to logical pixels. */
 public val Number.px: Px
     get() = Px(toFloat())
+/** Converts this number to density-independent units. */
 public val Number.dp: Dp
     get() = Dp(toFloat())
+/** Converts this number to font-scaled units. */
 public val Number.sp: Sp
     get() = Sp(toFloat())
+/** Converts this number to physical device pixels. */
 public val Number.physicalPx: PhysicalPx
     get() = PhysicalPx(toFloat())
+/** Converts this percentage value to a fractional dimension. */
 public val Number.percent: Percent
     get() = Percent(toFloat() / 100f)
 
+/** Returns the automatic dimension value for function-oriented DSL usage. */
 public fun auto(): Auto = Auto
 
 /** Values for the top, right, bottom, and left edges. */
 public data class Edges<T>(val top: T, val right: T, val bottom: T, val left: T)
 
+/** Creates equal values for all four edges. */
 public fun <T> edges(all: T): Edges<T> = Edges(all, all, all, all)
 
+/** Creates edges using shared vertical and horizontal values. */
 public fun <T> edges(vertical: T, horizontal: T): Edges<T> =
     Edges(vertical, horizontal, vertical, horizontal)
 
+/** Creates independently specified edge values in top-right-bottom-left order. */
 public fun <T> edges(top: T, right: T, bottom: T, left: T): Edges<T> =
     Edges(top, right, bottom, left)
 
@@ -92,6 +101,7 @@ public data class ImagePaint(val source: String) : Paint
 /** Ordered composition of multiple paints. */
 public data class LayeredPaint(val layers: List<Paint>) : Paint
 
+/** Creates a solid paint from 8-bit red, green, blue, and alpha channels. */
 public fun rgb(red: Int, green: Int, blue: Int, alpha: Int = 255): SolidPaint =
     SolidPaint(
         (alpha.coerceIn(0, 255) shl 24) or
@@ -615,11 +625,22 @@ public enum class BuiltinStyleState : StyleState {
     DISABLED,
 }
 
+/** Style state active while a pointing device hovers the element. */
 public val HOVER: StyleState = BuiltinStyleState.HOVER
+
+/** Style state active while the element is being pressed. */
 public val ACTIVE: StyleState = BuiltinStyleState.ACTIVE
+
+/** Style state active while the element owns input focus. */
 public val FOCUS: StyleState = BuiltinStyleState.FOCUS
+
+/** Focus state intended for visible keyboard-focus indication. */
 public val FOCUS_VISIBLE: StyleState = BuiltinStyleState.FOCUS_VISIBLE
+
+/** Style state active while the element or a descendant owns focus. */
 public val FOCUS_WITHIN: StyleState = BuiltinStyleState.FOCUS_WITHIN
+
+/** Style state active when interaction is disabled. */
 public val DISABLED: StyleState = BuiltinStyleState.DISABLED
 
 /** Predicate over the active style states of an element. */
@@ -655,12 +676,16 @@ private data class Not(val condition: StyleCondition) : StyleCondition {
     override fun matches(states: Set<StyleState>) = !condition.matches(states)
 }
 
+/** Creates a condition that matches [state]. */
 public fun condition(state: StyleState): StyleCondition = HasState(state)
 
+/** Creates a condition requiring every supplied state. */
 public fun all(vararg states: StyleState): StyleCondition = All(states.map(::HasState))
 
+/** Creates a condition requiring at least one supplied state. */
 public fun any(vararg states: StyleState): StyleCondition = AnyCondition(states.map(::HasState))
 
+/** Creates a condition that excludes [state]. */
 public fun not(state: StyleState): StyleCondition = Not(HasState(state))
 
 /** One conditional assignment in a compiled style program. */
@@ -985,6 +1010,7 @@ public fun style(block: StyleBuilder.() -> Unit): Style = StyleBuilder().apply(b
 /** Typed theme variable with a fallback value. */
 public class StyleVar<T>(public val default: T)
 
+/** Creates a typed theme variable with [default]. */
 public fun <T> styleVar(default: T): StyleVar<T> = StyleVar(default)
 
 /** Stable component skinning point identified by [name]. */
