@@ -220,7 +220,6 @@ public value class StyleImpact(public val bits: Int) {
 /** Typed metadata and default value for one style property. */
 public class StyleProperty<T>(
     public val id: Int,
-    public val name: String,
     public val initialValue: T,
     public val inherited: Boolean = false,
     public val impact: StyleImpact,
@@ -246,154 +245,132 @@ public object Properties {
     public val Display =
         StyleProperty(
             GeneratedStylePropertyCatalog.DISPLAY,
-            "display",
             com.antepod.lumentika.style.Display.BLOCK,
             impact = StyleImpact.LAYOUT,
         )
     public val Width =
         StyleProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.WIDTH,
-            "width",
             Auto,
             impact = StyleImpact.LAYOUT,
         )
     public val Height =
         StyleProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.HEIGHT,
-            "height",
             Auto,
             impact = StyleImpact.LAYOUT,
         )
     public val MinWidth =
         StyleProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.MIN_WIDTH,
-            "minWidth",
             Auto,
             impact = StyleImpact.LAYOUT,
         )
     public val MinHeight =
         StyleProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.MIN_HEIGHT,
-            "minHeight",
             Auto,
             impact = StyleImpact.LAYOUT,
         )
     public val MaxWidth =
         StyleProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.MAX_WIDTH,
-            "maxWidth",
             Auto,
             impact = StyleImpact.LAYOUT,
         )
     public val MaxHeight =
         StyleProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.MAX_HEIGHT,
-            "maxHeight",
             Auto,
             impact = StyleImpact.LAYOUT,
         )
     public val Padding =
         StyleProperty(
             GeneratedStylePropertyCatalog.PADDING,
-            "padding",
             edges<DimensionValue>(0.px),
             impact = StyleImpact.LAYOUT,
         )
     public val Margin =
         StyleProperty(
             GeneratedStylePropertyCatalog.MARGIN,
-            "margin",
             edges<DimensionValue>(0.px),
             impact = StyleImpact.LAYOUT,
         )
     public val Gap =
         StyleProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.GAP,
-            "gap",
             0.px,
             impact = StyleImpact.LAYOUT,
         )
     public val FlexDirection =
         StyleProperty(
             GeneratedStylePropertyCatalog.FLEX_DIRECTION,
-            "flexDirection",
             com.antepod.lumentika.style.FlexDirection.ROW,
             impact = StyleImpact.LAYOUT,
         )
     public val FlexGrow =
         StyleProperty(
             GeneratedStylePropertyCatalog.FLEX_GROW,
-            "flexGrow",
             0f,
             impact = StyleImpact.LAYOUT,
         )
     public val FlexShrink =
         StyleProperty(
             GeneratedStylePropertyCatalog.FLEX_SHRINK,
-            "flexShrink",
             1f,
             impact = StyleImpact.LAYOUT,
         )
     public val Overflow =
         StyleProperty(
             GeneratedStylePropertyCatalog.OVERFLOW,
-            "overflow",
             com.antepod.lumentika.style.Overflow.VISIBLE,
             impact = StyleImpact.LAYOUT + StyleImpact.CLIP + StyleImpact.SCROLL,
         )
     public val Background =
         StyleProperty<Paint?>(
             GeneratedStylePropertyCatalog.BACKGROUND,
-            "background",
             null,
             impact = StyleImpact.PAINT,
         )
     public val BorderRadius =
         StyleProperty(
             GeneratedStylePropertyCatalog.BORDER_RADIUS,
-            "borderRadius",
             CornerRadii(),
             impact = StyleImpact.PAINT + StyleImpact.CLIP,
         )
     public val BorderPaint =
         StyleProperty<Paint?>(
             GeneratedStylePropertyCatalog.BORDER_PAINT,
-            "borderPaint",
             null,
             impact = StyleImpact.PAINT,
         )
     public val BoxShadows =
         StyleProperty(
             GeneratedStylePropertyCatalog.BOX_SHADOWS,
-            "boxShadows",
             emptyList<BoxShadow>(),
             impact = StyleImpact.PAINT + StyleImpact.EFFECT,
         )
     public val ClipShape =
         StyleProperty<com.antepod.lumentika.geometry.ClipShape?>(
             GeneratedStylePropertyCatalog.CLIP_SHAPE,
-            "clipShape",
             null,
             impact = StyleImpact.CLIP,
         )
     public val Opacity =
         StyleProperty(
             GeneratedStylePropertyCatalog.OPACITY,
-            "opacity",
             1f,
             impact = StyleImpact.EFFECT,
         )
     public val ZIndex =
         StyleProperty(
             GeneratedStylePropertyCatalog.Z_INDEX,
-            "zIndex",
             0,
             impact = StyleImpact.STACKING,
         )
     public val Visibility =
         StyleProperty(
             GeneratedStylePropertyCatalog.VISIBILITY,
-            "visibility",
             com.antepod.lumentika.style.Visibility.VISIBLE,
             true,
             StyleImpact.PAINT +
@@ -404,14 +381,12 @@ public object Properties {
     public val PointerEvents =
         StyleProperty(
             GeneratedStylePropertyCatalog.POINTER_EVENTS,
-            "pointerEvents",
             com.antepod.lumentika.style.PointerEvents.AUTO,
             impact = StyleImpact.INTERACTION,
         )
     public val FontSize =
         StyleProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.FONT_SIZE,
-            "fontSize",
             16.sp,
             true,
             StyleImpact.INTRINSIC_MEASURE +
@@ -422,183 +397,156 @@ public object Properties {
     public val Color =
         StyleProperty<Paint>(
             GeneratedStylePropertyCatalog.COLOR,
-            "color",
             rgb(0, 0, 0),
             true,
             StyleImpact.PAINT + StyleImpact.INHERITANCE,
         )
     public val ItemIsTable =
-        layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_TABLE, "itemIsTable", false)
+        layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_TABLE, false)
     public val ItemIsReplaced =
-        layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_REPLACED, "itemIsReplaced", false)
+        layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_REPLACED, false)
     public val BoxSizing =
         layoutProperty(
             GeneratedStylePropertyCatalog.BOX_SIZING,
-            "boxSizing",
             com.antepod.lumentika.style.BoxSizing.BORDER_BOX,
         )
     public val Direction =
         layoutProperty(
             GeneratedStylePropertyCatalog.DIRECTION,
-            "direction",
             com.antepod.lumentika.style.Direction.LTR,
         )
     public val OverflowX =
-        layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_X, "overflowX", null)
+        layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_X, null)
     public val OverflowY =
-        layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_Y, "overflowY", null)
+        layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_Y, null)
     public val ScrollbarWidth =
         layoutProperty<AbsoluteLengthValue>(
             GeneratedStylePropertyCatalog.SCROLLBAR_WIDTH,
-            "scrollbarWidth",
             0.px,
         )
     public val FloatValue =
         layoutProperty(
             GeneratedStylePropertyCatalog.FLOAT_VALUE,
-            "floatValue",
             FloatLayout.NONE,
         )
     public val Clear =
         layoutProperty(
             GeneratedStylePropertyCatalog.CLEAR,
-            "clear",
             com.antepod.lumentika.style.Clear.NONE,
         )
     public val Position =
         layoutProperty(
             GeneratedStylePropertyCatalog.POSITION,
-            "position",
             com.antepod.lumentika.style.Position.RELATIVE,
         )
     public val Inset =
         layoutProperty(
             GeneratedStylePropertyCatalog.INSET,
-            "inset",
             edges<LengthPercentageAutoValue>(Auto),
         )
     public val AspectRatio =
-        layoutProperty<Float?>(GeneratedStylePropertyCatalog.ASPECT_RATIO, "aspectRatio", null)
+        layoutProperty<Float?>(GeneratedStylePropertyCatalog.ASPECT_RATIO, null)
     public val Border =
         layoutProperty(
             GeneratedStylePropertyCatalog.BORDER,
-            "border",
             edges<LengthPercentageValue>(0.px),
         )
     public val AlignItems =
         layoutProperty<com.antepod.lumentika.style.AlignItems?>(
             GeneratedStylePropertyCatalog.ALIGN_ITEMS,
-            "alignItems",
             null,
         )
     public val AlignSelf =
         layoutProperty<com.antepod.lumentika.style.AlignItems?>(
             GeneratedStylePropertyCatalog.ALIGN_SELF,
-            "alignSelf",
             null,
         )
     public val JustifyItems =
         layoutProperty<com.antepod.lumentika.style.AlignItems?>(
             GeneratedStylePropertyCatalog.JUSTIFY_ITEMS,
-            "justifyItems",
             null,
         )
     public val JustifySelf =
         layoutProperty<com.antepod.lumentika.style.AlignItems?>(
             GeneratedStylePropertyCatalog.JUSTIFY_SELF,
-            "justifySelf",
             null,
         )
     public val AlignContent =
         layoutProperty<com.antepod.lumentika.style.AlignContent?>(
             GeneratedStylePropertyCatalog.ALIGN_CONTENT,
-            "alignContent",
             null,
         )
     public val JustifyContent =
         layoutProperty<com.antepod.lumentika.style.AlignContent?>(
             GeneratedStylePropertyCatalog.JUSTIFY_CONTENT,
-            "justifyContent",
             null,
         )
     public val ColumnGap =
         layoutProperty<DimensionValue?>(
             GeneratedStylePropertyCatalog.COLUMN_GAP,
-            "columnGap",
             null,
         )
     public val RowGap =
-        layoutProperty<DimensionValue?>(GeneratedStylePropertyCatalog.ROW_GAP, "rowGap", null)
+        layoutProperty<DimensionValue?>(GeneratedStylePropertyCatalog.ROW_GAP, null)
     public val TextAlign =
         layoutProperty(
             GeneratedStylePropertyCatalog.TEXT_ALIGN,
-            "textAlign",
             com.antepod.lumentika.style.TextAlign.AUTO,
         )
     public val FlexWrap =
         layoutProperty(
             GeneratedStylePropertyCatalog.FLEX_WRAP,
-            "flexWrap",
             com.antepod.lumentika.style.FlexWrap.NO_WRAP,
         )
     public val FlexBasis =
         layoutProperty<DimensionValue>(
             GeneratedStylePropertyCatalog.FLEX_BASIS,
-            "flexBasis",
             Auto,
         )
     public val GridTemplateRows =
         layoutProperty(
             GeneratedStylePropertyCatalog.GRID_TEMPLATE_ROWS,
-            "gridTemplateRows",
             emptyList<GridTemplateComponent>(),
         )
     public val GridTemplateColumns =
         layoutProperty(
             GeneratedStylePropertyCatalog.GRID_TEMPLATE_COLUMNS,
-            "gridTemplateColumns",
             emptyList<GridTemplateComponent>(),
         )
     public val GridAutoRows =
         layoutProperty(
             GeneratedStylePropertyCatalog.GRID_AUTO_ROWS,
-            "gridAutoRows",
             emptyList<GridTrackSizing>(),
         )
     public val GridAutoColumns =
         layoutProperty(
             GeneratedStylePropertyCatalog.GRID_AUTO_COLUMNS,
-            "gridAutoColumns",
             emptyList<GridTrackSizing>(),
         )
     public val GridAutoFlow =
         layoutProperty(
             GeneratedStylePropertyCatalog.GRID_AUTO_FLOW,
-            "gridAutoFlow",
             com.antepod.lumentika.style.GridAutoFlow.ROW,
         )
     public val GridTemplateAreas =
         layoutProperty<com.antepod.lumentika.style.GridTemplateAreas?>(
             GeneratedStylePropertyCatalog.GRID_TEMPLATE_AREAS,
-            "gridTemplateAreas",
             null,
         )
     public val GridTemplateColumnNames =
         layoutProperty(
             GeneratedStylePropertyCatalog.GRID_TEMPLATE_COLUMN_NAMES,
-            "gridTemplateColumnNames",
             emptyList<List<String>>(),
         )
     public val GridTemplateRowNames =
         layoutProperty(
             GeneratedStylePropertyCatalog.GRID_TEMPLATE_ROW_NAMES,
-            "gridTemplateRowNames",
             emptyList<List<String>>(),
         )
     public val GridRow =
-        layoutProperty(GeneratedStylePropertyCatalog.GRID_ROW, "gridRow", GridLine())
+        layoutProperty(GeneratedStylePropertyCatalog.GRID_ROW, GridLine())
     public val GridColumn =
-        layoutProperty(GeneratedStylePropertyCatalog.GRID_COLUMN, "gridColumn", GridLine())
+        layoutProperty(GeneratedStylePropertyCatalog.GRID_COLUMN, GridLine())
     public val all: List<StyleProperty<*>> =
         listOf(
             Display,
@@ -662,8 +610,8 @@ public object Properties {
             GridColumn,
         )
 
-    private fun <T> layoutProperty(id: Int, name: String, initialValue: T): StyleProperty<T> =
-        StyleProperty(id, name, initialValue, impact = StyleImpact.LAYOUT)
+    private fun <T> layoutProperty(id: Int, initialValue: T): StyleProperty<T> =
+        StyleProperty(id, initialValue, impact = StyleImpact.LAYOUT)
 }
 
 /** Marker for built-in or library-defined element states used by style conditions. */
@@ -1281,7 +1229,7 @@ internal constructor(
                 taffyLayout.gridTemplateRowNames
             GeneratedStylePropertyCatalog.GRID_ROW -> taffyLayout.gridRow
             GeneratedStylePropertyCatalog.GRID_COLUMN -> taffyLayout.gridColumn
-            else -> error("Unknown style property ${property.name}")
+            else -> error("Unknown style property id ${property.id}")
         }
             as T
     }
