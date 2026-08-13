@@ -401,8 +401,7 @@ public object Properties {
             true,
             StyleImpact.PAINT + StyleImpact.INHERITANCE,
         )
-    public val ItemIsTable =
-        layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_TABLE, false)
+    public val ItemIsTable = layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_TABLE, false)
     public val ItemIsReplaced =
         layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_REPLACED, false)
     public val BoxSizing =
@@ -415,10 +414,8 @@ public object Properties {
             GeneratedStylePropertyCatalog.DIRECTION,
             com.antepod.lumentika.style.Direction.LTR,
         )
-    public val OverflowX =
-        layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_X, null)
-    public val OverflowY =
-        layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_Y, null)
+    public val OverflowX = layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_X, null)
+    public val OverflowY = layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_Y, null)
     public val ScrollbarWidth =
         layoutProperty<AbsoluteLengthValue>(
             GeneratedStylePropertyCatalog.SCROLLBAR_WIDTH,
@@ -486,8 +483,7 @@ public object Properties {
             GeneratedStylePropertyCatalog.COLUMN_GAP,
             null,
         )
-    public val RowGap =
-        layoutProperty<DimensionValue?>(GeneratedStylePropertyCatalog.ROW_GAP, null)
+    public val RowGap = layoutProperty<DimensionValue?>(GeneratedStylePropertyCatalog.ROW_GAP, null)
     public val TextAlign =
         layoutProperty(
             GeneratedStylePropertyCatalog.TEXT_ALIGN,
@@ -543,10 +539,8 @@ public object Properties {
             GeneratedStylePropertyCatalog.GRID_TEMPLATE_ROW_NAMES,
             emptyList<List<String>>(),
         )
-    public val GridRow =
-        layoutProperty(GeneratedStylePropertyCatalog.GRID_ROW, GridLine())
-    public val GridColumn =
-        layoutProperty(GeneratedStylePropertyCatalog.GRID_COLUMN, GridLine())
+    public val GridRow = layoutProperty(GeneratedStylePropertyCatalog.GRID_ROW, GridLine())
+    public val GridColumn = layoutProperty(GeneratedStylePropertyCatalog.GRID_COLUMN, GridLine())
     public val all: List<StyleProperty<*>> =
         listOf(
             Display,
