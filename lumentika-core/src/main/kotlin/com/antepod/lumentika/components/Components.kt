@@ -17,6 +17,7 @@ import com.antepod.lumentika.input.KeyboardEvent
 import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.Mutable
+import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.reactive.effect
 import com.antepod.lumentika.reactive.withComponentScope
 import com.antepod.lumentika.render.RenderProperties
@@ -158,6 +159,19 @@ public fun UiScope.list(content: UiScope.() -> Unit = {}): Element =
 
 public fun UiScope.text(value: String): Element =
     element("text", TextContent(value, context.textLayout))
+
+public fun UiScope.text(value: Readable<String>): Element = text { value.value }
+
+public fun UiScope.text(value: () -> String): Element {
+    val element = element("text", TextContent(value(), context.textLayout))
+    withComponentScope(element.scope) {
+        effect {
+            element.content = TextContent(value(), context.textLayout)
+            context.requestFrame(true)
+        }
+    }
+    return element
+}
 
 public fun UiScope.image(
     source: ImageSource,

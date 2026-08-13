@@ -116,6 +116,28 @@ class ComponentsTest {
     }
 
     @Test
+    fun `reactive text replaces content without remounting element`() {
+        val root = headlessRoot(100f, 100f)
+        val value = state("first")
+        val text = root.scope.text(value)
+        root.requestFrame()
+        root.frame(1)
+
+        value.value = "second"
+        root.frame(2)
+
+        assertSame(text, root.element.children.single())
+        assertEquals("second", (text.content as TextContent).text)
+        assertTrue(
+            root.committedRender.paint.chunks
+                .flatMap { it.commands }
+                .filterIsInstance<PaintCommand.DrawText>()
+                .any { it.text == "second" }
+        )
+        root.close()
+    }
+
+    @Test
     fun `all universal components mount expected behavior and semantics`() {
         val root = Element("root")
         val ui = UiScope(root)

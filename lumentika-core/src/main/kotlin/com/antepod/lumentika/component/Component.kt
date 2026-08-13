@@ -60,8 +60,9 @@ public sealed class Declaration<T>(initial: Any?) {
     public fun source(scope: ComponentScope, block: () -> T) =
         source(withComponentScope(scope) { derived(block = block) }, scope)
 
-    internal fun dispose() {
+    internal open fun dispose() {
         sourceHandle?.close()
+        sourceHandle = null
     }
 
     protected fun write(value: T) {
@@ -112,6 +113,11 @@ public class Binding<T> internal constructor(initial: Any?) : Declaration<T>(ini
             }
         }
     }
+
+    internal override fun dispose() {
+        super.dispose()
+        bound = null
+    }
 }
 
 public class Event<E> internal constructor() {
@@ -147,6 +153,7 @@ public abstract class Component : AutoCloseable {
     private val declarations = mutableListOf<Pair<String, Declaration<*>>>()
     public val componentScope: ComponentScope = ComponentScope()
     private var mounted: Element? = null
+    private var disposing = false
     protected lateinit var ui: UiScope
         private set
 
@@ -182,18 +189,31 @@ public abstract class Component : AutoCloseable {
                 view()
             }
         mounted = result
+        result.attach(ComponentLifecycleAttachment, AutoCloseable { dispose(detach = false) })
         return result
     }
 
     protected abstract fun view(): Element
 
-    override fun close() {
-        declarations.forEach { it.second.dispose() }
-        mounted?.parent?.remove(mounted!!)
+    override fun close() = dispose(detach = true)
+
+    private fun dispose(detach: Boolean) {
+        if (disposing || mounted == null && componentScope.isDisposed) return
+        disposing = true
+        val current = mounted
         mounted = null
-        componentScope.close()
+        declarations.forEach { it.second.dispose() }
+        try {
+            if (detach) current?.parent?.remove(current)
+            componentScope.close()
+        } finally {
+            disposing = false
+        }
     }
 }
+
+private val ComponentLifecycleAttachment =
+    com.antepod.lumentika.runtime.AttachmentKey<AutoCloseable>()
 
 public fun <T> prop(default: T): Prop<T> = Prop(default)
 

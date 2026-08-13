@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class ComponentTest {
     private class Counter : Component() {
@@ -71,5 +72,20 @@ class ComponentTest {
         val items = state(listOf(1))
         UiScope(root).forEach(items, key = { it }) { element("item") }
         assertFailsWith<IllegalArgumentException> { items.value = listOf(1, 1) }
+    }
+
+    @Test
+    fun `unmount disposes component scope and detaches binding`() {
+        val root = Element("root")
+        val external = state(1)
+        val counter = Counter()
+        counter.count.bind(external, counter.componentScope)
+        counter.mount(UiScope(root))
+
+        root.close()
+        counter.count.value = 9
+
+        assertEquals(1, external.value)
+        assertTrue(counter.componentScope.isDisposed)
     }
 }
