@@ -248,7 +248,7 @@ private fun String.offsetByCodePointsSafely(index: Int, delta: Int): Int {
 public data class TextInputConfiguration(
     val multiline: Boolean = false,
     val secure: Boolean = false,
-    val autofillHints: Set<String> = emptySet(),
+    val autofillHints: Set<AutofillHint> = emptySet(),
 )
 
 /** Receives commands from an active native text-input session. */

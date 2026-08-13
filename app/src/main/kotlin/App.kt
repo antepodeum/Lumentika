@@ -69,11 +69,16 @@ data class TaffyLayoutProof(
     val secondCell: Rect,
 )
 
-private data class ShowcaseBackendCommand(val id: String, val bounds: Rect) : BackendPaintCommand
+private enum class ShowcasePaintKind {
+    SAMPLE
+}
 
-private data class ShowcasePaint(val id: String) : Paint {
+private data class ShowcaseBackendCommand(val kind: ShowcasePaintKind, val bounds: Rect) :
+    BackendPaintCommand
+
+private data class ShowcasePaint(val kind: ShowcasePaintKind) : Paint {
     override fun backendCommand(bounds: Rect): BackendPaintCommand =
-        ShowcaseBackendCommand(id, bounds)
+        ShowcaseBackendCommand(kind, bounds)
 }
 
 private class ShowcaseContent(var size: Size) : Content, IntrinsicMeasurable {
@@ -188,7 +193,7 @@ fun runCoreShowcase(): CoreShowcaseProof {
                 style {
                     width = 48.px
                     height = 40.px
-                    background = ShowcasePaint("showcase")
+                    background = ShowcasePaint(ShowcasePaintKind.SAMPLE)
                     border = edges(2.px)
                     borderPaint = rgb(40, 40, 40)
                     borderRadius = CornerRadii(8f)

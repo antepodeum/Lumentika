@@ -48,8 +48,8 @@ public sealed class Declaration<T>(initial: Any?) {
     public open val value: T
         get() = local.value
 
-    internal fun ensureConfigured(name: String) {
-        require(configured) { "Required declaration '$name' was not configured" }
+    internal fun ensureConfigured() {
+        require(configured) { "Required component declaration was not configured" }
     }
 
     /** Replaces the declaration with a fixed one-way [value]. */
@@ -175,7 +175,7 @@ public class SlotList internal constructor() : Slot()
 
 /** Base class for persistent, owner-scoped UI components. */
 public abstract class Component : AutoCloseable {
-    private val declarations = mutableListOf<Pair<String, Declaration<*>>>()
+    private val declarations = mutableListOf<Declaration<*>>()
     public val componentScope: ComponentScope = ComponentScope()
     private var mounted: Element? = null
     private var disposing = false
@@ -200,14 +200,14 @@ public abstract class Component : AutoCloseable {
     protected fun slotList(): SlotList = SlotList()
 
     protected fun <T : Declaration<*>> register(declaration: T): T {
-        declarations += "declaration${declarations.size}" to declaration
+        declarations += declaration
         return declaration
     }
 
     /** Creates and owns the component view beneath [scope]. */
     public fun mount(scope: UiScope): Element {
         check(mounted == null) { "Component already mounted" }
-        declarations.forEach { (name, declaration) -> declaration.ensureConfigured(name) }
+        declarations.forEach(Declaration<*>::ensureConfigured)
         ui = scope
         val result =
             withComponentScope(componentScope) {
@@ -228,7 +228,7 @@ public abstract class Component : AutoCloseable {
         disposing = true
         val current = mounted
         mounted = null
-        declarations.forEach { it.second.dispose() }
+        declarations.forEach(Declaration<*>::dispose)
         try {
             if (detach) current?.parent?.remove(current)
             componentScope.close()

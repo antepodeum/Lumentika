@@ -16,16 +16,21 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
 
-private data class ExternalCommand(val key: String, val bounds: Rect) : BackendPaintCommand
+private enum class ExternalPaintKind {
+    SAMPLE
+}
 
-private data class ExternalPaint(val key: String) : Paint {
-    override fun backendCommand(bounds: Rect): BackendPaintCommand = ExternalCommand(key, bounds)
+private data class ExternalCommand(val kind: ExternalPaintKind, val bounds: Rect) :
+    BackendPaintCommand
+
+private data class ExternalPaint(val kind: ExternalPaintKind) : Paint {
+    override fun backendCommand(bounds: Rect): BackendPaintCommand = ExternalCommand(kind, bounds)
 }
 
 class ExternalPaintTest {
     @Test
     fun `external paint resolves records and replays backend command`() {
-        val paint = ExternalPaint("external")
+        val paint = ExternalPaint(ExternalPaintKind.SAMPLE)
         val root = Element().apply { geometry = Rect(0f, 0f, 20f, 10f) }
         val styles = StyleRuntime()
         styles.attach(root, state(style { background = paint }))
@@ -35,7 +40,10 @@ class ExternalPaintTest {
         val artifact = runtime.commit().paint
         val command =
             artifact.chunks.single().commands.filterIsInstance<PaintCommand.Backend>().single()
-        assertEquals(ExternalCommand("external", Rect(0f, 0f, 20f, 10f)), command.extension)
+        assertEquals(
+            ExternalCommand(ExternalPaintKind.SAMPLE, Rect(0f, 0f, 20f, 10f)),
+            command.extension,
+        )
 
         var received: ExternalCommand? = null
         runtime.replay(
@@ -51,7 +59,7 @@ class ExternalPaintTest {
                 }
             }
         )
-        assertEquals("external", received?.key)
+        assertEquals(ExternalPaintKind.SAMPLE, received?.kind)
         root.close()
     }
 }

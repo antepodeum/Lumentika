@@ -1063,7 +1063,7 @@ internal fun UiScope.textFieldControl(
             TextInputConfiguration(
                 multiline = multiline,
                 secure = secure,
-                autofillHints = autofill?.hints?.mapTo(mutableSetOf()) { it.name }.orEmpty(),
+                autofillHints = autofill?.hints.orEmpty(),
             ),
             context.clipboard,
         )
