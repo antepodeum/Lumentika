@@ -86,12 +86,14 @@ public class AnimationTrack<T>(
                             .coerceIn(0f, 1f)
                             .let(s.easing)
                 is SpringSpec ->
-                    (1 -
-                            exp(
-                                -((timeNanos - start) / 1_000_000_000f) *
-                                    s.stiffness.coerceAtLeast(1f) / 40f * s.dampingRatio
-                            ))
-                        .coerceIn(0f, 1f)
+                    if (motionScale == 0f) 1f
+                    else
+                        (1 -
+                                exp(
+                                    -((timeNanos - start) / 1_000_000_000f / motionScale) *
+                                        s.stiffness.coerceAtLeast(1f) / 40f * s.dampingRatio
+                                ))
+                            .coerceIn(0f, 1f)
             }
         value = adapter.interpolate(from, target, f)
         val active = f < .999f
@@ -123,21 +125,6 @@ public class TransitionBuilder {
     ) {
         values[property] = Transition(spec, adapter)
     }
-
-    public var opacity: MotionSpec
-        get() = error("write-only")
-        set(value) =
-            set(com.antepod.lumentika.style.Properties.Opacity, value, FloatAnimationAdapter)
-
-    public var width: MotionSpec
-        get() = error("write-only")
-        set(value) =
-            set(com.antepod.lumentika.style.Properties.Width, value, DimensionAnimationAdapter)
-
-    public var height: MotionSpec
-        get() = error("write-only")
-        set(value) =
-            set(com.antepod.lumentika.style.Properties.Height, value, DimensionAnimationAdapter)
 
     internal fun build(): TransitionSet = TransitionSet(values.toMap())
 }
@@ -186,6 +173,12 @@ public class StyleAnimationRuntime(
         private val property: StyleProperty<T>,
         private val track: AnimationTrack<T>,
     ) : RunningTrack {
+        fun canRetarget(target: T): Boolean = track.canRetarget(target)
+
+        fun retarget(target: T, timeNanos: Long, spec: MotionSpec) {
+            track.retarget(target, timeNanos, spec)
+        }
+
         override fun frame(
             timeNanos: Long,
             motionScale: Float,
@@ -210,6 +203,13 @@ public class StyleAnimationRuntime(
         transition: Transition<T>,
     ) {
         val key = Key(element, property)
+        @Suppress("UNCHECKED_CAST") val running = tracks[key] as? TypedTrack<T>
+        if (running != null && running.canRetarget(to)) {
+            running.retarget(to, clock.frameTimeNanos, transition.spec)
+            ensureScheduled()
+            requestFrame()
+            return
+        }
         if (!transition.adapter.canInterpolate(from, to)) {
             tracks.remove(key)
             overlay.remove(element, property)
@@ -218,6 +218,7 @@ public class StyleAnimationRuntime(
         }
         val track = AnimationTrack(from, transition.adapter, transition.spec)
         track.retarget(to, clock.frameTimeNanos)
+        overlay.set(element, property, from)
         tracks[key] = TypedTrack(key, property, track)
         ensureScheduled()
         requestFrame()
@@ -262,6 +263,11 @@ public class UiAnimationClock {
         private set
 
     private val callbacks = linkedSetOf<(Long) -> Boolean>()
+    public var motionScale: Float = 1f
+        set(value) {
+            require(value.isFinite() && value >= 0f)
+            field = value
+        }
 
     public fun animate(callback: (Long) -> Boolean) {
         callbacks += callback

@@ -56,6 +56,42 @@ abstract class GenerateStylePropertyCatalog : DefaultTask() {
                 appendLine("}")
             }
         )
+
+        val animationOutput =
+            outputDirectory
+                .file("com/antepod/lumentika/animation/GeneratedAnimationAdapters.kt")
+                .get()
+                .asFile
+        animationOutput.parentFile.mkdirs()
+        animationOutput.writeText(
+            """
+            package com.antepod.lumentika.animation
+
+            import com.antepod.lumentika.style.DimensionValue
+            import com.antepod.lumentika.style.Properties
+
+            // Generated with the style catalog. Only properties with compatible value families
+            // are exposed, so discrete style properties cannot accidentally be animated.
+            public object GeneratedOpacityAnimationAdapter : AnimationAdapter<Float> by FloatAnimationAdapter
+
+            public object GeneratedWidthAnimationAdapter : AnimationAdapter<DimensionValue> by DimensionAnimationAdapter
+
+            public object GeneratedHeightAnimationAdapter : AnimationAdapter<DimensionValue> by DimensionAnimationAdapter
+
+            public var TransitionBuilder.opacity: MotionSpec
+                get() = error("write-only")
+                set(value) = set(Properties.Opacity, value, GeneratedOpacityAnimationAdapter)
+
+            public var TransitionBuilder.width: MotionSpec
+                get() = error("write-only")
+                set(value) = set(Properties.Width, value, GeneratedWidthAnimationAdapter)
+
+            public var TransitionBuilder.height: MotionSpec
+                get() = error("write-only")
+                set(value) = set(Properties.Height, value, GeneratedHeightAnimationAdapter)
+            """
+                .trimIndent() + "\n"
+        )
     }
 }
 

@@ -6,6 +6,7 @@ import com.antepod.lumentika.components.ControlGestureHandle
 import com.antepod.lumentika.components.GestureAttachment
 import com.antepod.lumentika.components.ReceiveContentAttachment
 import com.antepod.lumentika.components.ScrollRuntimeAttachment
+import com.antepod.lumentika.components.TextEditorAttachment
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.gesture.GestureArena
@@ -76,7 +77,10 @@ public class UiRoot(
     public val styles = StyleRuntime()
     public val events = EventDispatcher(element)
     public val focus = FocusManager(element, events)
-    public val semantics = SemanticsRuntime(element)
+    public val semantics =
+        SemanticsRuntime(element) { message, priority ->
+            services.accessibility?.announce(message, priority)
+        }
     public val autofill = AutofillRuntime()
     public val animations = UiAnimationClock()
     private val defaultStyle = state(style {})
@@ -122,6 +126,8 @@ public class UiRoot(
     private val render =
         RenderRuntime(element) { styleAnimations.effective(it, styles.resolve(it).first) }
     private val pointerGestures = mutableMapOf<Int, PointerGestureSession>()
+    private var lastPlatformFrameNanos = 0L
+    private var logicalFrameTimeNanos = 0L
     public var frameTimeNanos = 0L
         private set
 
@@ -240,9 +246,28 @@ public class UiRoot(
     public fun frame(timeNanos: Long) {
         frame.consume()
         frameTimeNanos = timeNanos
-        val animationsActive = animations.frame(timeNanos)
+        require(timeNanos >= lastPlatformFrameNanos) { "Frame timestamps must be monotonic" }
+        val delta =
+            if (lastPlatformFrameNanos == 0L) timeNanos else timeNanos - lastPlatformFrameNanos
+        lastPlatformFrameNanos = timeNanos
+        val lifecycle = environment.value.lifecycle
+        val animationsActive =
+            if (lifecycle == UiLifecycleState.SUSPENDED || lifecycle == UiLifecycleState.DISPOSED) {
+                false
+            } else {
+                logicalFrameTimeNanos += delta
+                animations.motionScale = environment.value.motionDurationScale
+                styleAnimations.motionScale = environment.value.motionDurationScale
+                animations.frame(logicalFrameTimeNanos)
+            }
+        if (lifecycle != UiLifecycleState.SUSPENDED && lifecycle != UiLifecycleState.DISPOSED) {
+            pointerGestures.values.forEach { session ->
+                session.handles.forEach { it.advance(logicalFrameTimeNanos) }
+            }
+        }
         layout.frame(timeNanos, environment.value)
         updateScrollRanges(element)
+        updateTextEditorViewports(element)
         val commit = render.commit()
         val changes = semantics.commit(commit.hitTest)
         services.accessibility?.onArtifactCommitted(semantics.artifact, changes)
@@ -253,6 +278,20 @@ public class UiRoot(
     }
 
     public fun applyAutofill(id: AutofillNodeId, text: String): Boolean = autofill.apply(id, text)
+
+    public fun requestAutofill(id: AutofillNodeId): Boolean =
+        services.autofill?.let {
+            it.requestAutofill(id)
+            true
+        } ?: false
+
+    public fun openUri(uri: UiUri): Boolean = services.uriLauncher?.open(uri) ?: false
+
+    public fun startDrag(request: DragRequest): DragSession? =
+        services.contentTransfer?.startDrag(request)
+
+    public fun registerBackHandler(handler: (BackEvent) -> Boolean): AutoCloseable =
+        services.back?.register(handler) ?: AutoCloseable {}
 
     public fun dispatchContent(position: Point, content: TransferContent): TransferContent {
         var remaining = content
@@ -272,6 +311,7 @@ public class UiRoot(
     }
 
     private fun routeGestures(input: PointerInput, target: Element) {
+        val gestureTimeNanos = gestureTime(input.timestampNanos)
         when (input.phase) {
             PointerInputPhase.DOWN -> {
                 cancelPointerGestures(input.pointerId)
@@ -284,7 +324,7 @@ public class UiRoot(
                     it.down(
                         input.pointerId,
                         input.position,
-                        input.timestampNanos,
+                        gestureTimeNanos,
                         arena,
                         input.pointerType,
                     )
@@ -295,15 +335,19 @@ public class UiRoot(
             }
             PointerInputPhase.MOVE ->
                 pointerGestures[input.pointerId]?.handles?.forEach {
-                    it.move(input.position, input.timestampNanos)
+                    it.move(input.position, gestureTimeNanos)
                 }
             PointerInputPhase.UP ->
                 pointerGestures.remove(input.pointerId)?.handles?.forEach {
-                    it.up(input.position, input.timestampNanos)
+                    it.up(input.position, gestureTimeNanos)
                 }
             PointerInputPhase.CANCEL -> cancelPointerGestures(input.pointerId)
         }
     }
+
+    private fun gestureTime(platformTimeNanos: Long): Long =
+        if (lastPlatformFrameNanos == 0L) platformTimeNanos
+        else logicalFrameTimeNanos + (platformTimeNanos - lastPlatformFrameNanos).coerceAtLeast(0L)
 
     private fun cancelPointerGestures(pointerId: Int) {
         pointerGestures.remove(pointerId)?.arena?.cancel(pointerId)
@@ -312,6 +356,16 @@ public class UiRoot(
     private fun updateScrollRanges(current: Element) {
         current.attachment(ScrollRuntimeAttachment)?.updateLayout()
         current.children.forEach(::updateScrollRanges)
+    }
+
+    private fun updateTextEditorViewports(current: Element) {
+        current
+            .attachment(TextEditorAttachment)
+            ?.updateViewport(
+                current.geometry.width,
+                current.geometry.height,
+            )
+        current.children.forEach(::updateTextEditorViewports)
     }
 
     private fun committedBounds(target: Element): com.antepod.lumentika.geometry.Rect? {

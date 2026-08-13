@@ -234,12 +234,14 @@ public class RenderRuntime(
                 transform,
                 Rect(0f, 0f, element.geometry.width, element.geometry.height),
             )
+        val entersTopLayer = config.topLayer && !parent.topLayer
+        val inheritedClip = if (entersTopLayer) ParentState.INFINITE_CLIP else parent.clip
         val clip =
-            (config.clip?.let { transformedBounds(transform, it) } ?: parent.clip).intersect(
-                parent.clip
+            (config.clip?.let { transformedBounds(transform, it) } ?: inheritedClip).intersect(
+                inheritedClip
             ) ?: Rect(0f, 0f, 0f, 0f)
         val transformId = builder.transform(parent.transformId, transform)
-        val clipId = builder.clip(parent.clipId, clip)
+        val clipId = builder.clip(if (entersTopLayer) null else parent.clipId, clip)
         val effectId = builder.effect(parent.effectId, style[Properties.Opacity])
         val scrollId = builder.scroll(parent.scrollId, config.scrollOffset)
         val stackId = builder.stack(parent.stackId, style[Properties.ZIndex])
@@ -322,20 +324,24 @@ public class RenderRuntime(
 
     private data class ParentState(
         val transform: Matrix3 = Matrix3.IDENTITY,
-        val clip: Rect =
-            Rect(
-                -Float.MAX_VALUE / 4,
-                -Float.MAX_VALUE / 4,
-                Float.MAX_VALUE / 2,
-                Float.MAX_VALUE / 2,
-            ),
+        val clip: Rect = INFINITE_CLIP,
         val transformId: PropertyNodeId? = null,
         val clipId: PropertyNodeId? = null,
         val effectId: PropertyNodeId? = null,
         val scrollId: PropertyNodeId? = null,
         val stackId: PropertyNodeId? = null,
         val topLayer: Boolean = false,
-    )
+    ) {
+        companion object {
+            val INFINITE_CLIP =
+                Rect(
+                    -Float.MAX_VALUE / 4,
+                    -Float.MAX_VALUE / 4,
+                    Float.MAX_VALUE / 2,
+                    Float.MAX_VALUE / 2,
+                )
+        }
+    }
 
     private data class PaintStyleKey(
         val background: com.antepod.lumentika.style.Paint?,

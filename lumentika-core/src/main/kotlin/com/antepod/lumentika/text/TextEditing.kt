@@ -339,6 +339,21 @@ public class TextEditorRuntime(
     public var scrollX = 0f
         private set
 
+    public var scrollY = 0f
+        private set
+
+    private var viewportWidth = Float.POSITIVE_INFINITY
+    private var viewportHeight = Float.POSITIVE_INFINITY
+
+    public fun updateViewport(width: Float, height: Float) {
+        val nextWidth = width.coerceAtLeast(0f)
+        val nextHeight = height.coerceAtLeast(0f)
+        if (viewportWidth == nextWidth && viewportHeight == nextHeight) return
+        viewportWidth = nextWidth
+        viewportHeight = nextHeight
+        publishGeometry()
+    }
+
     public fun focus() {
         if (focused) return
         focused = true
@@ -550,7 +565,22 @@ public class TextEditorRuntime(
         val layout = layoutService.layout(TextLayoutRequest(controller.value.text))
         val caret = layout.caretRect(controller.value.selection.end, controller.value.affinity)
         val selections = layout.selectionRects(controller.value.selection)
-        scrollX = maxOf(0f, caret.right - (layout.size.width.coerceAtLeast(1f)))
+        if (viewportWidth.isFinite()) {
+            scrollX =
+                when {
+                    caret.x < scrollX -> caret.x
+                    caret.right > scrollX + viewportWidth -> caret.right - viewportWidth
+                    else -> scrollX
+                }.coerceIn(0f, (layout.size.width - viewportWidth).coerceAtLeast(0f))
+        }
+        if (viewportHeight.isFinite()) {
+            scrollY =
+                when {
+                    caret.y < scrollY -> caret.y
+                    caret.bottom > scrollY + viewportHeight -> caret.bottom - viewportHeight
+                    else -> scrollY
+                }.coerceIn(0f, (layout.size.height - viewportHeight).coerceAtLeast(0f))
+        }
         cursorGeometry = TextCursorGeometry(caret, selections, visible)
     }
 

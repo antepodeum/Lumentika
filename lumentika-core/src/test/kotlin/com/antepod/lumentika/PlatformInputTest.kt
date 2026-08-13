@@ -1,5 +1,7 @@
 package com.antepod.lumentika
 
+import com.antepod.lumentika.components.ControlGestureHandle
+import com.antepod.lumentika.components.GestureAttachment
 import com.antepod.lumentika.components.ScrollRuntimeAttachment
 import com.antepod.lumentika.components.button
 import com.antepod.lumentika.components.checkbox
@@ -12,6 +14,7 @@ import com.antepod.lumentika.components.textField
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
+import com.antepod.lumentika.gesture.LongPressRecognizer
 import com.antepod.lumentika.gesture.NestedScrollConnection
 import com.antepod.lumentika.gesture.ScrollDelta
 import com.antepod.lumentika.gesture.ScrollSource
@@ -21,7 +24,10 @@ import com.antepod.lumentika.input.FocusCause
 import com.antepod.lumentika.input.KeyModifiers
 import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.input.PointerType
+import com.antepod.lumentika.platform.BackEvent
+import com.antepod.lumentika.platform.BackPhase
 import com.antepod.lumentika.platform.ClipboardService
+import com.antepod.lumentika.platform.DragRequest
 import com.antepod.lumentika.platform.PointerCursorRole
 import com.antepod.lumentika.platform.PointerCursorService
 import com.antepod.lumentika.platform.TransferContent
@@ -31,6 +37,7 @@ import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.platform.UiFeedbackRequest
 import com.antepod.lumentika.platform.UiFeedbackService
 import com.antepod.lumentika.platform.UiFeedbackType
+import com.antepod.lumentika.platform.UiUri
 import com.antepod.lumentika.render.PaintArtifact
 import com.antepod.lumentika.render.RenderBackend
 import com.antepod.lumentika.runtime.ImageService
@@ -59,10 +66,23 @@ import com.antepod.lumentika.text.TextRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class PlatformInputTest {
+    @Test
+    fun `missing optional platform services have deterministic fallbacks`() {
+        val root = headlessRoot()
+        val content = TransferContent(listOf(TransferItem("text/plain", text = "value")))
+
+        assertFalse(root.openUri(UiUri("https://example.invalid")))
+        assertNull(root.startDrag(DragRequest(content)))
+        assertFalse(root.requestAutofill(com.antepod.lumentika.text.AutofillNodeId(99)))
+        root.registerBackHandler { it == BackEvent(BackPhase.COMMIT) }.close()
+        root.close()
+    }
+
     @Test
     fun `controls integrate focus keyboard disabled state feedback and slider events`() {
         val feedback = mutableListOf<UiFeedbackType>()
@@ -332,6 +352,56 @@ class PlatformInputTest {
             )
         )
         assertEquals(1, clicks)
+        root.close()
+    }
+
+    @Test
+    fun `mounted long press uses active frame time without pointer movement`() {
+        var presses = 0
+        val root = headlessRoot(100f, 100f)
+        val button = root.scope.button { value = "Hold" }
+        root.styles.attach(
+            button.element,
+            com.antepod.lumentika.reactive.state(
+                style {
+                    width = 100.px
+                    height = 40.px
+                }
+            ),
+        )
+        button.element.attach(
+            GestureAttachment,
+            ControlGestureHandle(
+                LongPressRecognizer(
+                    root.environment.value.gesture,
+                    onLongPress = { presses++ },
+                )
+            ),
+        )
+        root.requestFrame()
+        root.frame(1)
+
+        root.dispatchPointer(
+            PointerInput(PointerInputPhase.DOWN, 1, PointerType.TOUCH, Point(10f, 10f), 2)
+        )
+        val timeout = root.environment.value.gesture.longPressTimeoutMillis * 1_000_000L
+        root.publishEnvironment(
+            root.environment.value.copy(
+                lifecycle = com.antepod.lumentika.platform.UiLifecycleState.SUSPENDED
+            )
+        )
+        root.frame(2 + timeout)
+        assertEquals(0, presses)
+        root.publishEnvironment(
+            root.environment.value.copy(
+                lifecycle = com.antepod.lumentika.platform.UiLifecycleState.ACTIVE
+            )
+        )
+        root.frame(3 + timeout)
+        assertEquals(0, presses)
+        root.frame(3 + timeout * 2)
+
+        assertEquals(1, presses)
         root.close()
     }
 

@@ -177,4 +177,28 @@ class RenderTest {
         assertEquals(1, render.paintInvalidationCount)
         assertTrue(render.committed.paint.chunks.single().topLayer)
     }
+
+    @Test
+    fun `top layer escapes ordinary ancestor clipping for paint and hit testing`() {
+        val root =
+            Element("root").apply {
+                geometry = Rect(0f, 0f, 10f, 10f)
+            }
+        val popup =
+            Element("popup").also {
+                it.geometry = Rect(20f, 0f, 10f, 10f)
+                it.content = TextContent("popup")
+                root.append(it)
+            }
+        val styles = StyleRuntime()
+        styles.attach(root, state(style {}))
+        val render = RenderRuntime(root) { styles.resolve(it).first }
+        render.configure(root, RenderProperties(clip = Rect(0f, 0f, 10f, 10f)))
+        render.configure(popup, RenderProperties(topLayer = true))
+
+        render.commit()
+
+        assertSame(popup, render.committed.hitTest.hitTest(Point(25f, 5f)))
+        assertTrue(render.committed.paint.chunks.single().topLayer)
+    }
 }

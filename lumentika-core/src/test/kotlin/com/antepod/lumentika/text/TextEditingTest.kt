@@ -114,6 +114,20 @@ class TextEditingTest {
     }
 
     @Test
+    fun `caret scrolling follows the mounted viewport in both directions`() {
+        val controller = TextEditingController(TextEditingValue("0123456789", TextRange(10, 10)))
+        val editor =
+            TextEditorRuntime(controller, null, HeadlessTextLayoutService, UiAnimationClock())
+
+        editor.updateViewport(20f, 16f)
+        assertEquals(60f, editor.scrollX)
+
+        editor.apply(TextEditCommand.SetSelection(TextRange(0, 0)))
+        assertEquals(0f, editor.scrollX)
+        assertEquals(0f, editor.scrollY)
+    }
+
+    @Test
     fun `composition batch reconciliation and session lifecycle trace`() {
         val trace = mutableListOf<String>()
         val service =

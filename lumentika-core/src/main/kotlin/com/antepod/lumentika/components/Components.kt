@@ -7,6 +7,7 @@ import com.antepod.lumentika.gesture.DragAxis
 import com.antepod.lumentika.gesture.DragRecognizer
 import com.antepod.lumentika.gesture.GestureArena
 import com.antepod.lumentika.gesture.GestureRecognizer
+import com.antepod.lumentika.gesture.LongPressRecognizer
 import com.antepod.lumentika.gesture.NestedScrollConnection
 import com.antepod.lumentika.gesture.ScrollAxis
 import com.antepod.lumentika.gesture.ScrollDelta
@@ -135,6 +136,7 @@ public class ControlGestureHandle(
 
     public fun advance(timeNanos: Long) {
         when (val value = recognizer) {
+            is LongPressRecognizer -> value.advance(timeNanos)
             is SelectionDragRecognizer -> value.advance(timeNanos)
             is TextSelectionRecognizer -> value.advance(timeNanos)
             else -> Unit

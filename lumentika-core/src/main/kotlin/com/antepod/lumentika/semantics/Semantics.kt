@@ -113,7 +113,10 @@ public interface AccessibilityAdapter {
 
 public val SemanticsAttachment: AttachmentKey<SemanticsConfiguration> = AttachmentKey()
 
-public class SemanticsRuntime(private val root: Element) {
+public class SemanticsRuntime(
+    private val root: Element,
+    private val announcementSink: (String, LiveRegion) -> Unit = { _, _ -> },
+) {
     private val ids = mutableMapOf<Element, SemanticsNodeId>()
     private val configs = mutableMapOf<Element, SemanticsConfiguration>()
     private var generation = 0L
@@ -132,6 +135,17 @@ public class SemanticsRuntime(private val root: Element) {
         val previous = artifact.nodes
         val entries = hit.entries.associateBy { it.element }
         val nodes = linkedMapOf<SemanticsNodeId, SemanticsNode>()
+        fun consume(idsToConsume: List<SemanticsNodeId>): List<SemanticsNode> =
+            idsToConsume.flatMap { id ->
+                val node = nodes.remove(id) ?: return@flatMap emptyList()
+                listOf(node) + consume(node.children)
+            }
+
+        fun mergedText(values: List<String?>): String? =
+            values.filterNotNull().filter(String::isNotBlank).distinct().joinToString(" ").ifBlank {
+                null
+            }
+
         fun walk(element: Element): List<SemanticsNodeId> {
             val config = configs[element] ?: element.attachment(SemanticsAttachment)
             if (config?.hidden == true) return emptyList()
@@ -140,7 +154,7 @@ public class SemanticsRuntime(private val root: Element) {
                 else element.children.flatMap(::walk)
             if (config == null) return children
             val id = ids.getOrPut(element) { SemanticsNodeId(nextId.incrementAndGet()) }
-            val bounds =
+            var bounds =
                 entries[element]?.let { entry ->
                     val local = entry.localBounds
                     val points =
@@ -160,11 +174,44 @@ public class SemanticsRuntime(private val root: Element) {
                         )
                     entry.clip.intersect(transformed) ?: Rect(0f, 0f, 0f, 0f)
                 } ?: element.geometry
+            val mergedChildren = if (config.mergeDescendants) consume(children) else emptyList()
+            if (mergedChildren.isNotEmpty()) {
+                val allBounds = listOf(bounds) + mergedChildren.map(SemanticsNode::bounds)
+                val left = allBounds.minOf(Rect::x)
+                val top = allBounds.minOf(Rect::y)
+                bounds =
+                    Rect(
+                        left,
+                        top,
+                        allBounds.maxOf(Rect::right) - left,
+                        allBounds.maxOf(Rect::bottom) - top,
+                    )
+            }
+            val effectiveConfig =
+                if (!config.mergeDescendants) config
+                else
+                    config.copy(
+                        label =
+                            mergedText(
+                                listOf(config.label) + mergedChildren.map { it.config.label }
+                            ),
+                        value = config.value ?: mergedText(mergedChildren.map { it.config.value }),
+                        stateDescription =
+                            config.stateDescription
+                                ?: mergedText(mergedChildren.map { it.config.stateDescription }),
+                        hint = config.hint ?: mergedText(mergedChildren.map { it.config.hint }),
+                        actions =
+                            mergedChildren.fold(emptyMap<SemanticAction, (Any?) -> Boolean>()) {
+                                actions,
+                                node ->
+                                actions + node.config.actions
+                            } + config.actions,
+                    )
             nodes[id] =
                 SemanticsNode(
                     id,
                     element.id,
-                    config,
+                    effectiveConfig,
                     bounds,
                     if (config.mergeDescendants) emptyList() else children,
                 )
@@ -186,6 +233,23 @@ public class SemanticsRuntime(private val root: Element) {
                 nodes.keys.filterTo(linkedSetOf()) { previous[it] != nodes[it] },
             )
         accessibilityFocus = artifact.accessibilityFocus
+        val live = changes.added + changes.changed
+        live.forEach { id ->
+            val node = nodes[id] ?: return@forEach
+            if (node.config.liveRegion != LiveRegion.NONE) {
+                val previousNode = previous[id]
+                val message = node.config.label ?: node.config.value ?: node.config.stateDescription
+                val previousMessage =
+                    previousNode?.config?.label
+                        ?: previousNode?.config?.value
+                        ?: previousNode?.config?.stateDescription
+                if (message != null && message != previousMessage) {
+                    announcementSink(message, node.config.liveRegion)
+                }
+            }
+        }
+        ids.keys.removeIf { !it.isMounted }
+        configs.keys.removeIf { !it.isMounted }
         return changes
     }
 
@@ -199,6 +263,11 @@ public class SemanticsRuntime(private val root: Element) {
         if (id !in artifact.nodes) return false
         accessibilityFocus = id
         return true
+    }
+
+    public fun announce(message: String, priority: LiveRegion = LiveRegion.POLITE) {
+        require(priority != LiveRegion.NONE)
+        announcementSink(message, priority)
     }
 
     public companion object {

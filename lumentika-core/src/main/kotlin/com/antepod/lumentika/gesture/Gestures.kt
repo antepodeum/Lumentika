@@ -512,6 +512,17 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
             connection?.postFling(ScrollDelta(0f, 0f), unsupported)
         }
         if (local == ScrollDelta(0f, 0f)) return
+        if (clock.motionScale == 0f) {
+            scroll(
+                ScrollDelta(
+                    if (local.x > 0f) maxX - x else if (local.x < 0f) -x else 0f,
+                    if (local.y > 0f) maxY - y else if (local.y < 0f) -y else 0f,
+                ),
+                ScrollSource.FLING,
+                connection,
+            )
+            return
+        }
         val generation = ++flingGeneration
         var prior = 0L
         var current = local
@@ -523,7 +534,7 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
                 prior = time
                 true
             } else {
-                val elapsed = (time - prior) / 1_000_000_000f
+                val elapsed = (time - prior) / 1_000_000_000f / clock.motionScale
                 prior = time
                 val requested = behavior.delta(current, elapsed)
                 val consumed = scroll(requested, ScrollSource.FLING, connection)
