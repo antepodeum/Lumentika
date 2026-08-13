@@ -1,21 +1,25 @@
-# lumentika
+# Lumentika Core — Implementation Plan
 
-This project uses [Gradle](https://gradle.org/). To build and run the application, use the *Gradle* tool window by
-clicking the Gradle icon in the right-hand toolbar, or run it directly from the terminal:
+This archive contains only the implementation design for the platform-independent Lumentika core.
 
-* Run `./gradlew run` to build and run the application.
-* Run `./gradlew build` to only build the application.
-* Run `./gradlew check` to run all checks, including tests.
-* Run `./gradlew clean` to clean all build outputs.
+Published artifacts:
 
-Note the usage of the Gradle Wrapper (`./gradlew`). This is the suggested way to use Gradle in production projects.
+```text
+com.antepod:lumentika-core
+com.antepod:lumentika-ksp
+```
 
-[Learn more about the Gradle Wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html).
+Public/runtime packages live under `com.antepod.lumentika.*`.
 
-[Learn more about Gradle tasks](https://docs.gradle.org/current/userguide/command_line_interface.html#common_tasks).
+`lumentika-core` contains the hard UI runtime, Taffy4J as the sole layout implementation, retained rendering/hit testing, styles/themes/animation, text editing, gestures, semantics, platform contracts, and the universal component set.
 
-This project follows the suggested multi-module setup and consists of the `app` and `utils` subprojects. The shared
-build logic was extracted to a convention plugin located in `buildSrc`.
+Universal components:
 
-This project uses a version catalog (see `gradle/libs.versions.toml`) to declare and version dependencies and both a
-build cache and a configuration cache (see `gradle.properties`).
+```text
+block / flex / row / column / grid / stack
+scroll / list
+text / image
+button / checkbox / slider / textField / tooltip
+```
+
+No concrete platform implementation is part of this archive. The core implementation finishes and is accepted independently through `docs/IMPLEMENTATION_PLAN.md`, `docs/CHECKLIST.md`, and `docs/INTEGRATION_PROOF_SPEC.md`.
