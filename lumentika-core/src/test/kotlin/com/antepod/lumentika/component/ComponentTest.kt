@@ -32,6 +32,21 @@ class ComponentTest {
     }
 
     @Test
+    fun `one way and two way binding configuration are mutually exclusive`() {
+        val scope = com.antepod.lumentika.reactive.ComponentScope()
+        val external = state(1)
+
+        val oneWay = binding(0)
+        oneWay.set(2)
+        assertFailsWith<IllegalArgumentException> { oneWay.bind(external, scope) }
+
+        val twoWay = binding(0)
+        twoWay.bind(external, scope)
+        assertFailsWith<IllegalArgumentException> { twoWay.set(2) }
+        scope.close()
+    }
+
+    @Test
     fun `show and keyed forEach preserve local identity`() {
         val root = Element("root")
         val visible = state(true)

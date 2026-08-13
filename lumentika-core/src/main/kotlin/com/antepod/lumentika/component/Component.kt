@@ -19,8 +19,14 @@ public annotation class UIComponent
 private object Missing
 
 public sealed class Declaration<T>(initial: Any?) {
+    private enum class ExternalMode {
+        ONE_WAY,
+        TWO_WAY,
+    }
+
     private val local: State<T>
     private var sourceHandle: AutoCloseable? = null
+    private var externalMode: ExternalMode? = null
     private var configured = initial !== Missing
     internal val required: Boolean = initial === Missing
 
@@ -37,6 +43,7 @@ public sealed class Declaration<T>(initial: Any?) {
     }
 
     public fun set(value: T) {
+        requireExternalMode(ExternalMode.ONE_WAY)
         sourceHandle?.close()
         sourceHandle = null
         configured = true
@@ -44,6 +51,7 @@ public sealed class Declaration<T>(initial: Any?) {
     }
 
     public fun source(source: Readable<T>, scope: ComponentScope) {
+        requireExternalMode(ExternalMode.ONE_WAY)
         sourceHandle?.close()
         configured = true
         sourceHandle = withComponentScope(scope) { effect { local.value = source.value } }
@@ -58,6 +66,17 @@ public sealed class Declaration<T>(initial: Any?) {
 
     protected fun write(value: T) {
         local.value = value
+    }
+
+    protected fun configureTwoWay() {
+        requireExternalMode(ExternalMode.TWO_WAY)
+    }
+
+    private fun requireExternalMode(mode: ExternalMode) {
+        require(externalMode == null || externalMode == mode) {
+            "One-way and two-way declaration sources are mutually exclusive"
+        }
+        externalMode = mode
     }
 }
 
@@ -75,10 +94,10 @@ public class Binding<T> internal constructor(initial: Any?) : Declaration<T>(ini
         }
 
     public fun bind(source: Mutable<T>, scope: ComponentScope) {
+        configureTwoWay()
         require(bound == null) { "Binding already has a two-way source" }
         bound = source
-        set(source.value)
-        source(source, scope)
+        write(source.value)
         withComponentScope(scope) {
             effect {
                 val next = source.value

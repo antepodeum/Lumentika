@@ -21,7 +21,7 @@
 - [x] scope cleanup
 - [x] async generation cancellation/stale suppression
 - [x] `Prop<T>` one-way forms
-- [ ] `Binding<T>` two-way only through `bindX`
+- [x] `Binding<T>` two-way only through `bindX`
 - [x] `Event<E>` typed events
 - [x] `Slot` / `SlotList`
 - [x] one-shot `view()`
