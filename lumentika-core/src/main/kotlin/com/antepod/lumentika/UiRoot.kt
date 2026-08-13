@@ -1,5 +1,6 @@
 package com.antepod.lumentika
 
+import com.antepod.lumentika.animation.ElementAnimationRuntime
 import com.antepod.lumentika.animation.StyleAnimationRuntime
 import com.antepod.lumentika.animation.UiAnimationClock
 import com.antepod.lumentika.components.ControlGestureHandle
@@ -85,6 +86,13 @@ public class UiRoot(
     public val animations = UiAnimationClock()
     private val defaultStyle = state(style {})
     private val frame = CoalescingFrameScheduler(services.frameScheduler)
+    public val elementAnimations =
+        ElementAnimationRuntime(
+            animations,
+            { target, value -> render.configureMotion(target, value) },
+            ::committedBounds,
+            frame::requestFrame,
+        )
     public val scope =
         UiScope(
             element,
@@ -95,6 +103,7 @@ public class UiRoot(
                 autofill = autofill,
                 images = services.images,
                 animationClock = animations,
+                elementAnimations = elementAnimations,
                 focus = focus,
                 events = events,
                 requestFrame = ::requestFrame,
@@ -123,8 +132,9 @@ public class UiRoot(
             { styleAnimations.effective(it, styles.resolve(it).first) },
             onLayoutRequested = frame::requestFrame,
         )
-    private val render =
+    private val render by lazy {
         RenderRuntime(element) { styleAnimations.effective(it, styles.resolve(it).first) }
+    }
     private val pointerGestures = mutableMapOf<Int, PointerGestureSession>()
     private var lastPlatformFrameNanos = 0L
     private var logicalFrameTimeNanos = 0L
@@ -268,7 +278,8 @@ public class UiRoot(
         layout.frame(timeNanos, environment.value)
         updateScrollRanges(element)
         updateTextEditorViewports(element)
-        val commit = render.commit()
+        var commit = render.commit()
+        if (elementAnimations.afterCommit()) commit = render.commit()
         val changes = semantics.commit(commit.hitTest)
         services.accessibility?.onArtifactCommitted(semantics.artifact, changes)
         val (autofillArtifact, autofillChanges) = autofill.commit()
@@ -305,6 +316,7 @@ public class UiRoot(
 
     override fun close() {
         pointerGestures.keys.toList().forEach(::cancelPointerGestures)
+        elementAnimations.close()
         styleAnimations.close()
         layout.close()
         element.close()

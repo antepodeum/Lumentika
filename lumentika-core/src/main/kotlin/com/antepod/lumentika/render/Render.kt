@@ -115,6 +115,15 @@ public data class RenderProperties(
     val topLayer: Boolean = false,
 )
 
+public data class MotionRenderProperties(
+    val transform: Matrix3 = Matrix3.IDENTITY,
+    val opacity: Float = 1f,
+) {
+    init {
+        require(opacity.isFinite() && opacity in 0f..1f)
+    }
+}
+
 public data class RenderCommit(val paint: PaintArtifact, val hitTest: HitTestArtifact)
 
 public enum class RenderInvalidation {
@@ -128,6 +137,7 @@ public class RenderRuntime(
     private val resolveStyle: (Element) -> ResolvedStyle,
 ) {
     private val properties = mutableMapOf<Element, RenderProperties>()
+    private val motionProperties = mutableMapOf<Element, MotionRenderProperties>()
     private val paintCache = mutableMapOf<Element, Pair<Any?, List<PaintCommand>>>()
     private val invalidations = mutableMapOf<Element, MutableSet<RenderInvalidation>>()
     private var generation = 0L
@@ -160,6 +170,12 @@ public class RenderRuntime(
         if (previous?.topLayer != null && previous.topLayer != value.topLayer) {
             invalidate(element, RenderInvalidation.ORDER)
         }
+    }
+
+    public fun configureMotion(element: Element, value: MotionRenderProperties?) {
+        if (value == null || value == MotionRenderProperties()) motionProperties.remove(element)
+        else motionProperties[element] = value
+        invalidate(element, RenderInvalidation.PROPERTY)
     }
 
     public fun invalidate(element: Element, vararg classes: RenderInvalidation) {
@@ -223,12 +239,13 @@ public class RenderRuntime(
         )
             return
         val config = properties[element] ?: RenderProperties()
+        val motion = motionProperties[element] ?: MotionRenderProperties()
         val translation =
             Matrix3.translation(
                 element.geometry.x - (element.parent?.geometry?.x ?: 0f),
                 element.geometry.y - (element.parent?.geometry?.y ?: 0f),
             )
-        val transform = parent.transform * translation * config.transform
+        val transform = parent.transform * translation * config.transform * motion.transform
         val rootBounds =
             transformedBounds(
                 transform,
@@ -242,7 +259,7 @@ public class RenderRuntime(
             ) ?: Rect(0f, 0f, 0f, 0f)
         val transformId = builder.transform(parent.transformId, transform)
         val clipId = builder.clip(if (entersTopLayer) null else parent.clipId, clip)
-        val effectId = builder.effect(parent.effectId, style[Properties.Opacity])
+        val effectId = builder.effect(parent.effectId, style[Properties.Opacity] * motion.opacity)
         val scrollId = builder.scroll(parent.scrollId, config.scrollOffset)
         val stackId = builder.stack(parent.stackId, style[Properties.ZIndex])
         val order = builder.nextOrder++

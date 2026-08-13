@@ -1,5 +1,12 @@
 package com.antepod.lumentika.component
 
+import com.antepod.lumentika.animation.TransitionEventType
+import com.antepod.lumentika.animation.TransitionEvents
+import com.antepod.lumentika.animation.fade
+import com.antepod.lumentika.animation.fly
+import com.antepod.lumentika.animation.inOut
+import com.antepod.lumentika.animation.transition
+import com.antepod.lumentika.headlessRoot
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.UiScope
@@ -87,5 +94,72 @@ class ComponentTest {
 
         assertEquals(1, external.value)
         assertTrue(counter.componentScope.isDisposed)
+    }
+
+    @Test
+    fun `bidirectional show transition reverses and defers unmount`() {
+        val root = headlessRoot(100f, 100f)
+        val visible = state(true)
+        val trace = mutableListOf<TransitionEventType>()
+        val shown =
+            root.scope.show(
+                visible,
+                transition(fade(durationMillis = 100)),
+                TransitionEvents(
+                    onIntroStart = { trace += it.type },
+                    onOutroStart = { trace += it.type },
+                    onOutroEnd = { trace += it.type },
+                    onCancel = { trace += it.type },
+                ),
+            ) {
+                element("child")
+            }
+        root.frame(1)
+        root.frame(50_000_001)
+
+        visible.value = false
+        assertEquals(1, shown.children.size)
+        root.frame(50_000_001)
+        assertEquals(1, shown.children.size)
+        root.frame(100_000_001)
+
+        assertTrue(shown.children.isEmpty())
+        assertEquals(
+            listOf(
+                TransitionEventType.INTRO_START,
+                TransitionEventType.CANCEL,
+                TransitionEventType.OUTRO_START,
+                TransitionEventType.OUTRO_END,
+            ),
+            trace,
+        )
+        root.close()
+    }
+
+    @Test
+    fun `independent intro and outro complete as one deferred group`() {
+        val root = headlessRoot(100f, 100f)
+        val visible = state(true)
+        val shown =
+            root.scope.show(
+                visible,
+                inOut(
+                    enter = fly(y = 10f, durationMillis = 100),
+                    exit = fade(durationMillis = 40),
+                ),
+            ) {
+                element("child")
+            }
+        root.frame(1)
+        root.frame(20_000_001)
+
+        visible.value = false
+        root.frame(20_000_001)
+        root.frame(60_000_001)
+        assertEquals(1, shown.children.size)
+        root.frame(100_000_001)
+
+        assertTrue(shown.children.isEmpty())
+        root.close()
     }
 }

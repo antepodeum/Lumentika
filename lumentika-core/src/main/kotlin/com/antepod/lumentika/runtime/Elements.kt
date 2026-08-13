@@ -1,5 +1,6 @@
 package com.antepod.lumentika.runtime
 
+import com.antepod.lumentika.animation.ElementAnimationRuntime
 import com.antepod.lumentika.animation.UiAnimationClock
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
@@ -269,6 +270,7 @@ public data class UiContext(
     val autofill: AutofillRuntime? = null,
     val images: ImageService? = null,
     val animationClock: UiAnimationClock = UiAnimationClock(),
+    val elementAnimations: ElementAnimationRuntime? = null,
     val focus: FocusManager? = null,
     val events: EventDispatcher? = null,
     val requestFrame: (layoutDirty: Boolean) -> Unit = {},

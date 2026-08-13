@@ -1,5 +1,10 @@
 package com.antepod.lumentika.component
 
+import com.antepod.lumentika.animation.ElementAnimationRuntime
+import com.antepod.lumentika.animation.ElementTransition
+import com.antepod.lumentika.animation.StructuralTransition
+import com.antepod.lumentika.animation.TransitionDirection
+import com.antepod.lumentika.animation.TransitionEvents
 import com.antepod.lumentika.reactive.ComponentScope
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.Readable
@@ -256,15 +261,150 @@ public fun <T> Element.context(key: ContextKey<T>): T {
     error("No value provided for ContextKey")
 }
 
-public fun UiScope.show(condition: Readable<Boolean>, content: UiScope.() -> Unit): Element {
+public fun UiScope.show(
+    condition: Readable<Boolean>,
+    transition: StructuralTransition? = null,
+    events: TransitionEvents = TransitionEvents(),
+    content: UiScope.() -> Unit,
+): Element {
     val anchor = element("show")
+    val controller =
+        ShowTransitionController(
+            anchor,
+            this,
+            transition,
+            events,
+            content,
+        )
+    anchor.attach(ShowTransitionAttachment, controller)
     withComponentScope(anchor.scope) {
-        effect {
-            if (condition.value && anchor.children.isEmpty()) nested(anchor).content()
-            else if (!condition.value) anchor.children.toList().forEach { anchor.remove(it) }
-        }
+        effect { controller.update(condition.value) }
     }
     return anchor
+}
+
+private object BidirectionalTransitionChannel
+
+private object IntroTransitionChannel
+
+private object OutroTransitionChannel
+
+private val ShowTransitionAttachment =
+    com.antepod.lumentika.runtime.AttachmentKey<ShowTransitionController>()
+
+private class ShowTransitionController(
+    private val anchor: Element,
+    private val scope: UiScope,
+    private val transition: StructuralTransition?,
+    private val events: TransitionEvents,
+    private val content: UiScope.() -> Unit,
+) : AutoCloseable {
+    private val runtime: ElementAnimationRuntime? = scope.context.elementAnimations
+    private var desiredVisible = false
+    private var generation = 0L
+    private var closed = false
+
+    fun update(visible: Boolean) {
+        if (closed) return
+        desiredVisible = visible
+        generation++
+        val updateGeneration = generation
+        if (visible) show(updateGeneration) else hide(updateGeneration)
+    }
+
+    private fun show(updateGeneration: Long) {
+        if (anchor.children.isEmpty()) {
+            scope.nested(anchor).content()
+            scope.context.requestFrame(true)
+        }
+        val children = anchor.children.toList()
+        val bidirectional = transition?.bidirectional
+        val enter = bidirectional ?: transition?.enter
+        children.forEach { child ->
+            if (bidirectional == null) runtime?.cancel(child, OutroTransitionChannel)
+            start(
+                child,
+                if (bidirectional != null) BidirectionalTransitionChannel
+                else IntroTransitionChannel,
+                enter,
+                TransitionDirection.IN,
+                reverse = bidirectional != null,
+            ) {
+                if (updateGeneration == generation || !desiredVisible) maybeRemove()
+            }
+        }
+    }
+
+    private fun hide(updateGeneration: Long) {
+        val children = anchor.children.toList()
+        if (children.isEmpty()) return
+        val bidirectional = transition?.bidirectional
+        val exit = bidirectional ?: transition?.exit
+        if (exit == null || runtime == null) {
+            removeChildren()
+            return
+        }
+        children.forEach { child ->
+            start(
+                child,
+                if (bidirectional != null) BidirectionalTransitionChannel
+                else OutroTransitionChannel,
+                exit,
+                TransitionDirection.OUT,
+                reverse = bidirectional != null,
+            ) {
+                if (updateGeneration == generation || !desiredVisible) maybeRemove()
+            }
+        }
+    }
+
+    private fun start(
+        child: Element,
+        channel: Any,
+        effect: ElementTransition?,
+        direction: TransitionDirection,
+        reverse: Boolean,
+        finished: () -> Unit,
+    ) {
+        if (effect == null || runtime == null) {
+            finished()
+            return
+        }
+        runtime.start(child, channel, effect, direction, events, reverse, finished)
+    }
+
+    private fun maybeRemove() {
+        if (desiredVisible) return
+        val animations = runtime
+        if (
+            animations != null &&
+                anchor.children.any { child ->
+                    animations.isActive(child, BidirectionalTransitionChannel) ||
+                        animations.isActive(child, IntroTransitionChannel) ||
+                        animations.isActive(child, OutroTransitionChannel)
+                }
+        ) {
+            return
+        }
+        removeChildren()
+    }
+
+    private fun removeChildren() {
+        anchor.children.toList().forEach { anchor.remove(it) }
+        scope.context.requestFrame(true)
+    }
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        runtime?.let { animations ->
+            anchor.children.forEach { child ->
+                animations.cancel(child, BidirectionalTransitionChannel)
+                animations.cancel(child, IntroTransitionChannel)
+                animations.cancel(child, OutroTransitionChannel)
+            }
+        }
+    }
 }
 
 public fun <T, K> UiScope.forEach(

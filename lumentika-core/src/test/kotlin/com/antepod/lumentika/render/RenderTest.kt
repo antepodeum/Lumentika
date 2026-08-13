@@ -71,6 +71,39 @@ class RenderTest {
     }
 
     @Test
+    fun `motion properties compose with retained render properties`() {
+        val root = Element("root").apply { geometry = Rect(0f, 0f, 100f, 100f) }
+        val child =
+            Element("child").apply {
+                geometry = Rect(10f, 10f, 20f, 20f)
+                content = TextContent("x")
+            }
+        root.append(child)
+        val styles = StyleRuntime()
+        styles.attach(root, state(style {}))
+        styles.attach(child, state(style { opacity = .8f }))
+        val render = RenderRuntime(root) { styles.resolve(it).first }
+        render.configure(child, RenderProperties(transform = Matrix3.translation(2f, 0f)))
+        render.configureMotion(
+            child,
+            MotionRenderProperties(
+                transform = Matrix3.translation(3f, 0f),
+                opacity = .5f,
+            ),
+        )
+
+        val commit = render.commit()
+        val entry = commit.hitTest.entries.single { it.element === child }
+        val effect =
+            commit.paint.trees.effects.single {
+                it.id == commit.paint.chunks.single().properties.effect
+            }
+
+        assertEquals(Point(15f, 10f), entry.rootTransform.transform(Point(0f, 0f)))
+        assertEquals(.4f, effect.opacity)
+    }
+
+    @Test
     fun `custom scene hit region overrides rectangular hit`() {
         val root =
             Element("root").apply {
