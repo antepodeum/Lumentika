@@ -115,7 +115,7 @@ The trailing builder lambda configures the generated component DSL. It is not po
 An empty component may be created as:
 
 ```kotlin
-button()
+button {}
 ```
 
 All configurable data comes from declaration properties.

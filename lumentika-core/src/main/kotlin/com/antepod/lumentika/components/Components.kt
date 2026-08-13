@@ -19,14 +19,12 @@ import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.reactive.effect
-import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.reactive.withComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
 import com.antepod.lumentika.style.Display
 import com.antepod.lumentika.style.FlexDirection
-import com.antepod.lumentika.style.Overflow
 import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.TextEditCommand
@@ -109,46 +107,45 @@ public fun UiScope.grid(content: ContainerBuilder.() -> Unit = {}): Element =
 public fun UiScope.stack(content: ContainerBuilder.() -> Unit = {}): Element =
     container("stack", style { display = Display.GRID }, content)
 
-public fun UiScope.scroll(
-    state: ScrollState = ScrollState(),
-    gestures: GestureConfiguration = GestureConfiguration(),
-    content: ContainerBuilder.() -> Unit = {},
-): Element =
-    container("scroll", style { overflow = Overflow.SCROLL }, content).also { element ->
-        val handle =
-            ControlGestureHandle(
-                DragRecognizer(
-                    gestures,
-                    DragAxis.VERTICAL,
-                    onUpdate = { update ->
-                        state.scroll(
-                            ScrollDelta(-update.delta.x, -update.delta.y),
-                            ScrollSource.TOUCH_DRAG,
-                        )
-                    },
-                )
-            )
-        element.attach(GestureAttachment, handle)
-        val updateRender = {
-            context.configureRender(
-                element,
-                RenderProperties(scrollOffset = Point(state.x, state.y)),
-            )
-        }
-        element.attach(ScrollIntegrationAttachment, state.onChanged { updateRender() })
-        context.events?.let { events ->
-            element.attach(
-                ScrollWheelAttachment,
-                events.on(element, EventType.WHEEL) { event ->
-                    if (!event.defaultPrevented) {
-                        event as com.antepod.lumentika.input.WheelEvent
-                        state.scroll(ScrollDelta(event.deltaX, event.deltaY), ScrollSource.WHEEL)
-                    }
+internal fun UiScope.mountScroll(
+    element: Element,
+    state: ScrollState,
+    gestures: GestureConfiguration,
+): Element = element.also {
+    val handle =
+        ControlGestureHandle(
+            DragRecognizer(
+                gestures,
+                DragAxis.VERTICAL,
+                onUpdate = { update ->
+                    state.scroll(
+                        ScrollDelta(-update.delta.x, -update.delta.y),
+                        ScrollSource.TOUCH_DRAG,
+                    )
                 },
             )
-        }
-        updateRender()
+        )
+    element.attach(GestureAttachment, handle)
+    val updateRender = {
+        context.configureRender(
+            element,
+            RenderProperties(scrollOffset = Point(state.x, state.y)),
+        )
     }
+    element.attach(ScrollIntegrationAttachment, state.onChanged { updateRender() })
+    context.events?.let { events ->
+        element.attach(
+            ScrollWheelAttachment,
+            events.on(element, EventType.WHEEL) { event ->
+                if (!event.defaultPrevented) {
+                    event as com.antepod.lumentika.input.WheelEvent
+                    state.scroll(ScrollDelta(event.deltaX, event.deltaY), ScrollSource.WHEEL)
+                }
+            },
+        )
+    }
+    updateRender()
+}
 
 public fun UiScope.list(content: ContainerBuilder.() -> Unit = {}): Element =
     container(
@@ -179,15 +176,6 @@ private fun control(
     element.attach(SemanticsAttachment, semantics)
     gestures?.let { element.attach(GestureAttachment, it) }
     return ControlHandle(element, semantics, activate, gestures)
-}
-
-public fun UiScope.button(
-    label: String,
-    gestures: GestureConfiguration = GestureConfiguration(),
-    onClick: () -> Unit = {},
-): ControlHandle {
-    val e = element("button")
-    return buttonControl(e, state(label), gestures, onClick)
 }
 
 internal fun UiScope.buttonControl(
@@ -223,14 +211,6 @@ internal fun UiScope.buttonControl(
         }
     }
     return handle
-}
-
-public fun UiScope.checkbox(
-    value: Mutable<Boolean>,
-    gestures: GestureConfiguration = GestureConfiguration(),
-): ControlHandle {
-    val e = element("checkbox")
-    return checkboxControl(e, value, null, gestures)
 }
 
 internal fun UiScope.checkboxControl(
@@ -270,16 +250,6 @@ internal fun UiScope.checkboxControl(
         }
     }
     return handle
-}
-
-public fun UiScope.slider(
-    value: Mutable<Float>,
-    minimum: Float = 0f,
-    maximum: Float = 1f,
-    gestures: GestureConfiguration = GestureConfiguration(),
-): ControlHandle {
-    val e = element("slider")
-    return sliderControl(e, value, minimum, maximum, gestures)
 }
 
 internal fun UiScope.sliderControl(
@@ -336,22 +306,13 @@ internal fun UiScope.sliderControl(
     return handle
 }
 
-public fun UiScope.textField(
-    controller: TextEditingController,
-    gestures: GestureConfiguration = GestureConfiguration(),
-    multiline: Boolean = false,
-    secure: Boolean = false,
-): ControlHandle {
-    val e = element("textField", TextContent(controller.value.text, context.textLayout))
-    return textFieldControl(e, controller, gestures, multiline, secure)
-}
-
 internal fun UiScope.textFieldControl(
     e: Element,
     controller: TextEditingController,
     gestures: GestureConfiguration,
     multiline: Boolean,
     secure: Boolean,
+    placeholder: String?,
 ): ControlHandle {
     val editor =
         TextEditorRuntime(
@@ -408,7 +369,8 @@ internal fun UiScope.textFieldControl(
     withComponentScope(e.scope) {
         effect {
             val value = controller.value
-            e.content = TextContent(TextLayoutRequest(value.text), context.textLayout)
+            val displayText = value.text.ifEmpty { placeholder.orEmpty() }
+            e.content = TextContent(TextLayoutRequest(displayText), context.textLayout)
             e.attach(
                 SemanticsAttachment,
                 handle.semantics.copy(value = value.text, textSelection = value.selection),
@@ -418,11 +380,6 @@ internal fun UiScope.textFieldControl(
     }
     return handle
 }
-
-public fun UiScope.tooltip(text: String, content: UiScope.() -> Unit = {}): Element =
-    element("tooltip", block = content).also {
-        it.content = TextContent(text, context.textLayout)
-    }
 
 private fun handleEditorKey(
     editor: TextEditorRuntime,

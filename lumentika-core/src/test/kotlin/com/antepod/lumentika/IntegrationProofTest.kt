@@ -119,9 +119,9 @@ class IntegrationProofTest {
             val checked = state(false)
             root.scope.column {
                 text("owned")
-                button("button")
-                checkbox(checked)
-                slider(state(0f))
+                button { value = "button" }
+                checkbox { bindValue(checked) }
+                slider { value = 0f }
                 textField()
             }
             root.close()

@@ -1,6 +1,7 @@
 package com.antepod.lumentika.components
 
 import com.antepod.lumentika.geometry.Size
+import com.antepod.lumentika.gesture.ScrollState
 import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.Readable
@@ -15,9 +16,17 @@ import com.antepod.lumentika.runtime.ImageSource
 import com.antepod.lumentika.runtime.TextContent
 import com.antepod.lumentika.runtime.UiContext
 import com.antepod.lumentika.runtime.UiScope
+import com.antepod.lumentika.semantics.CollectionInfo
+import com.antepod.lumentika.semantics.CollectionItemInfo
+import com.antepod.lumentika.semantics.LiveRegion
+import com.antepod.lumentika.semantics.SemanticAction
+import com.antepod.lumentika.semantics.SemanticRange
+import com.antepod.lumentika.semantics.SemanticRole
 import com.antepod.lumentika.semantics.SemanticsAttachment
 import com.antepod.lumentika.semantics.SemanticsConfiguration
+import com.antepod.lumentika.style.Overflow
 import com.antepod.lumentika.style.Style
+import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextRange
@@ -57,29 +66,67 @@ internal constructor(
     }
 }
 
-public class ContainerBuilder internal constructor(element: Element, context: UiContext) :
+public open class ContainerBuilder internal constructor(element: Element, context: UiContext) :
     ElementBuilder(element, context)
 
+public class ScrollBuilder internal constructor(element: Element, context: UiContext) :
+    ContainerBuilder(element, context) {
+    public var state: ScrollState = ScrollState()
+    public var gestures: GestureConfiguration = GestureConfiguration()
+
+    internal fun mount(): Element = mountScroll(element, state, gestures)
+}
+
+public fun UiScope.scroll(block: ScrollBuilder.() -> Unit = {}): Element {
+    val element = element("scroll")
+    context.attachStyle(element, style { overflow = Overflow.SCROLL })
+    return ScrollBuilder(element, context).apply(block).mount()
+}
+
 public class SemanticsBuilder internal constructor(private val initial: SemanticsConfiguration) {
+    public var role: SemanticRole = initial.role
     public var label: String? = initial.label
     public var value: String? = initial.value
     public var hint: String? = initial.hint
     public var stateDescription: String? = initial.stateDescription
     public var enabled: Boolean = initial.enabled
     public var selected: Boolean? = initial.selected
+    public var checked: Boolean? = initial.checked
     public var expanded: Boolean? = initial.expanded
+    public var readOnly: Boolean = initial.readOnly
+    public var password: Boolean = initial.password
     public var hidden: Boolean = initial.hidden
+    public var mergeDescendants: Boolean = initial.mergeDescendants
+    public var clearDescendants: Boolean = initial.clearDescendants
+    public var range: SemanticRange? = initial.range
+    public var collection: CollectionInfo? = initial.collection
+    public var item: CollectionItemInfo? = initial.item
+    public var liveRegion: LiveRegion = initial.liveRegion
+    public var textSelection: TextRange? = initial.textSelection
+    public var actions: Map<SemanticAction, (Any?) -> Boolean> = initial.actions
 
     internal fun build(): SemanticsConfiguration =
         initial.copy(
+            role = role,
             label = label,
             value = value,
             hint = hint,
             stateDescription = stateDescription,
             enabled = enabled,
             selected = selected,
+            checked = checked,
             expanded = expanded,
+            readOnly = readOnly,
+            password = password,
             hidden = hidden,
+            mergeDescendants = mergeDescendants,
+            clearDescendants = clearDescendants,
+            range = range,
+            collection = collection,
+            item = item,
+            liveRegion = liveRegion,
+            textSelection = textSelection,
+            actions = actions,
         )
 }
 
@@ -253,6 +300,17 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
     private var source: () -> String = { "" }
     private var bound: Mutable<String>? = null
     private var changed: (String) -> Unit = {}
+    private var boundSelection: Mutable<TextRange>? = null
+    private var inputConfigured = false
+    private var externalController: TextEditingController? = null
+    public var controller: TextEditingController?
+        get() = externalController
+        set(value) {
+            check(!inputConfigured) { "text field input already configured" }
+            inputConfigured = value != null
+            externalController = value
+        }
+
     public var multiline: Boolean = false
     public var secure: Boolean = false
     public var placeholder: String? = null
@@ -261,22 +319,26 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
     public var value: String
         get() = source()
         set(value) {
-            check(bound == null) { "value binding already configured" }
+            check(!inputConfigured) { "text field input already configured" }
+            inputConfigured = true
             source = { value }
         }
 
     public fun value(source: Readable<String>) {
-        check(bound == null) { "value binding already configured" }
+        check(!inputConfigured) { "text field input already configured" }
+        inputConfigured = true
         this.source = { source.value }
     }
 
     public fun value(block: () -> String) {
-        check(bound == null) { "value binding already configured" }
+        check(!inputConfigured) { "text field input already configured" }
+        inputConfigured = true
         source = block
     }
 
     public fun bindValue(source: Mutable<String>) {
-        check(bound == null) { "value binding already configured" }
+        check(!inputConfigured) { "text field input already configured" }
+        inputConfigured = true
         bound = source
         this.source = { source.value }
     }
@@ -285,24 +347,57 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
         changed = listener
     }
 
+    public fun bindSelection(source: Mutable<TextRange>) {
+        check(boundSelection == null) { "selection binding already configured" }
+        boundSelection = source
+    }
+
     internal fun mount(): ControlHandle {
         val initial = source()
-        val controller =
-            TextEditingController(
-                TextEditingValue(initial, TextRange(initial.length, initial.length))
-            )
+        val activeController =
+            externalController
+                ?: TextEditingController(
+                    TextEditingValue(initial, TextRange(initial.length, initial.length))
+                )
         withComponentScope(element.scope) {
-            effect {
-                val next = source()
-                untracked { controller.reconcileExternal(next) }
+            if (externalController == null) {
+                effect {
+                    val next = source()
+                    untracked { activeController.reconcileExternal(next) }
+                }
+            }
+            boundSelection?.let { selection ->
+                effect {
+                    val next = selection.value
+                    untracked {
+                        val current = activeController.value
+                        if (current.selection != next) {
+                            activeController.value = current.copy(selection = next)
+                        }
+                    }
+                }
             }
             effect {
-                val text = controller.value.text
+                val editingValue = activeController.value
+                val text = editingValue.text
                 bound?.let { if (untracked { it.value } != text) it.value = text }
+                boundSelection?.let {
+                    if (untracked { it.value } != editingValue.selection) {
+                        it.value = editingValue.selection
+                    }
+                }
                 changed(text)
             }
         }
-        val handle = textFieldControl(element, controller, gestures, multiline, secure)
+        val handle =
+            textFieldControl(
+                element,
+                activeController,
+                gestures,
+                multiline,
+                secure,
+                placeholder,
+            )
         applySemantics()
         return handle
     }
@@ -315,14 +410,37 @@ public fun UiScope.textField(block: TextFieldBuilder.() -> Unit = {}): ControlHa
 
 public class ImageBuilder internal constructor(element: Element, context: UiContext) :
     ElementBuilder(element, context) {
-    public lateinit var source: ImageSource
+    private var sourceProvider: (() -> ImageSource)? = null
+    public var source: ImageSource
+        get() = requireNotNull(sourceProvider) { "image source is required" }.invoke()
+        set(value) {
+            check(sourceProvider == null) { "image source already configured" }
+            sourceProvider = { value }
+        }
+
     public var size: Size? = null
 
+    public fun source(value: Readable<ImageSource>) {
+        check(sourceProvider == null) { "image source already configured" }
+        sourceProvider = { value.value }
+    }
+
+    public fun source(block: () -> ImageSource) {
+        check(sourceProvider == null) { "image source already configured" }
+        sourceProvider = block
+    }
+
     internal fun mount() {
-        require(::source.isInitialized) { "image source is required" }
-        element.content = ImageContent(source, size ?: context.images?.intrinsicSize(source))
+        val provider = requireNotNull(sourceProvider) { "image source is required" }
+        withComponentScope(element.scope) {
+            effect {
+                val source = provider()
+                element.content =
+                    ImageContent(source, size ?: context.images?.intrinsicSize(source))
+                context.requestFrame(true)
+            }
+        }
         applySemantics()
-        context.requestFrame(true)
     }
 }
 
@@ -330,4 +448,23 @@ public fun UiScope.image(block: ImageBuilder.() -> Unit): Element {
     val element = element("image")
     ImageBuilder(element, context).apply(block).mount()
     return element
+}
+
+public class TooltipBuilder internal constructor(element: Element, context: UiContext) :
+    ValueElementBuilder<String>(element, context, "") {
+    internal fun mount(): Element {
+        withComponentScope(element.scope) {
+            effect {
+                element.content = TextContent(local.value, context.textLayout)
+                context.requestFrame(true)
+            }
+        }
+        applySemantics()
+        return element
+    }
+}
+
+public fun UiScope.tooltip(block: TooltipBuilder.() -> Unit): Element {
+    val element = element("tooltip")
+    return TooltipBuilder(element, context).apply(block).mount()
 }

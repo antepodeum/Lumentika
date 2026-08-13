@@ -47,11 +47,14 @@ class ComponentsTest {
         val root = Element("root")
         val ui = UiScope(root)
         var clicks = 0
-        val button = ui.button("Go") { clicks++ }
+        val button = ui.button {
+            value = "Go"
+            onClick { clicks++ }
+        }
         val checked = state(false)
-        val checkbox = ui.checkbox(checked)
+        val checkbox = ui.checkbox { bindValue(checked) }
         val sliderValue = state(0f)
-        val slider = ui.slider(sliderValue)
+        val slider = ui.slider { bindValue(sliderValue) }
         val field = ui.textField()
         assertEquals(
             listOf(
@@ -77,19 +80,22 @@ class ComponentsTest {
         val root = Element("root")
         val ui = UiScope(root)
         var clicks = 0
-        val button = ui.button("Go") { clicks++ }
+        val button = ui.button {
+            value = "Go"
+            onClick { clicks++ }
+        }
         button.gestures!!.down(1, Point(0f, 0f), 0)
         button.gestures.up(Point(0f, 0f), 1)
         assertEquals(1, clicks)
 
         val sliderValue = state(0f)
-        val slider = ui.slider(sliderValue)
+        val slider = ui.slider { bindValue(sliderValue) }
         slider.gestures!!.down(2, Point(0f, 0f), 0)
         slider.gestures.move(Point(20f, 0f), 10_000_000)
         assertEquals(0.2f, sliderValue.value)
 
         val controller = TextEditingController(TextEditingValue("abcd", TextRange(0, 0)))
-        val field = ui.textField(controller)
+        val field = ui.textField { this.controller = controller }
         field.gestures!!.down(3, Point(0f, 0f), 0)
         field.gestures.advance(500_000_000)
         field.gestures.move(Point(16f, 0f), 510_000_000)
@@ -104,8 +110,8 @@ class ComponentsTest {
         val ui = UiScope(root)
         val checked = state(false)
         val sliderValue = state(0.25f)
-        val checkbox = ui.checkbox(checked)
-        val slider = ui.slider(sliderValue)
+        val checkbox = ui.checkbox { bindValue(checked) }
+        val slider = ui.slider { bindValue(sliderValue) }
 
         checked.value = true
         sliderValue.value = 0.75f
@@ -187,13 +193,20 @@ class ComponentsTest {
         val sliderValue = state(0.25f)
         val slider = ui.slider { bindValue(sliderValue) }
         val fieldValue = state("initial")
-        val field = ui.textField { bindValue(fieldValue) }
+        val selection = state(TextRange(0, 0))
+        val field = ui.textField {
+            bindValue(fieldValue)
+            bindSelection(selection)
+        }
+        val placeholderField = ui.textField { placeholder = "Name" }
 
         buttonLabel.value = "after"
         button.activate()
         checkbox.activate()
         slider.semantics.actions.getValue(SemanticAction.SET_VALUE)(0.75f)
-        field.element.attachment(TextEditorAttachment)!!.controller.reconcileExternal("edited")
+        val fieldController = field.element.attachment(TextEditorAttachment)!!.controller
+        fieldController.reconcileExternal("edited")
+        selection.value = TextRange(1, 1)
 
         assertEquals("after", (button.element.content as TextContent).text)
         assertEquals(1, clicks)
@@ -201,6 +214,30 @@ class ComponentsTest {
         assertEquals(true, checkboxChange)
         assertEquals(0.75f, sliderValue.value)
         assertEquals("edited", fieldValue.value)
+        assertEquals(TextRange(1, 1), fieldController.value.selection)
+        assertEquals("Name", (placeholderField.element.content as TextContent).text)
+        assertEquals("", placeholderField.semantics.value)
+        root.close()
+    }
+
+    @Test
+    fun `image and tooltip builders update reactive primary values`() {
+        val root = Element("root")
+        val ui = UiScope(root)
+        val imageSource = state<ImageSource>(ImageSource.Uri("first"))
+        val image = ui.image { source(imageSource) }
+        val tooltipText = state("first tip")
+        val tooltip = ui.tooltip {
+            value(tooltipText)
+            text("anchor")
+        }
+
+        imageSource.value = ImageSource.Uri("second")
+        tooltipText.value = "second tip"
+
+        assertEquals(ImageSource.Uri("second"), (image.content as ImageContent).source)
+        assertEquals("second tip", (tooltip.content as TextContent).text)
+        assertEquals("anchor", (tooltip.children.single().content as TextContent).text)
         root.close()
     }
 
@@ -220,11 +257,11 @@ class ComponentsTest {
                 ui.list(),
                 ui.text("text"),
                 ui.image(ImageSource.Bytes(byteArrayOf(1), "image/test")),
-                ui.button("button").element,
-                ui.checkbox(state(false)).element,
-                ui.slider(state(0f)).element,
+                ui.button { value = "button" }.element,
+                ui.checkbox { value = false }.element,
+                ui.slider { value = 0f }.element,
                 ui.textField().element,
-                ui.tooltip("tip"),
+                ui.tooltip { value = "tip" },
             )
         assertEquals(
             listOf(

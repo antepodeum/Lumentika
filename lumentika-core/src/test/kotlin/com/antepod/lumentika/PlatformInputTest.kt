@@ -42,7 +42,11 @@ class PlatformInputTest {
     fun `committed hit test routes normalized pointer input into controls`() {
         var clicks = 0
         val root = headlessRoot(100f, 100f)
-        val button = root.scope.button("Go") { clicks++ }
+        val button =
+            root.scope.button {
+                value = "Go"
+                onClick { clicks++ }
+            }
         root.styles.attach(
             button.element,
             com.antepod.lumentika.reactive.state(
@@ -96,7 +100,11 @@ class PlatformInputTest {
     fun `prevented platform event does not activate gesture default`() {
         var clicks = 0
         val root = headlessRoot(100f, 100f)
-        val button = root.scope.button("Go") { clicks++ }
+        val button =
+            root.scope.button {
+                value = "Go"
+                onClick { clicks++ }
+            }
         root.styles.attach(
             button.element,
             com.antepod.lumentika.reactive.state(
@@ -145,7 +153,7 @@ class PlatformInputTest {
             image(ImageSource.Uri("asset:test")).also {
                 imageSize = (it.content as com.antepod.lumentika.runtime.ImageContent).intrinsicSize
             }
-            field = textField(controller)
+            field = textField { this.controller = controller }
         }
         root.styles.attach(
             field.element,
@@ -188,7 +196,11 @@ class PlatformInputTest {
         val root = headlessRoot(100f, 100f)
         val state = ScrollState().also { it.maxY = 200f }
         lateinit var child: com.antepod.lumentika.runtime.Element
-        val scroll = root.scope.scroll(state) { child = text("content") }
+        val scroll =
+            root.scope.scroll {
+                this.state = state
+                child = text("content")
+            }
         root.styles.attach(
             scroll,
             com.antepod.lumentika.reactive.state(

@@ -85,20 +85,28 @@ It does not create a platform overlay/window by itself.
 Platform-independent text content component.
 
 ```kotlin
-text {
-    value = "Hello"
-}
+text("Hello")
+text(title)
 ```
 
-Reactive:
+Computed shorthand:
+
+```kotlin
+text { "Count: ${count.value}" }
+```
+
+The full builder form is used as soon as text has additional configuration:
 
 ```kotlin
 text {
-    value {
-        "Count: ${count.value}"
-    }
+    value { "Count: ${count.value}" }
+    semantics { label = "Current count" }
+    style { /* ... */ }
 }
 ```
+
+`text(value) { ... }` is intentionally not another form: content-only calls stay compact,
+while configured calls use one builder syntax.
 
 Core owns text value/style/layout semantics.
 
@@ -264,6 +272,13 @@ semantic scroll actions
 
 Scroll offset remains render/runtime state rather than Taffy geometry.
 
+```kotlin
+scroll {
+    state = listScrollState
+    column { /* children */ }
+}
+```
+
 Parts include platform-themeable scrollbar track/thumb where exposed.
 
 ## 15. list
@@ -298,6 +313,13 @@ semantic description relationship where appropriate
 Platform themes/resources provide appearance.
 
 Platform-specific payload adapters may produce tooltip content.
+
+```kotlin
+tooltip {
+    value(tooltipText)
+    button { value = "Anchor" }
+}
+```
 
 ## 17. Units/environment
 
