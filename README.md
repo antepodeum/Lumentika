@@ -108,7 +108,6 @@ destroyed.
 - [Architecture and platform boundary](docs/ARCHITECTURE.md)
 - [Platform adapter guide](docs/PLATFORM_ADAPTER.md)
 - [Contributing and verification](docs/CONTRIBUTING.md)
-- [Publishing releases](docs/PUBLISHING.md)
 
 Generated Dokka API documentation is distributed in each release's Javadoc-classified JAR.
 

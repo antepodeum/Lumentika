@@ -13,7 +13,6 @@ Use JDK 25. The Gradle wrapper and Foojay resolver can provision the configured 
 Run the same gate as CI before committing:
 
 ```bash
-python3 scripts/check_docs.py
 ./gradlew clean build spotlessCheck
 ```
 
