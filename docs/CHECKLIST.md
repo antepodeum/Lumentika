@@ -348,6 +348,18 @@ The evidence matrix at the end maps each checklist section to its acceptance tes
 - [x] repeated mount/unmount returns all ownership counters to baseline
 - [x] all universal components pass behavior and semantics tests
 
+## Build, CI, and publication
+
+- [x] Java 25 clean build and formatting gate on pushes and pull requests
+- [x] failed CI test reports retained as workflow artifacts
+- [x] release version derived and validated from `v<semver>` tags
+- [x] `lumentika-core` binary, sources, and Dokka API JAR publication
+- [x] `lumentika-ksp` binary, sources, and Dokka API JAR publication
+- [x] signed Maven Central Portal publication with complete POM metadata
+- [x] GitHub Packages publication using the workflow token
+- [x] GitHub Release contains directly downloadable JAR artifacts
+- [x] Apache-2.0 license declared in repository and Maven metadata
+
 ## Verification evidence
 
 | Checklist sections | Executable evidence |
@@ -367,3 +379,4 @@ The evidence matrix at the end maps each checklist section to its acceptance tes
 | Universal components | [`ComponentsTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/components/ComponentsTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
 | Platform adapter readiness | [`PLATFORM_ADAPTER_GUIDE.md`](PLATFORM_ADAPTER_GUIDE.md), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
 | Core integration proof | [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt), full multi-module `clean build` |
+| Build, CI, and publication | [`PUBLISHING.md`](PUBLISHING.md), [`ci.yml`](../.github/workflows/ci.yml), [`release.yml`](../.github/workflows/release.yml), local Maven publication verification |

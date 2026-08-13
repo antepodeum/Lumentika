@@ -9,6 +9,11 @@ com.antepod:lumentika-core
 com.antepod:lumentika-ksp
 ```
 
+Releases are published to Maven Central and GitHub Packages from tags named `v<semver>`.
+Each publication includes the binary, sources, Dokka API documentation, POM, module metadata, and
+signatures.
+See [`docs/PUBLISHING.md`](docs/PUBLISHING.md) for repository credentials and the release process.
+
 Public/runtime packages live under `com.antepod.lumentika.*`.
 
 `lumentika-core` contains the hard UI runtime, Taffy4J as the sole layout implementation, retained rendering/hit testing, styles/themes/animation, text editing, gestures, semantics, platform contracts, and the universal component set.
@@ -27,3 +32,5 @@ No concrete platform implementation is part of this archive. The core implementa
 Platform libraries implement scheduling, renderer replay, text shaping/input, image metadata, and
 native services around `UiRoot`. See [`docs/PLATFORM_ADAPTER_GUIDE.md`](docs/PLATFORM_ADAPTER_GUIDE.md)
 for the complete adapter contract, Minecraft mapping, and acceptance tests.
+
+Licensed under the [Apache License 2.0](LICENSE).
