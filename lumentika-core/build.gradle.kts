@@ -153,7 +153,6 @@ val generateStylePropertyCatalog =
                 "justifyContent",
                 "columnGap",
                 "rowGap",
-                "textAlign",
                 "flexWrap",
                 "flexBasis",
                 "gridTemplateRows",

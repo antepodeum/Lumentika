@@ -30,7 +30,6 @@ import com.antepod.lumentika.style.GridTrackSizing
 import com.antepod.lumentika.style.Overflow
 import com.antepod.lumentika.style.Position
 import com.antepod.lumentika.style.StyleRuntime
-import com.antepod.lumentika.style.TextAlign
 import com.antepod.lumentika.style.dp
 import com.antepod.lumentika.style.edges
 import com.antepod.lumentika.style.percent
@@ -205,7 +204,6 @@ class LayoutRuntimeTest {
                     justifyContent = AlignContent.SPACE_BETWEEN
                     columnGap = 5.px
                     rowGap = 6.px
-                    textAlign = TextAlign.LEGACY_CENTER
                     flexWrap = FlexWrap.WRAP_REVERSE
                     flexBasis = 25.percent
                     flexGrow = 2f
@@ -269,7 +267,6 @@ class LayoutRuntimeTest {
         )
         assertEquals(5f, projected.gap.width.intoRaw().value())
         assertEquals(6f, projected.gap.height.intoRaw().value())
-        assertEquals(com.antepod.taffy.style.TextAlign.LEGACY_CENTER, projected.textAlign)
         assertEquals(com.antepod.taffy.style.FlexWrap.WRAP_REVERSE, projected.flexWrap)
         assertEquals(0.25f, projected.flexBasis.value())
         assertEquals(2f, projected.flexGrow)

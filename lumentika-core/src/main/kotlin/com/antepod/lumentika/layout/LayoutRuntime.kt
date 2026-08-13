@@ -32,7 +32,6 @@ import com.antepod.lumentika.style.Percent
 import com.antepod.lumentika.style.Position
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.ResolvedStyle
-import com.antepod.lumentika.style.TextAlign
 import com.antepod.lumentika.style.resolveLength
 import com.antepod.taffy.geometry.Line as TaffyLine
 import com.antepod.taffy.geometry.Rect as TaffyRect
@@ -324,14 +323,6 @@ public class LayoutRuntime(
                     lengthPercentage(columnGap, environment, environment.viewport.width),
                     lengthPercentage(rowGap, environment, environment.viewport.height),
                 )
-            )
-            .textAlign(
-                when (style[Properties.TextAlign]) {
-                    TextAlign.AUTO -> com.antepod.taffy.style.TextAlign.AUTO
-                    TextAlign.LEGACY_LEFT -> com.antepod.taffy.style.TextAlign.LEGACY_LEFT
-                    TextAlign.LEGACY_RIGHT -> com.antepod.taffy.style.TextAlign.LEGACY_RIGHT
-                    TextAlign.LEGACY_CENTER -> com.antepod.taffy.style.TextAlign.LEGACY_CENTER
-                }
             )
             .flexDirection(
                 when (style[Properties.FlexDirection]) {

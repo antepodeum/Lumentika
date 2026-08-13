@@ -66,14 +66,6 @@ public enum class AlignContent {
     SAFE_CENTER,
 }
 
-/** Inline text alignment used during text layout. */
-public enum class TextAlign {
-    AUTO,
-    LEGACY_LEFT,
-    LEGACY_RIGHT,
-    LEGACY_CENTER,
-}
-
 /** Placement direction and density for implicit grid items. */
 public enum class GridAutoFlow {
     ROW,

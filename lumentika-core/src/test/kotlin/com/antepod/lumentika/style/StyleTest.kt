@@ -5,6 +5,7 @@ import com.antepod.lumentika.platform.LogicalUnitResolver
 import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.Element
+import com.antepod.lumentika.runtime.ImageSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -12,6 +13,12 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class StyleTest {
+    @Test
+    fun `image paint shares typed image source model with image content`() {
+        val source = ImageSource.Uri("asset:test")
+        assertSame(source, ImagePaint(source).source)
+    }
+
     @Test
     fun `style variants resolve and report orthogonal impact`() {
         val element = Element()
@@ -135,7 +142,6 @@ class StyleTest {
                     justifyContent = AlignContent.SPACE_BETWEEN
                     columnGap = 3.dp
                     rowGap = 4.dp
-                    textAlign = TextAlign.LEGACY_CENTER
                     flexWrap = FlexWrap.WRAP_REVERSE
                     flexBasis = 20.percent
                     gridTemplateRows = listOf(template)

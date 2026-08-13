@@ -10,12 +10,14 @@ import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
+import com.antepod.lumentika.style.Direction
 import com.antepod.lumentika.style.HOVER
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.style.theme
+import com.antepod.lumentika.text.TextAlign
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextRange
@@ -278,6 +280,8 @@ class ComponentsTest {
         val computed = ui.text { "computed-${computedValue.value}" }
         val configured = ui.text {
             value = "configured"
+            alignment = TextAlign.END
+            direction = Direction.RTL
             semantics { label = "configured label" }
         }
 
@@ -285,6 +289,8 @@ class ComponentsTest {
         assertEquals("readable-1", (readable.content as TextContent).text)
         assertEquals("computed-1", (computed.content as TextContent).text)
         assertEquals("configured", (configured.content as TextContent).text)
+        assertEquals(TextAlign.END, (configured.content as TextContent).request.alignment)
+        assertEquals(Direction.RTL, (configured.content as TextContent).request.direction)
         assertEquals(
             "configured label",
             configured.attachment(SemanticsAttachment)?.label,

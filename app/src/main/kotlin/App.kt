@@ -308,7 +308,6 @@ fun runTaffyLayoutProof(): TaffyLayoutProof {
                 justifyContent = AlignContent.START
                 columnGap = 8.px
                 rowGap = 10.px
-                textAlign = TextAlign.AUTO
                 flexDirection = FlexDirection.ROW
                 flexWrap = FlexWrap.WRAP
                 flexBasis = Auto

@@ -25,13 +25,16 @@ import com.antepod.lumentika.semantics.SemanticRange
 import com.antepod.lumentika.semantics.SemanticRole
 import com.antepod.lumentika.semantics.SemanticsAttachment
 import com.antepod.lumentika.semantics.SemanticsConfiguration
+import com.antepod.lumentika.style.Direction
 import com.antepod.lumentika.style.Overflow
 import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.StylePart
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillConfiguration
+import com.antepod.lumentika.text.TextAlign
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditingValue
+import com.antepod.lumentika.text.TextLayoutRequest
 import com.antepod.lumentika.text.TextRange
 
 /** Base DSL builder for element styling, semantics, and child mounting. */
@@ -195,6 +198,10 @@ public class TextBuilder internal constructor(element: Element, context: UiConte
             source = { value }
         }
 
+    public var alignment: TextAlign = TextAlign.START
+
+    public var direction: Direction = Direction.LTR
+
     public fun value(source: Readable<String>) {
         explicit = true
         this.source = { source.value }
@@ -226,7 +233,11 @@ public class TextBuilder internal constructor(element: Element, context: UiConte
         withComponentScope(element.scope) {
             effect {
                 val value = source()
-                element.content = TextContent(value, context.textLayout)
+                element.content =
+                    TextContent(
+                        TextLayoutRequest(value, alignment = alignment, direction = direction),
+                        context.textLayout,
+                    )
                 val semantics = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
                 element.attach(
                     SemanticsAttachment,

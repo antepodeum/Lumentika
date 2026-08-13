@@ -10,6 +10,7 @@ import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.runtime.AttachmentKey
 import com.antepod.lumentika.runtime.BackendPaintCommand
 import com.antepod.lumentika.runtime.Element
+import com.antepod.lumentika.runtime.ImageSource
 
 /** Value accepted by a dimension style property. */
 public sealed interface DimensionValue
@@ -103,8 +104,8 @@ public data class LinearGradientPaint(val angleDegrees: Float, val stops: List<G
 /** Radial gradient paint. */
 public data class RadialGradientPaint(val stops: List<GradientStop>) : Paint
 
-/** Paint backed by an adapter-resolved image identifier. */
-public data class ImagePaint(val source: String) : Paint
+/** Paint backed by a platform-neutral image source. */
+public data class ImagePaint(val source: ImageSource) : Paint
 
 /** Ordered composition of multiple paints. */
 public data class LayeredPaint(val layers: List<Paint>) : Paint
@@ -168,18 +169,6 @@ public enum class FlexWrap {
     NO_WRAP,
     WRAP,
     WRAP_REVERSE,
-}
-
-/** Legacy compact alignment values. */
-public enum class Align {
-    AUTO,
-    START,
-    END,
-    CENTER,
-    STRETCH,
-    SPACE_BETWEEN,
-    SPACE_AROUND,
-    SPACE_EVENLY,
 }
 
 /** Whether an element paints while retaining layout participation. */
@@ -484,11 +473,6 @@ public object Properties {
             null,
         )
     public val RowGap = layoutProperty<DimensionValue?>(GeneratedStylePropertyCatalog.ROW_GAP, null)
-    public val TextAlign =
-        layoutProperty(
-            GeneratedStylePropertyCatalog.TEXT_ALIGN,
-            com.antepod.lumentika.style.TextAlign.AUTO,
-        )
     public val FlexWrap =
         layoutProperty(
             GeneratedStylePropertyCatalog.FLEX_WRAP,
@@ -589,7 +573,6 @@ public object Properties {
             JustifyContent,
             ColumnGap,
             RowGap,
-            TextAlign,
             FlexWrap,
             FlexBasis,
             GridTemplateRows,
@@ -921,10 +904,6 @@ public class StyleBuilder internal constructor(private val condition: StyleCondi
         get() = error("write-only")
         set(value) = set(Properties.RowGap, value)
 
-    public var textAlign: TextAlign
-        get() = error("write-only")
-        set(value) = set(Properties.TextAlign, value)
-
     public var flexWrap: FlexWrap
         get() = error("write-only")
         set(value) = set(Properties.FlexWrap, value)
@@ -1118,7 +1097,6 @@ public data class TaffyLayoutValues(
     val justifyContent: AlignContent?,
     val columnGap: DimensionValue?,
     val rowGap: DimensionValue?,
-    val textAlign: TextAlign,
     val flexWrap: FlexWrap,
     val flexBasis: DimensionValue,
     val gridTemplateRows: List<GridTemplateComponent>,
@@ -1208,7 +1186,6 @@ internal constructor(
             GeneratedStylePropertyCatalog.JUSTIFY_CONTENT -> taffyLayout.justifyContent
             GeneratedStylePropertyCatalog.COLUMN_GAP -> taffyLayout.columnGap
             GeneratedStylePropertyCatalog.ROW_GAP -> taffyLayout.rowGap
-            GeneratedStylePropertyCatalog.TEXT_ALIGN -> taffyLayout.textAlign
             GeneratedStylePropertyCatalog.FLEX_WRAP -> taffyLayout.flexWrap
             GeneratedStylePropertyCatalog.FLEX_BASIS -> taffyLayout.flexBasis
             GeneratedStylePropertyCatalog.GRID_TEMPLATE_ROWS -> taffyLayout.gridTemplateRows
@@ -1311,7 +1288,6 @@ internal constructor(
                         value(Properties.JustifyContent),
                         value(Properties.ColumnGap),
                         value(Properties.RowGap),
-                        value(Properties.TextAlign),
                         value(Properties.FlexWrap),
                         value(Properties.FlexBasis),
                         value(Properties.GridTemplateRows),

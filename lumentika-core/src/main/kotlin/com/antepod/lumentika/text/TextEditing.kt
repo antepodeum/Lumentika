@@ -10,6 +10,7 @@ import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.State
 import com.antepod.lumentika.reactive.batch
 import com.antepod.lumentika.reactive.state
+import com.antepod.lumentika.style.Direction
 import java.text.BreakIterator
 import java.util.Locale
 import java.util.regex.Pattern
@@ -318,11 +319,23 @@ public data class BasicTextLayoutResult(
         listOf(Rect(range.start * 8f, 0f, (range.end - range.start) * 8f, 16f))
 }
 
+/** Semantic inline alignment resolved by a [TextLayoutService]. */
+public enum class TextAlign {
+    START,
+    END,
+    LEFT,
+    RIGHT,
+    CENTER,
+    JUSTIFY,
+}
+
 /** Text and width constraint passed to a [TextLayoutService]. */
 public data class TextLayoutRequest(
     val text: String,
     val maxWidth: Float? = null,
     val fontSize: Float = 16f,
+    val alignment: TextAlign = TextAlign.START,
+    val direction: Direction = Direction.LTR,
 )
 
 /** Shapes text and returns reusable layout geometry. */
