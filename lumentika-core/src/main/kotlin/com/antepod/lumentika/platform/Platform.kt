@@ -91,7 +91,8 @@ public interface UriLauncher { public fun open(uri: UiUri): Boolean }
 
 public enum class TransferAction { COPY, MOVE, LINK }
 public data class TransferItem(val mimeType: String, val text: String? = null, val uri: UiUri? = null, val bytes: ByteArray? = null)
-public data class TransferContent(val items: List<TransferItem>)
+public enum class TransferSource { CLIPBOARD, DRAG_DROP, INPUT_METHOD, SHARE }
+public data class TransferContent(val items: List<TransferItem>, val source: TransferSource = TransferSource.CLIPBOARD)
 public interface DragPreview
 public data class DragRequest(val content: TransferContent, val preview: DragPreview? = null, val allowedActions: Set<TransferAction> = setOf(TransferAction.COPY))
 public interface DragSession : AutoCloseable

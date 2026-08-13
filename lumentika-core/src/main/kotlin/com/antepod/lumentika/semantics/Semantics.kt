@@ -19,6 +19,7 @@ public data class SemanticsConfiguration(
     val readOnly: Boolean = false, val password: Boolean = false, val hidden: Boolean = false,
     val mergeDescendants: Boolean = false, val clearDescendants: Boolean = false, val range: SemanticRange? = null,
     val collection: CollectionInfo? = null, val item: CollectionItemInfo? = null, val liveRegion: LiveRegion = LiveRegion.NONE,
+    val textSelection: com.antepod.lumentika.text.TextRange? = null,
     val actions: Map<SemanticAction, (Any?) -> Boolean> = emptyMap(),
 )
 public data class SemanticsNode(val id: SemanticsNodeId, val elementId: Long, val config: SemanticsConfiguration, val bounds: Rect, val children: List<SemanticsNodeId>)

@@ -64,7 +64,7 @@
 - [x] pointer cursor service
 - [x] accessibility adapter
 - [x] content-transfer service
-- [ ] autofill service
+- [x] autofill service
 - [x] URI launcher
 - [x] normalized back dispatcher
 - [x] missing optional capability has deterministic behavior
@@ -85,8 +85,8 @@
 - [x] focus/blur + focusin/focusout
 - [ ] focus-visible/focus-within
 - [x] focus repair before disposal
-- [ ] accessibility focus remains separate
-- [ ] IME composition is not raw key input
+- [x] accessibility focus remains separate
+- [x] IME composition is not raw key input
 
 ## Gestures
 
@@ -128,7 +128,7 @@
 - [x] label/value/stateDescription/hint
 - [x] enabled/selected/checked/expanded/readOnly/password
 - [x] range semantics
-- [ ] text selection semantics
+- [x] text selection semantics
 - [x] collection/item metadata
 - [x] merge descendants
 - [x] clear descendants
@@ -154,31 +154,31 @@
 - [x] composing text/region
 - [x] finish composition
 - [x] delete surrounding text/codepoints
-- [ ] batch edits
-- [ ] external value reconciliation
+- [x] batch edits
+- [x] external value reconciliation
 - [x] `TextInputService`
-- [ ] one active session per focused editor
-- [ ] session closes on focus loss/unmount
+- [x] one active session per focused editor
+- [x] session closes on focus loss/unmount
 - [x] `TextLayoutService`
 - [x] line/baseline metrics
 - [x] point→offset
 - [x] offset→caret rect
 - [x] selection rectangles
-- [ ] cursor geometry publication
+- [x] cursor geometry publication
 - [ ] text measurement/render layout identity
-- [ ] caret auto-scroll
-- [ ] cursor blink uses root clock
+- [x] caret auto-scroll
+- [x] cursor blink uses root clock
 
 ## Clipboard/content/autofill
 
 - [x] copy/cut/paste default actions
 - [x] rich receive-content model
 - [x] platform drag/drop normalization
-- [ ] unconsumed content propagation
-- [ ] autofill metadata/hints
-- [ ] stable autofill node identity
-- [ ] autofill updates normal binding/controller
-- [ ] secure-field privacy policy
+- [x] unconsumed content propagation
+- [x] autofill metadata/hints
+- [x] stable autofill node identity
+- [x] autofill updates normal binding/controller
+- [x] secure-field privacy policy
 
 ## Primitive/content boundary
 
@@ -254,7 +254,7 @@
 - [x] root frame clock
 - [x] motion-duration-scale policy
 - [ ] layout animation routes through Taffy
-- [ ] fling/overscroll/cursor blink share frame time model
+- [x] fling/overscroll/cursor blink share frame time model
 
 ## Universal components
 
@@ -286,9 +286,9 @@
 - [ ] unit revisions / accessibility / motion / insets update without remount
 - [x] gesture arbitration trace
 - [x] nested scroll/fling trace
-- [ ] text composition/editing/session trace
+- [x] text composition/editing/session trace
 - [ ] semantic action/accessibility-focus trace
-- [ ] autofill/content-transfer trace
+- [x] autofill/content-transfer trace
 - [ ] opacity transition absence-of-layout trace
 - [ ] width animation max-one-layout trace
 - [ ] static scrolling absence-of-Taffy/repaint trace
