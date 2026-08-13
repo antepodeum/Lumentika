@@ -138,6 +138,73 @@ class ComponentsTest {
     }
 
     @Test
+    fun `text has one compact form and one configured form`() {
+        val root = Element("root")
+        val ui = UiScope(root)
+        val direct = ui.text("direct")
+        val readableValue = state("readable-1")
+        val readable = ui.text(readableValue)
+        val computedValue = state(1)
+        val computed = ui.text { "computed-${computedValue.value}" }
+        val configured = ui.text {
+            value = "configured"
+            semantics { label = "configured label" }
+        }
+
+        assertEquals("direct", (direct.content as TextContent).text)
+        assertEquals("readable-1", (readable.content as TextContent).text)
+        assertEquals("computed-1", (computed.content as TextContent).text)
+        assertEquals("configured", (configured.content as TextContent).text)
+        assertEquals(
+            "configured label",
+            configured.attachment(SemanticsAttachment)?.label,
+        )
+
+        readableValue.value = "readable-2"
+        computedValue.value = 2
+
+        assertEquals("readable-2", (readable.content as TextContent).text)
+        assertEquals("computed-2", (computed.content as TextContent).text)
+        root.close()
+    }
+
+    @Test
+    fun `uniform control builders preserve reactive values and two way bindings`() {
+        val root = Element("root")
+        val ui = UiScope(root)
+        val buttonLabel = state("before")
+        var clicks = 0
+        val button = ui.button {
+            value(buttonLabel)
+            onClick { clicks++ }
+        }
+        val checked = state(false)
+        var checkboxChange: Boolean? = null
+        val checkbox = ui.checkbox {
+            bindValue(checked)
+            onChange { checkboxChange = it }
+        }
+        val sliderValue = state(0.25f)
+        val slider = ui.slider { bindValue(sliderValue) }
+        val fieldValue = state("initial")
+        val field = ui.textField { bindValue(fieldValue) }
+
+        buttonLabel.value = "after"
+        button.activate()
+        checkbox.activate()
+        slider.semantics.actions.getValue(SemanticAction.SET_VALUE)(0.75f)
+        field.element.attachment(TextEditorAttachment)!!.controller.reconcileExternal("edited")
+
+        assertEquals("after", (button.element.content as TextContent).text)
+        assertEquals(1, clicks)
+        assertTrue(checked.value)
+        assertEquals(true, checkboxChange)
+        assertEquals(0.75f, sliderValue.value)
+        assertEquals("edited", fieldValue.value)
+        root.close()
+    }
+
+    @Test
     fun `all universal components mount expected behavior and semantics`() {
         val root = Element("root")
         val ui = UiScope(root)

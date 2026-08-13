@@ -19,6 +19,7 @@ import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.reactive.effect
+import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.reactive.withComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
@@ -185,37 +186,70 @@ public fun UiScope.button(
     gestures: GestureConfiguration = GestureConfiguration(),
     onClick: () -> Unit = {},
 ): ControlHandle {
-    val e = element("button", TextContent(label, context.textLayout))
-    return control(
-        e,
-        SemanticsConfiguration(
-            role = SemanticRole.BUTTON,
-            label = label,
-            actions =
-                mapOf(
-                    SemanticAction.CLICK to
-                        {
-                            onClick()
-                            true
-                        }
-                ),
-        ),
-        onClick,
-        ControlGestureHandle(TapRecognizer(gestures, onClick)),
-    )
+    val e = element("button")
+    return buttonControl(e, state(label), gestures, onClick)
+}
+
+internal fun UiScope.buttonControl(
+    e: Element,
+    label: Readable<String>,
+    gestures: GestureConfiguration,
+    onClick: () -> Unit,
+): ControlHandle {
+    val handle =
+        control(
+            e,
+            SemanticsConfiguration(
+                role = SemanticRole.BUTTON,
+                label = label.value,
+                actions =
+                    mapOf(
+                        SemanticAction.CLICK to
+                            {
+                                onClick()
+                                true
+                            }
+                    ),
+            ),
+            onClick,
+            ControlGestureHandle(TapRecognizer(gestures, onClick)),
+        )
+    withComponentScope(e.scope) {
+        effect {
+            val next = label.value
+            e.content = TextContent(next, context.textLayout)
+            e.attach(SemanticsAttachment, handle.semantics.copy(label = next))
+            context.requestFrame(true)
+        }
+    }
+    return handle
 }
 
 public fun UiScope.checkbox(
     value: Mutable<Boolean>,
     gestures: GestureConfiguration = GestureConfiguration(),
 ): ControlHandle {
-    val action = { value.value = !value.value }
     val e = element("checkbox")
+    return checkboxControl(e, value, null, gestures)
+}
+
+internal fun UiScope.checkboxControl(
+    e: Element,
+    value: Mutable<Boolean>,
+    label: String?,
+    gestures: GestureConfiguration,
+    onChange: (Boolean) -> Unit = {},
+): ControlHandle {
+    val action = {
+        value.value = !value.value
+        onChange(value.value)
+    }
     val handle =
         control(
             e,
             SemanticsConfiguration(
                 role = SemanticRole.CHECKBOX,
+                label = label,
                 checked = value.value,
                 actions =
                     mapOf(
@@ -245,6 +279,17 @@ public fun UiScope.slider(
     gestures: GestureConfiguration = GestureConfiguration(),
 ): ControlHandle {
     val e = element("slider")
+    return sliderControl(e, value, minimum, maximum, gestures)
+}
+
+internal fun UiScope.sliderControl(
+    e: Element,
+    value: Mutable<Float>,
+    minimum: Float,
+    maximum: Float,
+    gestures: GestureConfiguration,
+    onChange: (Float) -> Unit = {},
+): ControlHandle {
     val gesture =
         ControlGestureHandle(
             DragRecognizer(
@@ -257,6 +302,7 @@ public fun UiScope.slider(
                             minimum,
                             maximum,
                         )
+                    onChange(value.value)
                 },
             )
         )
@@ -271,6 +317,7 @@ public fun UiScope.slider(
                         SemanticAction.SET_VALUE to
                             { v ->
                                 value.value = (v as Number).toFloat().coerceIn(minimum, maximum)
+                                onChange(value.value)
                                 true
                             }
                     ),
@@ -290,12 +337,22 @@ public fun UiScope.slider(
 }
 
 public fun UiScope.textField(
-    controller: TextEditingController = TextEditingController(),
+    controller: TextEditingController,
     gestures: GestureConfiguration = GestureConfiguration(),
     multiline: Boolean = false,
     secure: Boolean = false,
 ): ControlHandle {
     val e = element("textField", TextContent(controller.value.text, context.textLayout))
+    return textFieldControl(e, controller, gestures, multiline, secure)
+}
+
+internal fun UiScope.textFieldControl(
+    e: Element,
+    controller: TextEditingController,
+    gestures: GestureConfiguration,
+    multiline: Boolean,
+    secure: Boolean,
+): ControlHandle {
     val editor =
         TextEditorRuntime(
             controller,
