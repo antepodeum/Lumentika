@@ -31,6 +31,9 @@ import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillNodeId
 import com.antepod.lumentika.text.AutofillRuntime
 
+/**
+ * Native services used by a [UiRoot]; unavailable optional capabilities are represented by `null`.
+ */
 public data class PlatformServices(
     val frameScheduler: FrameScheduler,
     val units: UnitResolver = LogicalUnitResolver,
@@ -48,6 +51,7 @@ public data class PlatformServices(
     val back: BackDispatcher? = null,
 )
 
+/** Lifecycle phase of a normalized pointer sample. */
 public enum class PointerInputPhase {
     DOWN,
     MOVE,
@@ -55,6 +59,7 @@ public enum class PointerInputPhase {
     CANCEL,
 }
 
+/** Platform-neutral pointer input delivered to [UiRoot.dispatchPointer]. */
 public data class PointerInput(
     val phase: PointerInputPhase,
     val pointerId: Int,
@@ -68,6 +73,13 @@ public data class PointerInput(
     val historical: List<PointerSample> = emptyList(),
 )
 
+/**
+ * Owns one retained UI tree and coordinates reactivity, layout, rendering, input, semantics, and
+ * animation.
+ *
+ * Platform adapters create a root, mount content through [scope], forward native input, and invoke
+ * [frame] with monotonic timestamps. Close the root when its native surface is destroyed.
+ */
 public class UiRoot(
     initialEnvironment: UiEnvironment,
     public val services: PlatformServices,
@@ -150,10 +162,13 @@ public class UiRoot(
     public val committedRender: RenderCommit
         get() = render.committed
 
+    /** Returns the frontmost interactive element at [point]. */
     public fun hitTest(point: Point): Element? = render.committed.hitTest.hitTest(point)
 
+    /** Performs a scene-content raycast at [point]. */
     public fun raycast(point: Point): SceneRaycastHit? = render.committed.hitTest.raycast(point)
 
+    /** Dispatches normalized pointer input through hit testing, events, and gesture recognition. */
     public fun dispatchPointer(input: PointerInput): Boolean {
         val actualHit = hitTest(input.position)
         if (input.pointerType == PointerType.MOUSE) {
@@ -196,6 +211,7 @@ public class UiRoot(
         return allowed
     }
 
+    /** Dispatches a wheel delta to the hit-tested element at [position]. */
     public fun dispatchWheel(
         position: Point,
         deltaX: Float,
@@ -209,6 +225,7 @@ public class UiRoot(
         )
     }
 
+    /** Dispatches a key event to the currently focused element. */
     public fun dispatchKey(
         type: EventType,
         logicalKey: LogicalKey,
@@ -234,6 +251,7 @@ public class UiRoot(
         )
     }
 
+    /** Sets adapter or component render properties for [element]. */
     public fun configureRender(element: Element, properties: RenderProperties) {
         render.configure(element, properties)
         requestFrame(layoutDirty = false)
@@ -243,16 +261,19 @@ public class UiRoot(
         styles.attach(element, defaultStyle)
     }
 
+    /** Requests a coalesced platform frame, optionally marking layout dirty. */
     public fun requestFrame(layoutDirty: Boolean = true) {
         if (layoutDirty) layout.requestLayout()
         frame.requestFrame()
     }
 
+    /** Publishes an immutable environment snapshot and requests recomputation. */
     public fun publishEnvironment(value: UiEnvironment) {
         environment.publish(value)
         requestFrame()
     }
 
+    /** Advances the complete UI pipeline using a monotonic platform timestamp. */
     public fun frame(timeNanos: Long) {
         frame.consume()
         frameTimeNanos = timeNanos
@@ -288,22 +309,28 @@ public class UiRoot(
         if (animationsActive) frame.requestFrame()
     }
 
+    /** Applies autofill text to the registered field identified by [id]. */
     public fun applyAutofill(id: AutofillNodeId, text: String): Boolean = autofill.apply(id, text)
 
+    /** Requests native autofill UI for [id] when an autofill service is available. */
     public fun requestAutofill(id: AutofillNodeId): Boolean =
         services.autofill?.let {
             it.requestAutofill(id)
             true
         } ?: false
 
+    /** Opens [uri] through the platform service, returning whether it was handled. */
     public fun openUri(uri: UiUri): Boolean = services.uriLauncher?.open(uri) ?: false
 
+    /** Starts a native drag operation, or returns `null` when unsupported. */
     public fun startDrag(request: DragRequest): DragSession? =
         services.contentTransfer?.startDrag(request)
 
+    /** Registers a back handler and returns a disposable registration. */
     public fun registerBackHandler(handler: (BackEvent) -> Boolean): AutoCloseable =
         services.back?.register(handler) ?: AutoCloseable {}
 
+    /** Offers transferred [content] to receivers under [position] and returns unconsumed items. */
     public fun dispatchContent(position: Point, content: TransferContent): TransferContent {
         var remaining = content
         var target = hitTest(position)
@@ -407,6 +434,7 @@ public class UiRoot(
     )
 }
 
+/** Frame scheduler that only records requests, intended for tests and headless tools. */
 public class HeadlessFrameScheduler : FrameScheduler {
     public var requests = 0
 
@@ -415,6 +443,7 @@ public class HeadlessFrameScheduler : FrameScheduler {
     }
 }
 
+/** Render backend that records the last replayed artifact without drawing it. */
 public class HeadlessRenderBackend : RenderBackend {
     public var replays = 0
     public var last: com.antepod.lumentika.render.PaintArtifact? = null
@@ -425,6 +454,7 @@ public class HeadlessRenderBackend : RenderBackend {
     }
 }
 
+/** Creates a deterministic root with headless platform services and the requested viewport. */
 public fun headlessRoot(width: Float = 800f, height: Float = 600f): UiRoot {
     val scheduler = HeadlessFrameScheduler()
     return UiRoot(

@@ -11,6 +11,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.sqrt
 
+/** Standard easing functions for structural and layout animations. */
 public object StructuralEasings {
     public val linear: (Float) -> Float = { it }
     public val cubicOut: (Float) -> Float = { value -> 1f - (1f - value).pow(3) }
@@ -19,11 +20,13 @@ public object StructuralEasings {
     }
 }
 
+/** Whether an element is entering or leaving the mounted structure. */
 public enum class TransitionDirection {
     IN,
     OUT,
 }
 
+/** Lifecycle event emitted by a structural transition. */
 public enum class TransitionEventType {
     INTRO_START,
     INTRO_END,
@@ -32,12 +35,14 @@ public enum class TransitionEventType {
     CANCEL,
 }
 
+/** Describes one transition lifecycle event. */
 public data class TransitionEvent(
     val element: Element,
     val type: TransitionEventType,
     val direction: TransitionDirection,
 )
 
+/** Callback set for transition start, end, and cancellation. */
 public data class TransitionEvents(
     val onIntroStart: (TransitionEvent) -> Unit = {},
     val onIntroEnd: (TransitionEvent) -> Unit = {},
@@ -56,6 +61,7 @@ public data class TransitionEvents(
     }
 }
 
+/** Visual properties sampled for one structural-animation frame. */
 public data class TransitionFrame(
     val transform: Matrix3 = Matrix3.IDENTITY,
     val opacity: Float = 1f,
@@ -72,12 +78,14 @@ public data class TransitionFrame(
     }
 }
 
+/** Element geometry and direction supplied when creating a transition. */
 public data class ElementTransitionContext(
     val element: Element,
     val bounds: Rect,
     val direction: TransitionDirection,
 )
 
+/** Timing callbacks and sampling function returned by an [ElementTransition]. */
 public data class ElementTransitionConfig(
     val delayMillis: Long = 0,
     val durationMillis: Long = 400,
@@ -91,6 +99,7 @@ public data class ElementTransitionConfig(
     }
 }
 
+/** Creates a visual enter or exit transition for an element. */
 public fun interface ElementTransition {
     public fun create(context: ElementTransitionContext): ElementTransitionConfig
 }
@@ -101,6 +110,7 @@ private interface PreparedElementTransition : ElementTransition {
     fun finish(context: ElementTransitionContext)
 }
 
+/** Bidirectional or independently configured enter/exit effects for structural content. */
 public data class StructuralTransition(
     val bidirectional: ElementTransition? = null,
     val enter: ElementTransition? = null,
@@ -113,14 +123,17 @@ public data class StructuralTransition(
     }
 }
 
+/** Uses [effect] for both entering and exiting, with reversible interruption. */
 public fun transition(effect: ElementTransition): StructuralTransition =
     StructuralTransition(bidirectional = effect)
 
+/** Creates a structural transition with independent [enter] and [exit] effects. */
 public fun inOut(
     enter: ElementTransition? = null,
     exit: ElementTransition? = null,
 ): StructuralTransition = StructuralTransition(enter = enter, exit = exit)
 
+/** Creates an opacity transition. */
 public fun fade(
     durationMillis: Long = 400,
     delayMillis: Long = 0,
@@ -135,6 +148,7 @@ public fun fade(
     }
 }
 
+/** Creates a translated opacity transition. */
 public fun fly(
     x: Float = 0f,
     y: Float = 0f,
@@ -154,6 +168,7 @@ public fun fly(
     }
 }
 
+/** Creates an origin-aware scale and opacity transition. */
 public fun scale(
     start: Float = 0f,
     opacity: Float = 0f,
@@ -181,11 +196,13 @@ public fun scale(
     }
 }
 
+/** Axis revealed by [slide]. */
 public enum class SlideAxis {
     HORIZONTAL,
     VERTICAL,
 }
 
+/** Creates a clipped horizontal or vertical reveal transition. */
 public fun slide(
     axis: SlideAxis = SlideAxis.VERTICAL,
     durationMillis: Long = 400,
@@ -203,6 +220,7 @@ public fun slide(
     }
 }
 
+/** Creates a blur and opacity transition. */
 public fun blur(
     amount: Float = 5f,
     opacity: Float = 0f,
@@ -222,6 +240,7 @@ public fun blur(
     }
 }
 
+/** Creates a path-drawing transition for content implementing `PathMetrics`. */
 public fun draw(
     durationMillis: Long? = null,
     speed: Float? = null,
@@ -252,6 +271,7 @@ public fun draw(
     }
 }
 
+/** Paired send/receive transitions that interpolate matching element geometry. */
 public class CrossfadeTransitions
 internal constructor(
     private val delayMillis: Long,
@@ -316,6 +336,7 @@ internal constructor(
     }
 }
 
+/** Creates a keyed crossfade registry with an optional unmatched [fallback]. */
 public fun crossfade(
     delayMillis: Long = 0,
     durationMillis: (distance: Float) -> Long = { distance ->
@@ -328,12 +349,14 @@ public fun crossfade(
     return CrossfadeTransitions(delayMillis, durationMillis, easing, fallback)
 }
 
+/** Previous and current bounds supplied to a [LayoutAnimation]. */
 public data class LayoutAnimationContext(
     val element: Element,
     val from: Rect,
     val to: Rect,
 )
 
+/** Timing callbacks and sampling function returned by a [LayoutAnimation]. */
 public data class LayoutAnimationConfig(
     val delayMillis: Long = 0,
     val durationMillis: Long = 400,
@@ -347,10 +370,12 @@ public data class LayoutAnimationConfig(
     }
 }
 
+/** Creates motion between an element's previous and current committed bounds. */
 public fun interface LayoutAnimation {
     public fun create(context: LayoutAnimationContext): LayoutAnimationConfig
 }
 
+/** First-last-invert-play animation for keyed layout movement. */
 public data class FlipAnimation(
     val delayMillis: Long = 0,
     val durationMillis: (distance: Float) -> Long = { distance ->
@@ -387,6 +412,7 @@ public data class FlipAnimation(
     }
 }
 
+/** Creates a FLIP animation with a fixed or distance-derived duration. */
 public fun flip(
     durationMillis: Long? = null,
     delayMillis: Long = 0,
@@ -403,26 +429,32 @@ public fun flip(
     )
 }
 
+/** Creates a FLIP animation whose duration is computed from travel distance. */
 public fun flip(
     durationMillis: (distance: Float) -> Long,
     delayMillis: Long = 0,
     easing: (Float) -> Float = StructuralEasings.cubicOut,
 ): FlipAnimation = FlipAnimation(delayMillis, durationMillis, easing)
 
+/** Event emitted for a keyed layout animation. */
 public data class LayoutAnimationEvent(val element: Element)
 
+/** Callback set for keyed layout animation lifecycle events. */
 public data class LayoutAnimationEvents(
     val onStart: (LayoutAnimationEvent) -> Unit = {},
     val onEnd: (LayoutAnimationEvent) -> Unit = {},
     val onCancel: (LayoutAnimationEvent) -> Unit = {},
 )
 
+/** Captured committed bounds used to prepare keyed FLIP animation. */
 public class FlipSnapshot internal constructor(internal val bounds: Map<Element, Rect>)
 
+/** Disposable handle for a running structural element transition. */
 public interface ElementTransitionHandle : AutoCloseable {
     public val isActive: Boolean
 }
 
+/** Root-owned runtime for structural, crossfade, and keyed layout animation. */
 public class ElementAnimationRuntime(
     private val clock: UiAnimationClock,
     private val configureMotion: (Element, MotionRenderProperties?) -> Unit,

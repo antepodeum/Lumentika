@@ -12,25 +12,31 @@ import com.antepod.lumentika.style.StyleImpact
 import com.antepod.lumentika.style.StyleProperty
 import kotlin.math.exp
 
+/** Timing policy used by a property animation track. */
 public sealed interface MotionSpec
 
+/** Duration-and-easing motion specification. */
 public data class TweenSpec(val durationMillis: Long = 150, val easing: (Float) -> Float = { it }) :
     MotionSpec
 
+/** Exponentially converging spring-like motion specification. */
 public data class SpringSpec(val stiffness: Float = 360f, val dampingRatio: Float = .82f) :
     MotionSpec
 
+/** Interpolates values of [T] for property animation. */
 public interface AnimationAdapter<T> {
     public fun canInterpolate(from: T, to: T): Boolean = true
 
     public fun interpolate(from: T, to: T, fraction: Float): T
 }
 
+/** Linear interpolation for floating-point values. */
 public object FloatAnimationAdapter : AnimationAdapter<Float> {
     override fun interpolate(from: Float, to: Float, fraction: Float) =
         from + (to - from) * fraction
 }
 
+/** Interpolates compatible dimension values that use the same unit family. */
 public object DimensionAnimationAdapter : AnimationAdapter<DimensionValue> {
     override fun canInterpolate(from: DimensionValue, to: DimensionValue): Boolean =
         from::class == to::class &&
@@ -56,6 +62,7 @@ public object DimensionAnimationAdapter : AnimationAdapter<DimensionValue> {
         }
 }
 
+/** Stateful, retargetable animation of one typed value. */
 public class AnimationTrack<T>(
     initial: T,
     private val adapter: AnimationAdapter<T>,
@@ -102,8 +109,10 @@ public class AnimationTrack<T>(
     }
 }
 
+/** Associates a motion specification with interpolation for one property type. */
 public data class Transition<T>(val spec: MotionSpec, val adapter: AnimationAdapter<T>)
 
+/** Immutable property-to-transition policy built by [transitions]. */
 public class TransitionSet
 internal constructor(internal val values: Map<StyleProperty<*>, Transition<*>>) {
     @Suppress("UNCHECKED_CAST")
@@ -111,6 +120,7 @@ internal constructor(internal val values: Map<StyleProperty<*>, Transition<*>>) 
         values[property] as Transition<T>?
 }
 
+/** Type-safe builder for a [TransitionSet]. */
 public class TransitionBuilder {
     private val values = mutableMapOf<StyleProperty<*>, Transition<*>>()
 
@@ -129,9 +139,11 @@ public class TransitionBuilder {
     internal fun build(): TransitionSet = TransitionSet(values.toMap())
 }
 
+/** Builds a reusable set of typed property transitions. */
 public fun transitions(block: TransitionBuilder.() -> Unit): TransitionSet =
     TransitionBuilder().apply(block).build()
 
+/** Sparse animated values layered over a resolved target style. */
 public class EffectiveStyleOverlay {
     private val values = mutableMapOf<Element, MutableMap<StyleProperty<*>, Any?>>()
 
@@ -155,6 +167,7 @@ public class EffectiveStyleOverlay {
         } ?: target
 }
 
+/** Advances property animation tracks and exposes their effective style overlay. */
 public class StyleAnimationRuntime(
     private val clock: UiAnimationClock,
     private val onImpact: (Element, StyleImpact) -> Unit,
@@ -258,6 +271,7 @@ public class StyleAnimationRuntime(
     }
 }
 
+/** Root-owned clock that advances registered animation callbacks from frame timestamps. */
 public class UiAnimationClock {
     public var frameTimeNanos: Long = 0
         private set

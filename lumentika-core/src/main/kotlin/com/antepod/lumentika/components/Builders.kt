@@ -33,6 +33,7 @@ import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextRange
 
+/** Base DSL builder for element styling, semantics, and child mounting. */
 public open class ElementBuilder
 internal constructor(
     public val element: Element,
@@ -68,9 +69,11 @@ internal constructor(
     }
 }
 
+/** Builder for layout containers that accept arbitrary child elements. */
 public open class ContainerBuilder internal constructor(element: Element, context: UiContext) :
     ElementBuilder(element, context)
 
+/** Configures scroll state, gesture thresholds, and nested scrolling. */
 public open class ScrollBuilder internal constructor(element: Element, context: UiContext) :
     ContainerBuilder(element, context) {
     public var state: ScrollState = ScrollState()
@@ -80,15 +83,18 @@ public open class ScrollBuilder internal constructor(element: Element, context: 
     internal fun mount(): Element = mountScroll(element, state, gestures, nestedScroll)
 }
 
+/** Mounts a scrollable container. */
 public fun UiScope.scroll(block: ScrollBuilder.() -> Unit = {}): Element {
     val element = element("scroll")
     context.attachStyle(element, style { overflow = Overflow.SCROLL })
     return ScrollBuilder(element, context).apply(block).mount()
 }
 
+/** Builder for a scrollable semantic list. */
 public class ListBuilder internal constructor(element: Element, context: UiContext) :
     ScrollBuilder(element, context)
 
+/** Mounts a scrollable container with list semantics. */
 public fun UiScope.list(block: ListBuilder.() -> Unit = {}): Element {
     val element = element("list")
     context.attachStyle(
@@ -109,6 +115,7 @@ public fun UiScope.list(block: ListBuilder.() -> Unit = {}): Element {
     return element
 }
 
+/** Mutable DSL projection of an element's accessibility semantics. */
 public class SemanticsBuilder internal constructor(private val initial: SemanticsConfiguration) {
     public var role: SemanticRole = initial.role
     public var label: String? = initial.label
@@ -156,6 +163,7 @@ public class SemanticsBuilder internal constructor(private val initial: Semantic
         )
 }
 
+/** Configures static or reactive text content. */
 public class TextBuilder internal constructor(element: Element, context: UiContext) :
     ElementBuilder(element, context) {
     private var source: () -> String = { "" }
@@ -211,6 +219,7 @@ public class TextBuilder internal constructor(element: Element, context: UiConte
     }
 }
 
+/** Mounts text configured by [block], including shorthand blocks that return a string. */
 public fun UiScope.text(block: TextBuilder.() -> Any?): Element {
     val element = element("text")
     TextBuilder(element, context).also {
@@ -220,6 +229,7 @@ public fun UiScope.text(block: TextBuilder.() -> Any?): Element {
     return element
 }
 
+/** Base builder for controls whose displayed value can come from a reactive source. */
 public abstract class ValueElementBuilder<T>
 internal constructor(element: Element, context: UiContext, initial: T) :
     ElementBuilder(element, context) {
@@ -256,6 +266,7 @@ internal constructor(element: Element, context: UiContext, initial: T) :
     }
 }
 
+/** Configures a pressable button. */
 public class ButtonBuilder internal constructor(element: Element, context: UiContext) :
     ValueElementBuilder<String>(element, context, "") {
     public var gestures: GestureConfiguration = context.gestureConfiguration()
@@ -273,11 +284,13 @@ public class ButtonBuilder internal constructor(element: Element, context: UiCon
     }
 }
 
+/** Mounts a button and returns its interaction handle. */
 public fun UiScope.button(block: ButtonBuilder.() -> Unit): ControlHandle {
     val element = element("button")
     return ButtonBuilder(element, context).apply(block).mount()
 }
 
+/** Configures a boolean checkbox control. */
 public class CheckboxBuilder internal constructor(element: Element, context: UiContext) :
     ValueElementBuilder<Boolean>(element, context, false) {
     public var label: String? = null
@@ -298,11 +311,13 @@ public class CheckboxBuilder internal constructor(element: Element, context: UiC
     }
 }
 
+/** Mounts a checkbox and returns its interaction handle. */
 public fun UiScope.checkbox(block: CheckboxBuilder.() -> Unit): ControlHandle {
     val element = element("checkbox")
     return CheckboxBuilder(element, context).apply(block).mount()
 }
 
+/** Configures a bounded numeric slider. */
 public class SliderBuilder internal constructor(element: Element, context: UiContext) :
     ValueElementBuilder<Float>(element, context, 0f) {
     public var min: Float = 0f
@@ -343,11 +358,13 @@ public class SliderBuilder internal constructor(element: Element, context: UiCon
     }
 }
 
+/** Mounts a slider and returns its interaction handle. */
 public fun UiScope.slider(block: SliderBuilder.() -> Unit): ControlHandle {
     val element = element("slider")
     return SliderBuilder(element, context).apply(block).mount()
 }
 
+/** Configures an editable text field and its native-input integration. */
 public class TextFieldBuilder internal constructor(element: Element, context: UiContext) :
     ElementBuilder(element, context) {
     private var source: () -> String = { "" }
@@ -464,11 +481,13 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
     }
 }
 
+/** Mounts an editable text field and returns its interaction handle. */
 public fun UiScope.textField(block: TextFieldBuilder.() -> Unit = {}): ControlHandle {
     val element = element("textField")
     return TextFieldBuilder(element, context).apply(block).mount()
 }
 
+/** Configures image content, intrinsic size, and accessibility description. */
 public class ImageBuilder internal constructor(element: Element, context: UiContext) :
     ElementBuilder(element, context) {
     private var sourceProvider: (() -> ImageSource)? = null
@@ -515,12 +534,14 @@ public class ImageBuilder internal constructor(element: Element, context: UiCont
     }
 }
 
+/** Mounts an image configured by [block]. */
 public fun UiScope.image(block: ImageBuilder.() -> Unit): Element {
     val element = element("image")
     ImageBuilder(element, context).apply(block).mount()
     return element
 }
 
+/** Configures delayed tooltip content and placement. */
 public class TooltipBuilder internal constructor(element: Element, context: UiContext) :
     ValueElementBuilder<String>(element, context, "") {
     public var showDelayMillis: Long = 500
@@ -544,6 +565,7 @@ public class TooltipBuilder internal constructor(element: Element, context: UiCo
     }
 }
 
+/** Mounts a tooltip anchor and its popup content. */
 public fun UiScope.tooltip(block: TooltipBuilder.() -> Unit): Element {
     val element = element("tooltip")
     return TooltipBuilder(element, context).apply(block).mount()

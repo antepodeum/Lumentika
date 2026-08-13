@@ -52,6 +52,7 @@ import com.antepod.lumentika.text.TextEditorRuntime
 import com.antepod.lumentika.text.TextInputConfiguration
 import com.antepod.lumentika.text.TextLayoutRequest
 
+/** Stable theme-part namespace for buttons. */
 public object Button {
     public object Part {
         public val ROOT: StylePart<Button> = StylePart("button.root")
@@ -60,6 +61,7 @@ public object Button {
     }
 }
 
+/** Stable theme-part namespace for checkboxes. */
 public object Checkbox {
     public object Part {
         public val ROOT: StylePart<Checkbox> = StylePart("checkbox.root")
@@ -68,6 +70,7 @@ public object Checkbox {
     }
 }
 
+/** Stable theme-part namespace for sliders. */
 public object Slider {
     public object Part {
         public val ROOT: StylePart<Slider> = StylePart("slider.root")
@@ -77,6 +80,7 @@ public object Slider {
     }
 }
 
+/** Stable theme-part namespace for text fields. */
 public object TextField {
     public object Part {
         public val ROOT: StylePart<TextField> = StylePart("text-field.root")
@@ -89,6 +93,7 @@ public object TextField {
     }
 }
 
+/** Stable theme-part namespace for scroll containers. */
 public object Scroll {
     public object Part {
         public val ROOT: StylePart<Scroll> = StylePart("scroll.root")
@@ -97,6 +102,7 @@ public object Scroll {
     }
 }
 
+/** Stable theme-part namespace for tooltips. */
 public object Tooltip {
     public object Part {
         public val ROOT: StylePart<Tooltip> = StylePart("tooltip.root")
@@ -104,6 +110,7 @@ public object Tooltip {
     }
 }
 
+/** Public interaction and semantics handle returned by control builders. */
 public class ControlHandle(
     public val element: Element,
     private val initialSemantics: SemanticsConfiguration,
@@ -114,6 +121,7 @@ public class ControlHandle(
         get() = element.attachment(SemanticsAttachment) ?: initialSemantics
 }
 
+/** Drives the shared gesture recognizer attached to a control. */
 public class ControlGestureHandle(
     public val recognizer: GestureRecognizer,
     private val pointerStarted: (PointerType) -> Unit = {},
@@ -146,22 +154,34 @@ public class ControlGestureHandle(
     override fun close() = recognizer.close()
 }
 
+/** Element attachment containing the control gesture bridge. */
 public val GestureAttachment: AttachmentKey<ControlGestureHandle> = AttachmentKey()
+
+/** Element attachment containing an active text editor runtime. */
 public val TextEditorAttachment: AttachmentKey<TextEditorRuntime> = AttachmentKey()
+
+/** Element attachment containing a receive-content handler. */
 public val ReceiveContentAttachment: AttachmentKey<(TransferContent) -> TransferContent> =
     AttachmentKey()
+
+/** Element attachment exposing scroll runtime state to the root. */
 public val ScrollRuntimeAttachment: AttachmentKey<ScrollRuntimeHandle> = AttachmentKey()
+
+/** Element attachment exposing tooltip lifecycle state. */
 public val TooltipRuntimeAttachment: AttachmentKey<TooltipRuntimeHandle> = AttachmentKey()
 private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 
+/** Mounts a block-layout container. */
 public fun UiScope.block(content: ContainerBuilder.() -> Unit = {}): Element =
     container("block", style {}, content)
 
+/** Mounts a generic flex-layout container. */
 public fun UiScope.flex(content: ContainerBuilder.() -> Unit = {}): Element =
     container("flex", style { display = Display.FLEX }, content)
 
+/** Mounts a horizontal flex container. */
 public fun UiScope.row(content: ContainerBuilder.() -> Unit = {}): Element =
     container(
         "row",
@@ -172,6 +192,7 @@ public fun UiScope.row(content: ContainerBuilder.() -> Unit = {}): Element =
         content,
     )
 
+/** Mounts a vertical flex container. */
 public fun UiScope.column(content: ContainerBuilder.() -> Unit = {}): Element =
     container(
         "column",
@@ -182,9 +203,11 @@ public fun UiScope.column(content: ContainerBuilder.() -> Unit = {}): Element =
         content,
     )
 
+/** Mounts a grid-layout container. */
 public fun UiScope.grid(content: ContainerBuilder.() -> Unit = {}): Element =
     container("grid", style { display = Display.GRID }, content)
 
+/** Mounts an overlay stack container. */
 public fun UiScope.stack(content: ContainerBuilder.() -> Unit = {}): Element =
     container("stack", style { display = Display.GRID }, content)
 
@@ -316,6 +339,7 @@ internal fun UiScope.mountScroll(
     updateRender()
 }
 
+/** Coordinates scroll ranges, offsets, and scrollbar controllers for one element. */
 public class ScrollRuntimeHandle
 internal constructor(
     private val element: Element,
@@ -380,6 +404,7 @@ internal constructor(
         listOf(current) + current.children.flatMap(::flatten)
 }
 
+/** Mounts static text. */
 public fun UiScope.text(value: String): Element =
     element("text", TextContent(value, context.textLayout)).also {
         it.attach(
@@ -388,8 +413,10 @@ public fun UiScope.text(value: String): Element =
         )
     }
 
+/** Mounts text backed by a reactive [value]. */
 public fun UiScope.text(value: Readable<String>): Element = text { value(value) }
 
+/** Mounts an image using [source] and optional intrinsic [size]. */
 public fun UiScope.image(
     source: ImageSource,
     size: com.antepod.lumentika.geometry.Size? = null,
@@ -398,18 +425,21 @@ public fun UiScope.image(
         it.attach(SemanticsAttachment, SemanticsConfiguration(role = SemanticRole.IMAGE))
     }
 
+/** Preferred placement of a tooltip relative to its anchor. */
 public enum class TooltipPlacement {
     AUTO,
     ABOVE,
     BELOW,
 }
 
+/** Geometry request consumed by an adapter or popup positioning layer. */
 public data class TooltipPlacementRequest(
     val anchorBounds: Rect,
     val placement: TooltipPlacement,
     val offset: Float,
 )
 
+/** Controls delayed visibility and placement state for a tooltip. */
 public class TooltipRuntimeHandle
 internal constructor(
     private val wrapper: Element,

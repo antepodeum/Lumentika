@@ -1,22 +1,26 @@
 package com.antepod.lumentika.style
 
 /** Values mirroring Taffy4J layout concepts without leaking Taffy types into public API. */
+/** Determines whether declared dimensions include padding and border. */
 public enum class BoxSizing {
     BORDER_BOX,
     CONTENT_BOX,
 }
 
+/** Physical text and layout direction passed to the layout engine. */
 public enum class Direction {
     LTR,
     RTL,
 }
 
+/** Block-layout floating behavior. */
 public enum class FloatLayout {
     LEFT,
     RIGHT,
     NONE,
 }
 
+/** Block-layout float clearing behavior. */
 public enum class Clear {
     LEFT,
     RIGHT,
@@ -24,6 +28,7 @@ public enum class Clear {
     NONE,
 }
 
+/** Item alignment values shared by flex and grid layout. */
 public enum class AlignItems {
     START,
     END,
@@ -43,6 +48,7 @@ public enum class AlignItems {
     SAFE_CENTER,
 }
 
+/** Content-distribution values shared by flex and grid layout. */
 public enum class AlignContent {
     START,
     END,
@@ -60,6 +66,7 @@ public enum class AlignContent {
     SAFE_CENTER,
 }
 
+/** Inline text alignment used during text layout. */
 public enum class TextAlign {
     AUTO,
     LEGACY_LEFT,
@@ -67,6 +74,7 @@ public enum class TextAlign {
     LEGACY_CENTER,
 }
 
+/** Placement direction and density for implicit grid items. */
 public enum class GridAutoFlow {
     ROW,
     COLUMN,
@@ -74,6 +82,7 @@ public enum class GridAutoFlow {
     COLUMN_DENSE,
 }
 
+/** Minimum sizing function for a grid track. */
 public sealed interface GridMinTrackSizing {
     public data object Auto : GridMinTrackSizing
 
@@ -84,6 +93,7 @@ public sealed interface GridMinTrackSizing {
     public data class Fixed(val value: LengthPercentageValue) : GridMinTrackSizing
 }
 
+/** Maximum sizing function for a grid track. */
 public sealed interface GridMaxTrackSizing {
     public data object Auto : GridMaxTrackSizing
 
@@ -102,6 +112,7 @@ public sealed interface GridMaxTrackSizing {
     public data class FitContent(val limit: LengthPercentageValue) : GridMaxTrackSizing
 }
 
+/** Minimum and maximum sizing functions for one grid track. */
 public data class GridTrackSizing(
     val min: GridMinTrackSizing,
     val max: GridMaxTrackSizing,
@@ -138,6 +149,7 @@ public data class GridTrackSizing(
     }
 }
 
+/** Repetition count used by a grid template repeat component. */
 public sealed interface GridRepetition {
     public data class Count(val count: Int) : GridRepetition {
         init {
@@ -150,6 +162,7 @@ public sealed interface GridRepetition {
     public data object AutoFit : GridRepetition
 }
 
+/** One track or repeated group in a grid template. */
 public sealed interface GridTemplateComponent {
     public data class Single(val track: GridTrackSizing) : GridTemplateComponent
 
@@ -164,6 +177,7 @@ public sealed interface GridTemplateComponent {
     }
 }
 
+/** Automatic, line-based, or span-based placement of a grid item. */
 public sealed interface GridPlacement {
     public data object Auto : GridPlacement
 
@@ -180,11 +194,13 @@ public sealed interface GridPlacement {
     }
 }
 
+/** Start and end placement for one grid axis. */
 public data class GridLine(
     val start: GridPlacement = GridPlacement.Auto,
     val end: GridPlacement = GridPlacement.Auto,
 )
 
+/** Named rectangular area in a grid template. */
 public data class GridTemplateArea(
     val name: String,
     val rowStart: Int,
@@ -193,6 +209,7 @@ public data class GridTemplateArea(
     val columnEnd: Int,
 )
 
+/** Validated named-area definition for a grid template. */
 public data class GridTemplateAreas(
     val areas: List<GridTemplateArea>,
     val rowCount: Int,

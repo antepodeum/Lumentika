@@ -7,31 +7,42 @@ import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.runtime.AttachmentKey
 import com.antepod.lumentika.runtime.Element
 
+/** Value accepted by a dimension style property. */
 public sealed interface DimensionValue
 
+/** Length or percentage accepted by box-edge properties. */
 public sealed interface LengthPercentageValue
 
+/** Length, percentage, or automatic value accepted by positioning properties. */
 public sealed interface LengthPercentageAutoValue
 
+/** Platform-resolvable absolute length. */
 public sealed interface AbsoluteLengthValue
 
+/** Logical core pixels. */
 public data class Px(val value: Float) :
     DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
 
+/** Density-independent platform units. */
 public data class Dp(val value: Float) :
     DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
 
+/** Font-scaled platform units. */
 public data class Sp(val value: Float) :
     DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
 
+/** Physical device pixels converted by the platform unit resolver. */
 public data class PhysicalPx(val value: Float) :
     DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
 
+/** Percentage dimension stored as a zero-to-one fraction. */
 public data class Percent(val fraction: Float) :
     DimensionValue, LengthPercentageValue, LengthPercentageAutoValue
 
+/** Automatic sizing or positioning chosen by layout. */
 public data object Auto : DimensionValue, LengthPercentageAutoValue
 
+/** Linear combination of dimension values. */
 public data class Calc(val terms: List<Pair<Float, DimensionValue>>) :
     DimensionValue, LengthPercentageValue, LengthPercentageAutoValue
 
@@ -48,6 +59,7 @@ public val Number.percent: Percent
 
 public fun auto(): Auto = Auto
 
+/** Values for the top, right, bottom, and left edges. */
 public data class Edges<T>(val top: T, val right: T, val bottom: T, val left: T)
 
 public fun <T> edges(all: T): Edges<T> = Edges(all, all, all, all)
@@ -58,19 +70,26 @@ public fun <T> edges(vertical: T, horizontal: T): Edges<T> =
 public fun <T> edges(top: T, right: T, bottom: T, left: T): Edges<T> =
     Edges(top, right, bottom, left)
 
+/** Platform-neutral paint used by backgrounds and text. */
 public sealed interface Paint
 
+/** Solid ARGB color paint. */
 public data class SolidPaint(val argb: Int) : Paint
 
+/** ARGB color stop in a gradient. */
 public data class GradientStop(val offset: Float, val color: Int)
 
+/** Linear gradient paint. */
 public data class LinearGradientPaint(val angleDegrees: Float, val stops: List<GradientStop>) :
     Paint
 
+/** Radial gradient paint. */
 public data class RadialGradientPaint(val stops: List<GradientStop>) : Paint
 
+/** Paint backed by an adapter-resolved image identifier. */
 public data class ImagePaint(val source: String) : Paint
 
+/** Ordered composition of multiple paints. */
 public data class LayeredPaint(val layers: List<Paint>) : Paint
 
 public fun rgb(red: Int, green: Int, blue: Int, alpha: Int = 255): SolidPaint =
@@ -81,6 +100,7 @@ public fun rgb(red: Int, green: Int, blue: Int, alpha: Int = 255): SolidPaint =
             blue.coerceIn(0, 255)
     )
 
+/** Primary layout model or absence from layout. */
 public enum class Display {
     NONE,
     BLOCK,
@@ -88,11 +108,13 @@ public enum class Display {
     GRID,
 }
 
+/** Static, relative, or absolute positioning mode. */
 public enum class Position {
     RELATIVE,
     ABSOLUTE,
 }
 
+/** Layout, clipping, and scrolling behavior for overflowing content. */
 public enum class Overflow {
     VISIBLE,
     CLIP,
@@ -101,6 +123,7 @@ public enum class Overflow {
     AUTO,
 }
 
+/** Main-axis direction of a flex container. */
 public enum class FlexDirection {
     ROW,
     ROW_REVERSE,
@@ -108,12 +131,14 @@ public enum class FlexDirection {
     COLUMN_REVERSE,
 }
 
+/** Wrapping policy for flex items. */
 public enum class FlexWrap {
     NO_WRAP,
     WRAP,
     WRAP_REVERSE,
 }
 
+/** Legacy compact alignment values. */
 public enum class Align {
     AUTO,
     START,
@@ -125,17 +150,20 @@ public enum class Align {
     SPACE_EVENLY,
 }
 
+/** Whether an element paints while retaining layout participation. */
 public enum class Visibility {
     VISIBLE,
     HIDDEN,
 }
 
+/** Whether an element participates in hit testing. */
 public enum class PointerEvents {
     AUTO,
     NONE,
 }
 
 @JvmInline
+/** Bit mask describing runtime work affected by a property change. */
 public value class StyleImpact(public val bits: Int) {
     public operator fun plus(other: StyleImpact): StyleImpact = StyleImpact(bits or other.bits)
 
@@ -157,6 +185,7 @@ public value class StyleImpact(public val bits: Int) {
     }
 }
 
+/** Typed metadata and default value for one style property. */
 public class StyleProperty<T>(
     public val id: Int,
     public val name: String,
@@ -168,6 +197,7 @@ public class StyleProperty<T>(
 }
 
 @JvmInline
+/** Compact set of style-property identifiers. */
 public value class PropertyMask(public val bits: Long) {
     public operator fun plus(other: PropertyMask): PropertyMask = PropertyMask(bits or other.bits)
 
@@ -179,6 +209,7 @@ public value class PropertyMask(public val bits: Long) {
     }
 }
 
+/** Catalog of all style properties understood by the core runtime. */
 public object Properties {
     public val Display =
         StyleProperty(
@@ -571,8 +602,10 @@ public object Properties {
         StyleProperty(id, name, initialValue, impact = StyleImpact.LAYOUT)
 }
 
+/** Marker for built-in or library-defined element states used by style conditions. */
 public interface StyleState
 
+/** Interaction and focus states maintained by the core. */
 public enum class BuiltinStyleState : StyleState {
     HOVER,
     ACTIVE,
@@ -589,6 +622,7 @@ public val FOCUS_VISIBLE: StyleState = BuiltinStyleState.FOCUS_VISIBLE
 public val FOCUS_WITHIN: StyleState = BuiltinStyleState.FOCUS_WITHIN
 public val DISABLED: StyleState = BuiltinStyleState.DISABLED
 
+/** Predicate over the active style states of an element. */
 public sealed interface StyleCondition {
     public val dependencies: Set<StyleState>
 
@@ -629,18 +663,21 @@ public fun any(vararg states: StyleState): StyleCondition = AnyCondition(states.
 
 public fun not(state: StyleState): StyleCondition = Not(HasState(state))
 
+/** One conditional assignment in a compiled style program. */
 public data class StyleEntry(
     val property: StyleProperty<*>,
     val value: Any?,
     val condition: StyleCondition? = null,
 )
 
+/** Environment categories that can invalidate resolved styles. */
 public enum class EnvironmentDependency {
     DP_UNITS,
     SP_UNITS,
     PHYSICAL_PX_UNITS,
 }
 
+/** Immutable compiled sequence of typed style assignments. */
 public data class StyleProgram(
     val assignments: List<StyleEntry>,
     val previousAssignmentForSameProperty: IntArray,
@@ -692,8 +729,10 @@ public data class StyleProgram(
 
 internal data class StyleWinner(val found: Boolean, val value: Any?)
 
+/** Immutable style value produced by [style]. */
 public class Style internal constructor(public val program: StyleProgram)
 
+/** Type-safe DSL builder for immutable [Style] values. */
 public class StyleBuilder internal constructor(private val condition: StyleCondition? = null) {
     private val entries = mutableListOf<StyleEntry>()
 
@@ -940,14 +979,18 @@ public class StyleBuilder internal constructor(private val condition: StyleCondi
     internal fun build(): Style = Style(StyleProgram.compile(entries))
 }
 
+/** Builds an immutable style. */
 public fun style(block: StyleBuilder.() -> Unit): Style = StyleBuilder().apply(block).build()
 
+/** Typed theme variable with a fallback value. */
 public class StyleVar<T>(public val default: T)
 
 public fun <T> styleVar(default: T): StyleVar<T> = StyleVar(default)
 
+/** Stable component skinning point identified by [name]. */
 public class StylePart<T : Any>(public val name: String)
 
+/** Immutable overrides for style variables and component parts. */
 public class Theme
 internal constructor(
     internal val values: Map<StyleVar<*>, Any?>,
@@ -960,6 +1003,7 @@ internal constructor(
     public operator fun <T : Any> get(part: StylePart<T>): Style? = parts[part]
 }
 
+/** Builder for immutable [Theme] values. */
 public class ThemeBuilder {
     private val values = mutableMapOf<StyleVar<*>, Any?>()
     private val parts = mutableMapOf<StylePart<*>, Style>()
@@ -975,14 +1019,17 @@ public class ThemeBuilder {
     internal fun build() = Theme(values.toMap(), parts.toMap())
 }
 
+/** Builds an immutable theme. */
 public fun theme(block: ThemeBuilder.() -> Unit): Theme = ThemeBuilder().apply(block).build()
 
+/** Resolved style values inherited by descendants. */
 public data class InheritedValues(
     val visibility: Visibility,
     val fontSize: DimensionValue,
     val color: Paint,
 )
 
+/** Resolved dimensions and box-model values. */
 public data class BoxLayoutValues(
     val display: Display,
     val width: DimensionValue,
@@ -997,12 +1044,14 @@ public data class BoxLayoutValues(
     val overflow: Overflow,
 )
 
+/** Resolved common flex and grid alignment values. */
 public data class FlexGridValues(
     val direction: FlexDirection,
     val grow: Float,
     val shrink: Float,
 )
 
+/** Complete resolved layout projection consumed by Taffy4J. */
 public data class TaffyLayoutValues(
     val itemIsTable: Boolean,
     val itemIsReplaced: Boolean,
@@ -1040,12 +1089,16 @@ public data class TaffyLayoutValues(
     val gridColumn: GridLine,
 )
 
+/** Resolved paint values. */
 public data class PaintValues(val background: Paint?)
 
+/** Resolved compositing and stacking values. */
 public data class RenderValues(val opacity: Float, val zIndex: Int)
 
+/** Resolved hit-testing values. */
 public data class InteractionValues(val pointerEvents: PointerEvents)
 
+/** Fully resolved style grouped by runtime consumer. */
 public class ResolvedStyle
 internal constructor(
     public val inherited: InheritedValues,
@@ -1235,6 +1288,7 @@ internal constructor(
     }
 }
 
+/** Property and impact masks produced while resolving a style update. */
 public data class StyleChangeSet(
     val impact: StyleImpact,
     val changedProperties: Set<StyleProperty<*>>,
@@ -1248,6 +1302,7 @@ private data class ElementStyleState(
 
 private val styleStateKey = AttachmentKey<ElementStyleState>()
 
+/** Attaches reactive styles, maintains states, and resolves effective target values. */
 public class StyleRuntime {
     public fun attach(element: Element, source: Readable<Style>) {
         state(element).sources += source
@@ -1320,6 +1375,7 @@ private fun dependenciesOf(value: Any?): Set<EnvironmentDependency> =
         else -> emptySet()
     }
 
+/** Resolves a typed dimension into logical pixels for [environment]. */
 public fun resolveLength(
     value: DimensionValue,
     environment: UiEnvironment,
@@ -1341,6 +1397,7 @@ public fun resolveLength(
         Auto -> null
     }
 
+/** Named inset group exposed to styles and higher-level components. */
 public enum class EnvironmentInset {
     SYSTEM_BARS,
     DISPLAY_CUTOUT,
@@ -1351,6 +1408,7 @@ public enum class EnvironmentInset {
     SAFE_CONTENT,
 }
 
+/** Returns the current inset values represented by [type]. */
 public fun environmentInsets(type: EnvironmentInset, environment: UiEnvironment): Insets =
     when (type) {
         EnvironmentInset.SYSTEM_BARS -> environment.insets.systemBars
