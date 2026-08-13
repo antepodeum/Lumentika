@@ -209,11 +209,13 @@ class ComponentTest {
         val animatedOne = root.committedRender.hitTest.entries.single { it.element === one }
         val animatedOrigin = animatedOne.rootTransform.transform(Point(0f, 0f))
         val layoutsAfterMove = root.layoutComputeCount
+        val recordsAfterMove = root.renderRecordCount
 
         assertEquals(oldOrigin, animatedOrigin)
         assertEquals(2, starts)
         root.frame(50_000_002)
         assertEquals(layoutsAfterMove, root.layoutComputeCount)
+        assertEquals(recordsAfterMove, root.renderRecordCount)
         root.frame(100_000_002)
         val finalOne = root.committedRender.hitTest.entries.single { it.element === one }
         assertEquals(Point(0f, 20f), finalOne.rootTransform.transform(Point(0f, 0f)))

@@ -4,6 +4,9 @@ import com.antepod.lumentika.animation.DimensionAnimationAdapter
 import com.antepod.lumentika.animation.FloatAnimationAdapter
 import com.antepod.lumentika.animation.Transition
 import com.antepod.lumentika.animation.TweenSpec
+import com.antepod.lumentika.animation.fade
+import com.antepod.lumentika.animation.transition
+import com.antepod.lumentika.component.show
 import com.antepod.lumentika.components.button
 import com.antepod.lumentika.components.checkbox
 import com.antepod.lumentika.components.column
@@ -126,6 +129,23 @@ class IntegrationProofTest {
             }
             root.close()
         }
+        assertEquals(baseline, OwnershipCounters.snapshot())
+    }
+
+    @Test
+    fun `closing root cancels active structural motion without ownership leaks`() {
+        val baseline = OwnershipCounters.snapshot()
+        val root = headlessRoot(100f, 100f)
+        val visible = state(true)
+        root.scope.show(visible, transition(fade(durationMillis = 1_000))) {
+            text("animated")
+        }
+        root.frame(1)
+        assertEquals(1, root.elementAnimations.activeCount)
+
+        root.close()
+
+        assertEquals(0, root.elementAnimations.activeCount)
         assertEquals(baseline, OwnershipCounters.snapshot())
     }
 }

@@ -253,4 +253,42 @@ class AnimationTest {
         assertEquals(TransitionFrame(), fade().create(context).sample(1f, 0f))
         element.close()
     }
+
+    @Test
+    fun `custom transition receives committed context and honors scaled delay`() {
+        val clock = UiAnimationClock().also { it.motionScale = 2f }
+        val element = Element()
+        val bounds = Rect(4f, 5f, 20f, 10f)
+        var received: ElementTransitionContext? = null
+        var motion: MotionRenderProperties? = null
+        val runtime =
+            ElementAnimationRuntime(
+                clock,
+                { _, value -> motion = value },
+                { bounds },
+                {},
+            )
+        val custom = ElementTransition { context ->
+            received = context
+            ElementTransitionConfig(delayMillis = 25, durationMillis = 50) { t, _ ->
+                TransitionFrame(opacity = t)
+            }
+        }
+
+        runtime.start(element, "custom", custom, TransitionDirection.IN)
+        runtime.afterCommit()
+        clock.frame(49_000_000)
+        assertEquals(0f, motion?.opacity)
+        clock.frame(100_000_000)
+        assertEquals(.5f, motion?.opacity)
+        clock.frame(150_000_000)
+
+        assertEquals(
+            ElementTransitionContext(element, bounds, TransitionDirection.IN),
+            received,
+        )
+        assertEquals(null, motion)
+        runtime.close()
+        element.close()
+    }
 }
