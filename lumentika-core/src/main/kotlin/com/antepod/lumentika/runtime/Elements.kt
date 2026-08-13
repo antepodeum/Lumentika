@@ -14,7 +14,9 @@ import com.antepod.lumentika.reactive.ComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.style.Paint
 import com.antepod.lumentika.style.Style
+import com.antepod.lumentika.style.StylePart
 import com.antepod.lumentika.style.StyleState
+import com.antepod.lumentika.style.Theme
 import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.text.AutofillRuntime
 import com.antepod.lumentika.text.HeadlessTextLayoutService
@@ -313,6 +315,13 @@ public data class UiContext(
     val requestFrame: (layoutDirty: Boolean) -> Unit = {},
     val configureRender: (Element, RenderProperties) -> Unit = { _, _ -> },
     val attachStyle: (Element, Style) -> Unit = { _, _ -> },
+    val attachTheme: (Element, Theme) -> Unit = { _, _ -> },
+    val attachPart:
+        (owner: Element, element: Element, part: StylePart<*>, structural: Style) -> Unit =
+        { _, _, _, _ ->
+        },
+    val attachPartStyle: (owner: Element, part: StylePart<*>, style: Style) -> Unit = { _, _, _ ->
+    },
     val committedBounds: (Element) -> Rect? = { null },
     val gestureConfiguration: () -> GestureConfiguration = { GestureConfiguration() },
     val feedback: UiFeedbackService? = null,
@@ -346,4 +355,13 @@ public open class UiScope(public val parent: Element, public val context: UiCont
 
     /** Creates a child scope sharing this scope's runtime context. */
     public fun nested(parent: Element): UiScope = UiScope(parent, context)
+
+    /** Mounts [block] beneath a boxless nearest-theme boundary. */
+    public fun theme(value: Theme, block: UiScope.() -> Unit): Fragment {
+        val boundary = fragment()
+        context.attachTheme(boundary, value)
+        nested(boundary).block()
+        context.requestFrame(true)
+        return boundary
+    }
 }

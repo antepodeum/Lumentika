@@ -121,6 +121,13 @@ public class UiRoot(
                 requestFrame = ::requestFrame,
                 configureRender = ::configureRender,
                 attachStyle = { target, source -> styles.attach(target, state(source)) },
+                attachTheme = { target, source -> styles.attachTheme(target, state(source)) },
+                attachPart = { owner, target, part, structural ->
+                    styles.attachPart(owner, target, part, state(structural))
+                },
+                attachPartStyle = { owner, part, source ->
+                    styles.attachPartStyle(owner, part, state(source))
+                },
                 committedBounds = ::committedBounds,
                 gestureConfiguration = { environment.value.gesture },
                 feedback = services.feedback,

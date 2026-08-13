@@ -10,14 +10,84 @@ import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
+import com.antepod.lumentika.style.HOVER
+import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.px
+import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.style.style
+import com.antepod.lumentika.style.theme
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextRange
 import kotlin.test.*
 
 class ComponentsTest {
+    @Test
+    fun `theme and instance part styles resolve from owner state on stable elements`() {
+        val themedLabel = rgb(10, 20, 30)
+        val hoveredLabel = rgb(30, 40, 50)
+        val instanceLabel = rgb(50, 60, 70)
+        val indicatorPaint = rgb(80, 90, 100)
+        val skin = theme {
+            style(Button.Part.ROOT, style { background = rgb(200, 200, 200) })
+            style(
+                Button.Part.LABEL,
+                style {
+                    background = themedLabel
+                    on(HOVER) { opacity = .4f }
+                },
+            )
+            style(Checkbox.Part.INDICATOR, style { background = indicatorPaint })
+            style(
+                Checkbox.Part.LABEL,
+                style { on(ControlStyleState.CHECKED) { background = hoveredLabel } },
+            )
+        }
+        val root = headlessRoot(200f, 100f)
+        val label = state("before")
+        val checked = state(false)
+        lateinit var button: ControlHandle
+        lateinit var checkbox: ControlHandle
+        root.scope.theme(skin) {
+            button = button {
+                value(label)
+                partStyle(Button.Part.LABEL) { color = instanceLabel }
+                style { background = rgb(1, 2, 3) }
+            }
+            checkbox = checkbox {
+                bindValue(checked)
+                this.label = "check"
+            }
+        }
+        root.requestFrame()
+        root.frame(1)
+
+        val buttonLabel = button.partElement(Button.Part.LABEL)!!
+        val indicator = checkbox.partElement(Checkbox.Part.INDICATOR)!!
+        val checkboxLabel = checkbox.partElement(Checkbox.Part.LABEL)!!
+        assertEquals(themedLabel, root.styles.resolve(buttonLabel).first[Properties.Background])
+        assertEquals(instanceLabel, root.styles.resolve(buttonLabel).first[Properties.Color])
+        assertEquals(rgb(1, 2, 3), root.styles.resolve(button.element).first[Properties.Background])
+        assertEquals(indicatorPaint, root.styles.resolve(indicator).first[Properties.Background])
+
+        val stableLabel = buttonLabel
+        val stableIndicatorPaint = root.styles.resolve(indicator).first.paint
+        root.styles.setState(button.element, HOVER, true)
+        assertEquals(.4f, root.styles.resolve(buttonLabel).first[Properties.Opacity])
+        assertSame(stableIndicatorPaint, root.styles.resolve(indicator).first.paint)
+
+        checked.value = true
+        label.value = "after"
+        root.frame(2)
+        assertEquals(
+            hoveredLabel,
+            root.styles.resolve(checkboxLabel).first[Properties.Background],
+        )
+        assertSame(stableLabel, button.partElement(Button.Part.LABEL))
+        assertEquals("after", (stableLabel.content as TextContent).text)
+        root.close()
+    }
+
     @Test
     fun `layout primitives install real default Taffy display modes`() {
         val root = headlessRoot(100f, 100f)
@@ -262,14 +332,18 @@ class ComponentsTest {
         fieldController.reconcileExternal("edited")
         selection.value = TextRange(1, 1)
 
-        assertEquals("after", (button.element.content as TextContent).text)
+        assertEquals("after", (button.partElement(Button.Part.LABEL)!!.content as TextContent).text)
         assertEquals(1, clicks)
         assertTrue(checked.value)
         assertEquals(true, checkboxChange)
         assertEquals(0.75f, sliderValue.value)
         assertEquals("edited", fieldValue.value)
         assertEquals(TextRange(1, 1), fieldController.value.selection)
-        assertEquals("Name", (placeholderField.element.content as TextContent).text)
+        assertEquals(
+            "Name",
+            (placeholderField.partElement(TextField.Part.PLACEHOLDER)!!.content as TextContent)
+                .text,
+        )
         assertEquals("", placeholderField.semantics.value)
         root.close()
     }
@@ -283,7 +357,7 @@ class ComponentsTest {
                 secure = true
             }
 
-        assertEquals("••", (field.element.content as TextContent).text)
+        assertEquals("••", (field.partElement(TextField.Part.TEXT)!!.content as TextContent).text)
         assertNull(field.semantics.value)
         assertTrue(field.semantics.password)
         root.close()
@@ -345,7 +419,8 @@ class ComponentsTest {
         runtime.updateLayout()
 
         assertEquals(3, list.attachment(SemanticsAttachment)!!.collection!!.rows)
-        val keyedItems = list.children.single().children
+        val keyedContainer = list.children.single { it.kind == "for-each" }
+        val keyedItems = keyedContainer.children
         assertEquals(
             listOf(0, 1, 2),
             keyedItems.map { it.attachment(SemanticsAttachment)!!.item!!.row },
@@ -353,8 +428,8 @@ class ComponentsTest {
         val identity = keyedItems.associateBy { (it.children.single().content as TextContent).text }
         items.value = listOf(3, 1)
         runtime.updateLayout()
-        assertSame(identity.getValue("item-3"), list.children.single().children[0])
-        assertSame(identity.getValue("item-1"), list.children.single().children[1])
+        assertSame(identity.getValue("item-3"), keyedContainer.children[0])
+        assertSame(identity.getValue("item-1"), keyedContainer.children[1])
         assertEquals(2, list.attachment(SemanticsAttachment)!!.collection!!.rows)
         root.close()
     }

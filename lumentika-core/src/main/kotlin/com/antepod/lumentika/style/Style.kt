@@ -79,8 +79,8 @@ public fun <T> edges(vertical: T, horizontal: T): Edges<T> =
 public fun <T> edges(top: T, right: T, bottom: T, left: T): Edges<T> =
     Edges(top, right, bottom, left)
 
-/** Paint used by backgrounds and text. */
-public sealed interface Paint
+/** Paint used by backgrounds and text. External backends may provide immutable implementations. */
+public interface Paint
 
 /** Solid ARGB color paint. */
 public data class SolidPaint(val argb: Int) : Paint
@@ -1017,7 +1017,7 @@ public class StyleVar<T>(public val default: T)
 /** Creates a typed theme variable with [default]. */
 public fun <T> styleVar(default: T): StyleVar<T> = StyleVar(default)
 
-/** Stable component skinning point identified by [name]. */
+/** Stable typed component skinning token. [name] is diagnostic only; identity is token identity. */
 public class StylePart<T : Any>(public val name: String)
 
 /** Immutable overrides for style variables and component parts. */
@@ -1330,15 +1330,48 @@ private data class ElementStyleState(
     val sources: MutableList<Readable<Style>>,
     val states: MutableSet<StyleState>,
     var resolved: ResolvedStyle?,
+    var part: PartStyleState? = null,
+    val partOverrides: MutableMap<StylePart<*>, Readable<Style>> = mutableMapOf(),
+)
+
+private data class PartStyleState(
+    val owner: Element,
+    val token: StylePart<*>,
+    val structural: Readable<Style>,
 )
 
 private val styleStateKey = AttachmentKey<ElementStyleState>()
+private val themeKey = AttachmentKey<Readable<Theme>>()
 
 /** Attaches reactive styles, maintains states, and resolves effective target values. */
 public class StyleRuntime {
     /** Attaches a reactive style [source] to [element]. */
     public fun attach(element: Element, source: Readable<Style>) {
         state(element).sources += source
+    }
+
+    /** Installs a theme boundary inherited by this element and descendants. */
+    public fun attachTheme(element: Element, source: Readable<Theme>) {
+        element.attach(themeKey, source)
+    }
+
+    /** Registers [element] as persistent visual [part] owned by [owner]. */
+    public fun attachPart(
+        owner: Element,
+        element: Element,
+        part: StylePart<*>,
+        structuralStyle: Readable<Style>,
+    ) {
+        state(element).part = PartStyleState(owner, part, structuralStyle)
+    }
+
+    /** Sets component-instance styling for one typed visual [part]. */
+    public fun attachPartStyle(
+        owner: Element,
+        part: StylePart<*>,
+        source: Readable<Style>,
+    ) {
+        state(owner).partOverrides[part] = source
     }
 
     /** Enables or disables [styleState] for [element]. */
@@ -1354,15 +1387,23 @@ public class StyleRuntime {
         Properties.all
             .filter { it.inherited }
             .forEach { property -> parent?.let { values[property] = getUntyped(it, property) } }
+        val part = state.part
+        val activeStates = part?.let { state(it.owner).states } ?: state.states
+        val layeredSources = buildList {
+            part?.let { metadata ->
+                add(metadata.structural)
+                nearestTheme(metadata.owner)?.get(metadata.token)?.let { add(fixedStyle(it)) }
+                state(metadata.owner).partOverrides[metadata.token]?.let(::add)
+            }
+            addAll(state.sources)
+        }
         Properties.all.forEach { property ->
-            state.sources
+            layeredSources
                 .asReversed()
                 .firstNotNullOfOrNull { source ->
-                    source.value.program.winner(property, state.states).takeIf(StyleWinner::found)
+                    source.value.program.winner(property, activeStates).takeIf(StyleWinner::found)
                 }
-                ?.let { winner ->
-                    values[property] = winner.value
-                }
+                ?.let { winner -> values[property] = winner.value }
         }
         val previous = state.resolved
         val next = ResolvedStyle.from(values, previous)
@@ -1383,6 +1424,15 @@ public class StyleRuntime {
             ?: ElementStyleState(mutableListOf(), mutableSetOf(), null).also {
                 element.attach(styleStateKey, it)
             }
+
+    private fun nearestTheme(element: Element): Theme? =
+        generateSequence(element) { it.parent }
+            .firstNotNullOfOrNull { it.attachment(themeKey)?.value }
+
+    private fun fixedStyle(value: Style): Readable<Style> =
+        object : Readable<Style> {
+            override val value: Style = value
+        }
 
     private fun getUntyped(style: ResolvedStyle, property: StyleProperty<*>): Any? {
         @Suppress("UNCHECKED_CAST")

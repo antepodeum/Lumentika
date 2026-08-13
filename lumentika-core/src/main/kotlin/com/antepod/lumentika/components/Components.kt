@@ -45,6 +45,8 @@ import com.antepod.lumentika.style.HOVER
 import com.antepod.lumentika.style.Position
 import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.StylePart
+import com.antepod.lumentika.style.StyleState
+import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillConfiguration
 import com.antepod.lumentika.text.TextEditingController
@@ -110,6 +112,19 @@ public object Tooltip {
     }
 }
 
+/** Semantic states exposed to standard-control part styles. */
+public enum class ControlStyleState : StyleState {
+    CHECKED,
+    EMPTY,
+}
+
+/** Element attachment containing persistent visual-part elements keyed by typed tokens. */
+public val VisualPartsAttachment: AttachmentKey<Map<StylePart<*>, Element>> = AttachmentKey()
+
+/** Returns this component's persistent element for [part], when present. */
+public fun <T : Any> Element.partElement(part: StylePart<T>): Element? =
+    attachment(VisualPartsAttachment)?.get(part)
+
 /** Public interaction and semantics handle returned by control builders. */
 public class ControlHandle(
     public val element: Element,
@@ -119,6 +134,9 @@ public class ControlHandle(
 ) {
     public val semantics: SemanticsConfiguration
         get() = element.attachment(SemanticsAttachment) ?: initialSemantics
+
+    /** Returns persistent visual element for typed [part]. */
+    public fun <T : Any> partElement(part: StylePart<T>): Element? = element.partElement(part)
 }
 
 /** Drives the shared gesture recognizer attached to a control. */
@@ -217,6 +235,12 @@ internal fun UiScope.mountScroll(
     gestures: GestureConfiguration,
     explicitConnection: NestedScrollConnection?,
 ): Element = element.also {
+    installParts(
+        element,
+        Scroll.Part.ROOT to style {},
+        Scroll.Part.SCROLLBAR_TRACK to style { position = Position.ABSOLUTE },
+        Scroll.Part.SCROLLBAR_THUMB to style { position = Position.ABSOLUTE },
+    )
     val parentScroll = {
         generateSequence(element.parent) { it.parent }
             .mapNotNull { it.attachment(ScrollRuntimeAttachment) }
@@ -371,9 +395,10 @@ internal constructor(
     }
 
     private fun updateListSemantics() {
+        val visualParts = element.attachment(VisualPartsAttachment)?.values.orEmpty().toSet()
         val items =
             element.children
-                .filter { it.isMounted }
+                .filter { it.isMounted && it !in visualParts }
                 .flatMap { child ->
                     if (child.kind == "for-each") child.children.filter { it.isMounted }
                     else listOf(child)
@@ -614,6 +639,29 @@ private fun control(
     return ControlHandle(element, semantics, activate, gestures)
 }
 
+private fun UiScope.installParts(
+    owner: Element,
+    vararg definitions: Pair<StylePart<*>, Style>,
+): Map<StylePart<*>, Element> {
+    val parts = linkedMapOf<StylePart<*>, Element>()
+    definitions.forEach { (token, structural) ->
+        val target =
+            if (definitions.first().first === token) owner
+            else
+                Element("${owner.kind}-part").also {
+                    owner.append(it)
+                    context.attachStyle(
+                        it,
+                        style { pointerEvents = com.antepod.lumentika.style.PointerEvents.NONE },
+                    )
+                }
+        context.attachPart(owner, target, token, structural)
+        parts[token] = target
+    }
+    owner.attach(VisualPartsAttachment, parts)
+    return parts
+}
+
 private fun UiScope.installHoverAndFocusStates(
     element: Element,
     cursor: PointerCursorRole,
@@ -703,6 +751,13 @@ internal fun UiScope.buttonControl(
     enabled: Boolean,
     onClick: () -> Unit,
 ): ControlHandle {
+    val parts =
+        installParts(
+            e,
+            Button.Part.ROOT to style { display = Display.FLEX },
+            Button.Part.LABEL to style {},
+        )
+    val labelElement = parts.getValue(Button.Part.LABEL)
     val action = {
         if (enabled) {
             onClick()
@@ -735,7 +790,7 @@ internal fun UiScope.buttonControl(
     withComponentScope(e.scope) {
         effect {
             val next = label.value
-            e.content = TextContent(next, context.textLayout)
+            labelElement.content = TextContent(next, context.textLayout)
             e.attach(SemanticsAttachment, handle.semantics.copy(label = next))
             context.requestFrame(true)
         }
@@ -751,6 +806,18 @@ internal fun UiScope.checkboxControl(
     enabled: Boolean,
     onChange: (Boolean) -> Unit = {},
 ): ControlHandle {
+    val parts =
+        installParts(
+            e,
+            Checkbox.Part.ROOT to
+                style {
+                    display = Display.FLEX
+                    flexDirection = FlexDirection.ROW
+                },
+            Checkbox.Part.INDICATOR to style {},
+            Checkbox.Part.LABEL to style {},
+        )
+    label?.let { parts.getValue(Checkbox.Part.LABEL).content = TextContent(it, context.textLayout) }
     val action = {
         if (enabled) {
             value.value = !value.value
@@ -783,6 +850,7 @@ internal fun UiScope.checkboxControl(
     installControlInteraction(e, enabled, action, PointerCursorRole.POINTER)
     withComponentScope(e.scope) {
         effect {
+            context.setStyleState(e, ControlStyleState.CHECKED, value.value)
             e.attach(SemanticsAttachment, handle.semantics.copy(checked = value.value))
             context.requestFrame(false)
         }
@@ -796,11 +864,25 @@ internal fun UiScope.sliderControl(
     minimum: Float,
     maximum: Float,
     step: Float?,
+    label: String?,
     gestures: GestureConfiguration,
     enabled: Boolean,
     onInput: (Float) -> Unit = {},
     onChange: (Float) -> Unit = {},
 ): ControlHandle {
+    val parts =
+        installParts(
+            e,
+            Slider.Part.ROOT to
+                style {
+                    display = Display.FLEX
+                    flexDirection = FlexDirection.ROW
+                },
+            Slider.Part.TRACK to style { flexGrow = 1f },
+            Slider.Part.THUMB to style { position = Position.ABSOLUTE },
+            Slider.Part.LABEL to style {},
+        )
+    label?.let { parts.getValue(Slider.Part.LABEL).content = TextContent(it, context.textLayout) }
     fun normalized(next: Float): Float {
         val clamped = next.coerceIn(minimum, maximum)
         return step?.let {
@@ -885,6 +967,12 @@ internal fun UiScope.sliderControl(
     )
     withComponentScope(e.scope) {
         effect {
+            val fraction =
+                if (maximum == minimum) 0f else (value.value - minimum) / (maximum - minimum)
+            context.configureRender(
+                parts.getValue(Slider.Part.THUMB),
+                RenderProperties(transform = Matrix3.translation(e.geometry.width * fraction, 0f)),
+            )
             e.attach(
                 SemanticsAttachment,
                 handle.semantics.copy(range = SemanticRange(value.value, minimum, maximum, step)),
@@ -905,6 +993,23 @@ internal fun UiScope.textFieldControl(
     autofill: AutofillConfiguration?,
     enabled: Boolean,
 ): ControlHandle {
+    val parts =
+        installParts(
+            e,
+            TextField.Part.ROOT to style {},
+            TextField.Part.SELECTION to style { position = Position.ABSOLUTE },
+            TextField.Part.TEXT to style {},
+            TextField.Part.PLACEHOLDER to style { position = Position.ABSOLUTE },
+            TextField.Part.CURSOR to
+                style {
+                    position = Position.ABSOLUTE
+                    width = 1.px
+                },
+            TextField.Part.SCROLLBAR_TRACK to style { position = Position.ABSOLUTE },
+            TextField.Part.SCROLLBAR_THUMB to style { position = Position.ABSOLUTE },
+        )
+    val textElement = parts.getValue(TextField.Part.TEXT)
+    val placeholderElement = parts.getValue(TextField.Part.PLACEHOLDER)
     val editor =
         TextEditorRuntime(
             controller,
@@ -977,11 +1082,17 @@ internal fun UiScope.textFieldControl(
     withComponentScope(e.scope) {
         effect {
             val value = controller.value
+            val empty = value.text.isEmpty()
+            context.setStyleState(e, ControlStyleState.EMPTY, empty)
             val displayText =
-                if (value.text.isEmpty()) placeholder.orEmpty()
-                else if (secure) "•".repeat(value.text.codePointCount(0, value.text.length))
+                if (secure) "•".repeat(value.text.codePointCount(0, value.text.length))
                 else value.text
-            e.content = TextContent(TextLayoutRequest(displayText), context.textLayout)
+            textElement.content =
+                displayText.takeIf(String::isNotEmpty)?.let {
+                    TextContent(TextLayoutRequest(it), context.textLayout)
+                }
+            placeholderElement.content =
+                placeholder?.takeIf { empty }?.let { TextContent(it, context.textLayout) }
             e.attach(
                 SemanticsAttachment,
                 handle.semantics.copy(

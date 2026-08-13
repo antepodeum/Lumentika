@@ -27,6 +27,7 @@ import com.antepod.lumentika.semantics.SemanticsAttachment
 import com.antepod.lumentika.semantics.SemanticsConfiguration
 import com.antepod.lumentika.style.Overflow
 import com.antepod.lumentika.style.Style
+import com.antepod.lumentika.style.StylePart
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillConfiguration
 import com.antepod.lumentika.text.TextEditingController
@@ -53,6 +54,21 @@ internal constructor(
     /** Builds and attaches a style. */
     public fun style(block: com.antepod.lumentika.style.StyleBuilder.() -> Unit) {
         style(com.antepod.lumentika.style.style(block))
+    }
+
+    /** Sets component-instance styling for one typed persistent visual part. */
+    public fun <T : Any> partStyle(part: StylePart<T>, value: Style) {
+        hasConfiguration = true
+        context.attachPartStyle(element, part, value)
+        context.requestFrame(true)
+    }
+
+    /** Builds component-instance styling for one typed persistent visual part. */
+    public fun <T : Any> partStyle(
+        part: StylePart<T>,
+        block: com.antepod.lumentika.style.StyleBuilder.() -> Unit,
+    ) {
+        partStyle(part, com.antepod.lumentika.style.style(block))
     }
 
     /** Updates this element's accessibility semantics. */
@@ -331,6 +347,7 @@ public class SliderBuilder internal constructor(element: Element, context: UiCon
     public var gestures: GestureConfiguration = context.gestureConfiguration()
     public var enabled: Boolean = true
     public var step: Float? = null
+    public var label: String? = null
     private var input: (Float) -> Unit = {}
     private var changed: (Float) -> Unit = {}
 
@@ -357,6 +374,7 @@ public class SliderBuilder internal constructor(element: Element, context: UiCon
                 min,
                 max,
                 step,
+                label,
                 gestures,
                 enabled,
                 onInput = input,
