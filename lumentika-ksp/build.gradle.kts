@@ -12,6 +12,7 @@ dependencies {
     implementation(project(":lumentika-core"))
     implementation(libs.kspApi)
     testImplementation(kotlin("test"))
+    testImplementation(libs.kotlinCompileTestingKsp)
 }
 
 publishing {

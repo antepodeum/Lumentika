@@ -33,6 +33,33 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
             logger.error("@UIComponent requires a concrete class", type)
             return
         }
+        if (type.parentDeclaration != null) {
+            logger.error("@UIComponent must be a top-level class", type)
+            return
+        }
+        if (type.typeParameters.isNotEmpty()) {
+            logger.error("@UIComponent cannot declare type parameters", type)
+            return
+        }
+        if (!type.isComponentSubclass()) {
+            logger.error("@UIComponent class must extend Component", type)
+            return
+        }
+        val constructor = type.primaryConstructor
+        if (
+            constructor != null &&
+                (constructor.parameters.any { !it.hasDefault } ||
+                    Modifier.PRIVATE in constructor.modifiers ||
+                    Modifier.PROTECTED in constructor.modifiers)
+        ) {
+            logger.error("@UIComponent requires an accessible zero-argument constructor", type)
+            return
+        }
+        val source = type.containingFile
+        if (source == null) {
+            logger.error("@UIComponent must be declared in source", type)
+            return
+        }
         val declarations =
             type
                 .getDeclaredProperties()
@@ -43,8 +70,11 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
                 }
                 .mapNotNull(::componentDeclaration)
                 .toList()
-        val file = code.createNewFile(Dependencies(false, type.containingFile!!), pkg, "${name}Dsl")
+        val file = code.createNewFile(Dependencies(false, source), pkg, "${name}Dsl")
         val factory = name.replaceFirstChar { it.lowercase() }
+        val className = name.identifier()
+        val builderName = "${name}Builder".identifier()
+        val factoryName = factory.identifier()
         file.writer().use { out ->
             out.appendLine("package $pkg")
                 .appendLine()
@@ -54,19 +84,25 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
                 .appendLine()
                 .appendLine("@UiDsl")
                 .appendLine(
-                    "public class ${name}Builder internal constructor(public val component: $name) {"
+                    "public class $builderName internal constructor(public val component: $className) {"
                 )
             declarations.forEach { declaration -> declaration.writeTo(out) }
             out.appendLine("}")
                 .appendLine()
                 .appendLine(
-                    "public fun UiScope.$factory(block: ${name}Builder.() -> Unit = {}): Element {"
+                    "public fun UiScope.$factoryName(block: $builderName.() -> Unit = {}): Element {"
                 )
-                .appendLine("    val component = $name()")
-                .appendLine("    ${name}Builder(component).apply(block)")
+                .appendLine("    val component = $className()")
+                .appendLine("    $builderName(component).apply(block)")
                 .appendLine("    return component.mount(this)")
                 .appendLine("}")
         }
+    }
+
+    private fun KSClassDeclaration.isComponentSubclass(): Boolean = superTypes.any { superType ->
+        val declaration = superType.resolve().declaration as? KSClassDeclaration
+        declaration?.qualifiedName?.asString() == "com.antepod.lumentika.component.Component" ||
+            declaration?.isComponentSubclass() == true
     }
 
     private fun componentDeclaration(property: KSPropertyDeclaration): ComponentDeclaration? {
@@ -140,22 +176,23 @@ private data class ComponentDeclaration(
 
     private fun writeValue(out: Appendable) {
         val type = requireNotNull(valueType)
-        out.appendLine("    public var $name: $type")
-        out.appendLine("        get() = component.$name.value")
-        out.appendLine("        set(value) { component.$name.set(value) }")
+        val identifier = name.identifier()
+        out.appendLine("    public var $identifier: $type")
+        out.appendLine("        get() = component.$identifier.value")
+        out.appendLine("        set(value) { component.$identifier.set(value) }")
         out.appendLine()
-        out.appendLine("    public fun $name(source: Readable<$type>) {")
-        out.appendLine("        component.$name.source(source, component.componentScope)")
+        out.appendLine("    public fun $identifier(source: Readable<$type>) {")
+        out.appendLine("        component.$identifier.source(source, component.componentScope)")
         out.appendLine("    }")
         out.appendLine()
-        out.appendLine("    public fun $name(block: () -> $type) {")
-        out.appendLine("        component.$name.source(component.componentScope, block)")
+        out.appendLine("    public fun $identifier(block: () -> $type) {")
+        out.appendLine("        component.$identifier.source(component.componentScope, block)")
         out.appendLine("    }")
         if (kind == DeclarationKind.BINDING) {
-            val bindName = "bind" + name.replaceFirstChar { it.uppercase() }
+            val bindName = ("bind" + name.replaceFirstChar { it.uppercase() }).identifier()
             out.appendLine()
             out.appendLine("    public fun $bindName(source: Mutable<$type>) {")
-            out.appendLine("        component.$name.bind(source, component.componentScope)")
+            out.appendLine("        component.$identifier.bind(source, component.componentScope)")
             out.appendLine("    }")
         }
         out.appendLine()
@@ -163,9 +200,10 @@ private data class ComponentDeclaration(
 
     private fun writeEvent(out: Appendable) {
         val type = requireNotNull(valueType)
-        val eventName = "on" + name.replaceFirstChar { it.uppercase() }
+        val identifier = name.identifier()
+        val eventName = ("on" + name.replaceFirstChar { it.uppercase() }).identifier()
         out.appendLine("    public fun $eventName(listener: ($type) -> Unit) {")
-        out.appendLine("        val handle = component.$name.listen(listener)")
+        out.appendLine("        val handle = component.$identifier.listen(listener)")
         out.appendLine("        withComponentScope(component.componentScope) {")
         out.appendLine("            onCleanup { handle.close() }")
         out.appendLine("        }")
@@ -174,9 +212,12 @@ private data class ComponentDeclaration(
     }
 
     private fun writeSlot(out: Appendable) {
-        out.appendLine("    public fun $name(content: UiScope.() -> Unit) {")
-        out.appendLine("        component.$name.configure(content)")
+        val identifier = name.identifier()
+        out.appendLine("    public fun $identifier(content: UiScope.() -> Unit) {")
+        out.appendLine("        component.$identifier.configure(content)")
         out.appendLine("    }")
         out.appendLine()
     }
 }
+
+private fun String.identifier(): String = "`$this`"
