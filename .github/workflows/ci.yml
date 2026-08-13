@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - "v*"
   pull_request:
 
 permissions:
@@ -20,6 +22,8 @@ jobs:
     timeout-minutes: 20
     env:
       JDK_JAVA_OPTIONS: --enable-native-access=ALL-UNNAMED
+    outputs:
+      version: ${{ steps.version.outputs.value }}
 
     steps:
       - name: Check out repository
@@ -37,8 +41,43 @@ jobs:
       - name: Verify wrapper permissions
         run: test -x ./gradlew
 
+      - name: Resolve release version
+        id: version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Tag must use v<semver>, for example v0.1.0" >&2
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
       - name: Run release gate
-        run: ./gradlew clean build spotlessCheck
+        shell: bash
+        run: |
+          args=(clean build spotlessCheck)
+          if [[ -n "${{ steps.version.outputs.value }}" ]]; then
+            args+=("-PreleaseVersion=${{ steps.version.outputs.value }}")
+          fi
+          ./gradlew "${args[@]}"
+
+      - name: Collect verified release JARs
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          mkdir -p release-artifacts
+          cp lumentika-core/build/libs/*.jar release-artifacts/
+          cp lumentika-ksp/build/libs/*.jar release-artifacts/
+
+      - name: Upload verified release JARs
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v7
+        with:
+          name: lumentika-${{ steps.version.outputs.value }}
+          path: release-artifacts/*.jar
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload test reports on failure
         if: failure()
@@ -48,3 +87,88 @@ jobs:
           path: "**/build/reports/tests/**"
           if-no-files-found: ignore
           retention-days: 7
+
+  publish:
+    name: Publish verified artifacts
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: maven-central
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      packages: write
+    env:
+      JDK_JAVA_OPTIONS: --enable-native-access=ALL-UNNAMED
+
+    steps:
+      - name: Check out tagged revision
+        uses: actions/checkout@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Download verified release JARs
+        uses: actions/download-artifact@v8
+        with:
+          name: lumentika-${{ needs.verify.outputs.version }}
+          path: release-artifacts
+
+      - name: Validate publishing secrets
+        shell: bash
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+          MAVEN_SIGNING_PASSWORD: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: |
+          for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD MAVEN_SIGNING_KEY MAVEN_SIGNING_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "Required maven-central environment secret $name is missing" >&2
+              exit 1
+            fi
+          done
+
+      - name: Publish to Maven Central
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: >-
+          ./gradlew
+          :lumentika-core:publishAllPublicationsToMavenCentralRepository
+          :lumentika-ksp:publishAllPublicationsToMavenCentralRepository
+          -PreleaseVersion=${{ needs.verify.outputs.version }}
+
+      - name: Publish to GitHub Packages
+        env:
+          ORG_GRADLE_PROJECT_gprUser: ${{ github.actor }}
+          ORG_GRADLE_PROJECT_gprKey: ${{ secrets.GITHUB_TOKEN }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: >-
+          ./gradlew
+          :lumentika-core:publishAllPublicationsToGitHubPackagesRepository
+          :lumentika-ksp:publishAllPublicationsToGitHubPackagesRepository
+          -PreleaseVersion=${{ needs.verify.outputs.version }}
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-artifacts/*.jar --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" release-artifacts/*.jar \
+              --verify-tag \
+              --generate-notes \
+              --title "Lumentika ${{ needs.verify.outputs.version }}"
+          fi
