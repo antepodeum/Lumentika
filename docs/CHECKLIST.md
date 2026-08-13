@@ -2,7 +2,7 @@
 
 ## Core boundary
 
-- [ ] `com.antepod:lumentika-core` contains all universal UI mechanics
+- [x] `com.antepod:lumentika-core` contains all universal UI mechanics
 - [x] Taffy4J is included in core
 - [x] Taffy4J is the sole layout implementation
 - [x] core has no native platform or mod-loader dependency
@@ -187,7 +187,7 @@
 - [x] Content retained recording
 - [x] IntrinsicMeasurable
 - [x] HitRegionSource
-- [ ] no visual/layout mega-bag on Element
+- [x] no visual/layout mega-bag on Element
 - [x] platform-specific Content/Paint extension boundary
 - [x] scene objects are not Elements
 
