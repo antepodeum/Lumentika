@@ -180,7 +180,7 @@ tasks.withType<Jar>().configureEach {
 dependencies {
     api(libs.kotlinxCoroutines)
     implementation(libs.taffy4j)
-    ksp(project(":lumentika-ksp"))
+    add("ksp", project(":lumentika-ksp"))
     testImplementation(kotlin("test"))
 }
 
