@@ -71,6 +71,11 @@ owner control; visual child elements do not replace or remount when values chang
 text("Static")
 text(reactiveString)
 text { "Computed: ${count.value}" }
+text {
+    value = "Direction-aware"
+    alignment = TextAlign.START
+    direction = Direction.RTL
+}
 
 image {
     source = ImageSource.Uri("textures/icon.png")
@@ -78,6 +83,9 @@ image {
     description = "Status icon"
 }
 ```
+
+Text alignment is part of `TextLayoutRequest`. `START` and `END` resolve using its `Direction`;
+physical `LEFT` and `RIGHT`, `CENTER`, and `JUSTIFY` are also available.
 
 Mark an image `decorative = true` when accessibility should ignore it. Image loading and intrinsic
 metadata belong to the platform `ImageService`.

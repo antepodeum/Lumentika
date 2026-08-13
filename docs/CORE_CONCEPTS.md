@@ -102,7 +102,7 @@ data class Palette(val foreground: Int) {
 val palette = contextKey<Palette>()
 
 root.scope.provide(palette, Palette.dark) {
-    val inherited = element("child").context(palette)
+    val inherited = element().context(palette)
 }
 ```
 

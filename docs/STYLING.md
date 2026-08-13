@@ -45,6 +45,15 @@ Conditions can be combined with `all`, `any`, and `not`.
 `dp`, `sp`, and physical pixels are resolved by the adapter's `UnitResolver` and current
 `UiEnvironment`. Use `px` for logical core coordinates.
 
+`ImagePaint` and image content share the typed `ImageSource` model:
+
+```kotlin
+val texture = ImagePaint(ImageSource.Uri("https://example.test/panel.png"))
+```
+
+Backend-owned image or shader paints can implement `Paint` and emit a typed
+`BackendPaintCommand` instead.
+
 ## Composition
 
 Reuse a style with `include`; later assignments win:
@@ -90,6 +99,13 @@ last and can override its themed root. Conditional part styles evaluate against 
 
 `StylePart` tokens are typed and identity-based. Standard controls keep their part elements stable
 across reactive value and state updates.
+
+```kotlin
+object Part {
+    val ROOT = StylePart<CustomControl>()
+    val LABEL = StylePart<CustomControl>()
+}
+```
 
 ## Shapes and clipping
 
