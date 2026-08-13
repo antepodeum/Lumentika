@@ -71,20 +71,20 @@
 
 ## Event/input/focus
 
-- [ ] capture/target/bubble/default action
-- [ ] stop propagation/immediate propagation
-- [ ] prevent default
-- [ ] unified pointer types
-- [ ] timestamped pointer samples
-- [ ] optional historical/coalesced samples
-- [ ] pointer capture
+- [x] capture/target/bubble/default action
+- [x] stop propagation/immediate propagation
+- [x] prevent default
+- [x] unified pointer types
+- [x] timestamped pointer samples
+- [x] optional historical/coalesced samples
+- [x] pointer capture
 - [ ] hover remains actual hit path
-- [ ] normalized keyboard model
-- [ ] key repeat/modifiers
-- [ ] one input focus manager/root
-- [ ] focus/blur + focusin/focusout
+- [x] normalized keyboard model
+- [x] key repeat/modifiers
+- [x] one input focus manager/root
+- [x] focus/blur + focusin/focusout
 - [ ] focus-visible/focus-within
-- [ ] focus repair before disposal
+- [x] focus repair before disposal
 - [ ] accessibility focus remains separate
 - [ ] IME composition is not raw key input
 
