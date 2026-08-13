@@ -15,3 +15,12 @@ spotless {
         ktfmt().kotlinlangStyle()
     }
 }
+
+gradle.projectsEvaluated {
+    val cleanTasks = allprojects.mapNotNull { it.tasks.findByName("clean") }
+    tasks
+        .matching { it.name.startsWith("spotless") }
+        .configureEach {
+            mustRunAfter(cleanTasks)
+        }
+}
