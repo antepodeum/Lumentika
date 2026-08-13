@@ -12,10 +12,12 @@ import kotlinx.coroutines.asContextElement
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
+/** A value that can participate in dependency tracking when read. */
 public interface Readable<out T> {
     public val value: T
 }
 
+/** A reactive value that can be read and updated. */
 public interface Mutable<T> : Readable<T> {
     override var value: T
 
@@ -24,10 +26,13 @@ public interface Mutable<T> : Readable<T> {
     }
 }
 
+/** Mutable fine-grained reactive state. */
 public interface State<T> : Mutable<T>
 
+/** A lazily computed reactive value. */
 public interface Derived<out T> : Readable<T>
 
+/** A coroutine-computed reactive value with loading and failure state. */
 public interface AsyncDerived<out T> : Readable<T> {
     public val pending: Boolean
     public val hasValue: Boolean
@@ -235,6 +240,7 @@ private interface DependencyObserverBridge {
     fun disposeDependencies()
 }
 
+/** Owns reactive subscriptions, cleanup callbacks, and coroutine work for a mounted object. */
 public class ComponentScope(dispatcher: CoroutineDispatcher = Dispatchers.Default) : AutoCloseable {
     private val cleanups = ArrayDeque<() -> Unit>()
     internal val coroutineScope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -268,6 +274,7 @@ public class ComponentScope(dispatcher: CoroutineDispatcher = Dispatchers.Defaul
 
 private val currentScope = ThreadLocal<ComponentScope?>()
 
+/** Runs [block] with [scope] as the current owner for newly created reactive work. */
 public fun <T> withComponentScope(scope: ComponentScope, block: () -> T): T {
     check(!scope.isDisposed) { "ComponentScope is disposed" }
     val previous = currentScope.get()
@@ -279,8 +286,10 @@ public fun <T> withComponentScope(scope: ComponentScope, block: () -> T): T {
     }
 }
 
+/** Returns the current reactive owner, or `null` outside an owned block. */
 public fun currentComponentScope(): ComponentScope? = currentScope.get()
 
+/** Registers [cleanup] with the current component scope. */
 public fun onCleanup(cleanup: () -> Unit) {
     val registrar = ReactiveRuntime.cleanupRegistrar.get()
     if (registrar != null) registrar(cleanup)
@@ -432,11 +441,13 @@ private class AsyncDerivedImpl<T>(
     }
 }
 
+/** Creates mutable reactive state with an optional equality policy. */
 public fun <T> state(
     initial: T,
     equal: (T, T) -> Boolean = { first, second -> first == second },
 ): State<T> = StateImpl(initial, equal)
 
+/** Creates a lazy value that recomputes when a tracked dependency changes. */
 public fun <T> derived(
     equal: (T, T) -> Boolean = { first, second -> first == second },
     block: () -> T,
@@ -446,16 +457,21 @@ public fun <T> derived(
     return result
 }
 
+/** Runs [block], tracks its reads, and reruns it after those dependencies change. */
 public fun effect(block: () -> Unit): AutoCloseable = Effect(block, currentScope.get())
 
+/** Creates a reactive asynchronous computation owned by the current scope. */
 public fun <T> derivedAsync(block: suspend () -> T): AsyncDerived<T> {
     val scope =
         requireNotNull(currentScope.get()) { "derivedAsync requires an active ComponentScope" }
     return AsyncDerivedImpl(block, scope)
 }
 
+/** Defers dependent work until all writes in [block] complete. */
 public fun <T> batch(block: () -> T): T = ReactiveRuntime.batch(block)
 
+/** Runs [block] without recording reactive dependencies. */
 public fun <T> untracked(block: () -> T): T = ReactiveRuntime.untracked(block)
 
+/** Immediately drains pending reactive computations. */
 public fun flushReactiveWork(): Unit = ReactiveRuntime.flush()

@@ -21,10 +21,12 @@ import com.antepod.lumentika.runtime.UiScope
 
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.SOURCE)
+/** Marks a [Component] for type-safe builder generation by `lumentika-ksp`. */
 public annotation class UIComponent
 
 private object Missing
 
+/** Base class for externally configured component values. */
 public sealed class Declaration<T>(initial: Any?) {
     private enum class ExternalMode {
         ONE_WAY,
@@ -88,8 +90,10 @@ public sealed class Declaration<T>(initial: Any?) {
     }
 }
 
+/** A one-way component input. */
 public class Prop<T> internal constructor(initial: Any?) : Declaration<T>(initial), Readable<T>
 
+/** A component input that can write changes back to a bound [Mutable]. */
 public class Binding<T> internal constructor(initial: Any?) : Declaration<T>(initial), Mutable<T> {
     private var bound: Mutable<T>? = null
     private var syncing = false
@@ -127,6 +131,7 @@ public class Binding<T> internal constructor(initial: Any?) : Declaration<T>(ini
     }
 }
 
+/** A typed component event with independently disposable listeners. */
 public class Event<E> internal constructor() {
     private val listeners = LinkedHashSet<(E) -> Unit>()
     public var bubbles: Boolean = false
@@ -144,6 +149,7 @@ public class Event<E> internal constructor() {
     }
 }
 
+/** A configurable block of child UI mounted by a component. */
 public open class Slot internal constructor() {
     internal var content: (UiScope.() -> Unit)? = null
 
@@ -154,8 +160,10 @@ public open class Slot internal constructor() {
     public fun mount(scope: UiScope): Fragment = scope.fragment { content?.invoke(this) }
 }
 
+/** A slot intended to hold an arbitrary list of child declarations. */
 public class SlotList internal constructor() : Slot()
 
+/** Base class for persistent, owner-scoped UI components. */
 public abstract class Component : AutoCloseable {
     private val declarations = mutableListOf<Pair<String, Declaration<*>>>()
     public val componentScope: ComponentScope = ComponentScope()
@@ -222,27 +230,37 @@ public abstract class Component : AutoCloseable {
 private val ComponentLifecycleAttachment =
     com.antepod.lumentika.runtime.AttachmentKey<AutoCloseable>()
 
+/** Creates a standalone one-way declaration with [default]. */
 public fun <T> prop(default: T): Prop<T> = Prop(default)
 
+/** Creates a required standalone one-way declaration. */
 public fun <T> prop(): Prop<T> = Prop(Missing)
 
+/** Creates a standalone two-way declaration with [default]. */
 public fun <T> binding(default: T): Binding<T> = Binding(default)
 
+/** Creates a required standalone two-way declaration. */
 public fun <T> binding(): Binding<T> = Binding(Missing)
 
+/** Creates a standalone typed component event. */
 public fun <E> event(): Event<E> = Event()
 
+/** Creates a standalone content slot. */
 public fun slot(): Slot = Slot()
 
+/** Creates a standalone list content slot. */
 public fun slotList(): SlotList = SlotList()
 
+/** A typed key used to inherit a value through an element subtree. */
 public class ContextKey<T> internal constructor()
 
 private val contextAttachment =
     com.antepod.lumentika.runtime.AttachmentKey<MutableMap<ContextKey<*>, Any?>>()
 
+/** Creates a unique typed context key. */
 public fun <T> contextKey(): ContextKey<T> = ContextKey()
 
+/** Mounts [content] below an element that provides [value] for [key]. */
 public fun <T> UiScope.provide(key: ContextKey<T>, value: T, content: UiScope.() -> Unit): Element {
     val provider = element("context-provider")
     provider.attach(contextAttachment, mutableMapOf(key to value))
@@ -250,6 +268,7 @@ public fun <T> UiScope.provide(key: ContextKey<T>, value: T, content: UiScope.()
     return provider
 }
 
+/** Finds the nearest ancestor-provided value for [key]. */
 public fun <T> Element.context(key: ContextKey<T>): T {
     var cursor: Element? = this
     while (cursor != null) {
@@ -263,6 +282,7 @@ public fun <T> Element.context(key: ContextKey<T>): T {
     error("No value provided for ContextKey")
 }
 
+/** Reactively mounts or removes [content], optionally animating its entrance and exit. */
 public fun UiScope.show(
     condition: Readable<Boolean>,
     transition: StructuralTransition? = null,
@@ -409,6 +429,7 @@ private class ShowTransitionController(
     }
 }
 
+/** Maintains keyed child identity as [items] change and optionally animates layout movement. */
 public fun <T, K> UiScope.forEach(
     items: Readable<List<T>>,
     key: (T) -> K,

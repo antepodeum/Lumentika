@@ -1,17 +1,20 @@
 package com.antepod.lumentika.geometry
 
+/** A point in logical UI coordinates. */
 public data class Point(public val x: Float, public val y: Float) {
     public operator fun plus(other: Point): Point = Point(x + other.x, y + other.y)
 
     public operator fun minus(other: Point): Point = Point(x - other.x, y - other.y)
 }
 
+/** A two-dimensional logical size. */
 public data class Size(public val width: Float, public val height: Float) {
     public companion object {
         public val ZERO: Size = Size(0f, 0f)
     }
 }
 
+/** An axis-aligned rectangle in logical UI coordinates. */
 public data class Rect(
     public val x: Float,
     public val y: Float,
@@ -37,6 +40,7 @@ public data class Rect(
     }
 }
 
+/** Insets measured inward from the four edges of a rectangle. */
 public data class Insets(
     public val left: Float = 0f,
     public val top: Float = 0f,
@@ -52,6 +56,7 @@ public data class Insets(
         )
 }
 
+/** An immutable 3×3 matrix used for two-dimensional affine transforms. */
 public data class Matrix3(public val values: List<Float>) {
     init {
         require(values.size == 9) { "Matrix3 requires 9 values" }
