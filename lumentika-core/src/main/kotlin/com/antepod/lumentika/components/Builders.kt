@@ -622,9 +622,9 @@ private fun UiScope.mountTextField(
             gestures,
             multiline,
             secure,
-            placeholder,
+            state(placeholder),
             autofill,
-            enabled,
+            state(enabled),
         )
     configure(element, style, partStyles, semantics)
     return handle

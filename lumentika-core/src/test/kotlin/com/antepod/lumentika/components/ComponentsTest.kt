@@ -27,6 +27,41 @@ import kotlin.test.*
 
 class ComponentsTest {
     @Test
+    fun `generated text field binds value and reacts to placeholder and enabled props`() {
+        val root = Element()
+        val value = state("")
+        val selection = state<TextRange?>(null)
+        val placeholder = state<String?>("before")
+        val enabled = state(false)
+        var changed: String? = null
+        val field =
+            UiScope(root)
+                .textField(
+                    value = bind(value),
+                    selection = bind(selection),
+                    placeholder = source(placeholder),
+                    enabled = source(enabled),
+                    onChange = { changed = it },
+                )
+
+        assertFalse(field.semantics.enabled)
+        placeholder.value = "after"
+        enabled.value = true
+        assertTrue(field.semantics.enabled)
+        assertEquals(
+            "after",
+            (field.partElement(TextField.Part.PLACEHOLDER)!!.content as TextContent).text,
+        )
+
+        val controller = field.element.attachment(TextEditorAttachment)!!.controller
+        controller.reconcileExternal("edited")
+        assertEquals("edited", value.value)
+        assertEquals("edited", changed)
+        assertEquals(controller.value.selection, selection.value)
+        root.close()
+    }
+
+    @Test
     fun `generated slider reacts across range props and binds only value`() {
         val root = Element()
         val value = state(5f)

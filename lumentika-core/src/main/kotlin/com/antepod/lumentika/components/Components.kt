@@ -34,6 +34,7 @@ import com.antepod.lumentika.platform.UiFeedbackType
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.reactive.effect
+import com.antepod.lumentika.reactive.untracked
 import com.antepod.lumentika.reactive.withComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
@@ -53,9 +54,11 @@ import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillConfiguration
 import com.antepod.lumentika.text.TextEditingController
+import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextEditorRuntime
 import com.antepod.lumentika.text.TextInputConfiguration
 import com.antepod.lumentika.text.TextLayoutRequest
+import com.antepod.lumentika.text.TextRange
 
 /** Standard button declared through the same component model used by application components. */
 @UIComponent
@@ -174,8 +177,25 @@ public class Slider : Component(), ComponentOutput<ControlHandle> {
     }
 }
 
-/** Stable theme-part namespace for text fields. */
-public object TextField {
+/** Standard text field declared through the shared component model. */
+@UIComponent
+public class TextField : Component(), ComponentOutput<ControlHandle> {
+    public val value = binding("")
+    public val controller = prop<TextEditingController?>(null)
+    public val selection = binding<TextRange?>(null)
+    public val placeholder = prop<String?>(null)
+    public val multiline = prop(false)
+    public val secure = prop(false)
+    public val autofill = prop<AutofillConfiguration?>(null)
+    public val enabled = prop(true)
+    public val gestures = prop<GestureConfiguration?>(null)
+    public val style = prop<Style?>(null)
+    public val partStyles = prop<Map<StylePart<TextField>, Style>>(emptyMap())
+    public val semantics = prop<ElementSemantics?>(null)
+    public val change = event<String>()
+
+    override lateinit var componentOutput: ControlHandle
+
     public object Part {
         public val ROOT: StylePart<TextField> = StylePart()
         public val TEXT: StylePart<TextField> = StylePart()
@@ -184,6 +204,62 @@ public object TextField {
         public val SELECTION: StylePart<TextField> = StylePart()
         public val SCROLLBAR_TRACK: StylePart<TextField> = StylePart()
         public val SCROLLBAR_THUMB: StylePart<TextField> = StylePart()
+    }
+
+    override fun view(): Element {
+        val element = ui.element()
+        val initial = untracked { value.value }
+        val activeController =
+            controller.value
+                ?: TextEditingController(
+                    TextEditingValue(initial, TextRange(initial.length, initial.length))
+                )
+        var lastChangedText = initial
+        withComponentScope(element.scope) {
+            if (controller.value == null) {
+                effect {
+                    val next = value.value
+                    untracked { activeController.reconcileExternal(next) }
+                }
+            }
+            effect {
+                val next = selection.value
+                if (next != null) {
+                    untracked {
+                        val current = activeController.value
+                        if (current.selection != next) {
+                            activeController.value = current.copy(selection = next)
+                        }
+                    }
+                }
+            }
+            effect {
+                val editingValue = activeController.value
+                if (untracked { value.value } != editingValue.text) {
+                    value.value = editingValue.text
+                }
+                if (untracked { selection.value } != editingValue.selection) {
+                    selection.value = editingValue.selection
+                }
+                if (editingValue.text != lastChangedText) {
+                    lastChangedText = editingValue.text
+                    change.emit(editingValue.text)
+                }
+            }
+        }
+        componentOutput =
+            ui.textFieldControl(
+                element,
+                activeController,
+                gestures.value ?: ui.context.gestureConfiguration(),
+                multiline.value,
+                secure.value,
+                placeholder,
+                autofill.value,
+                enabled,
+            )
+        ui.configure(element, style.value, partStyles.value, semantics.value)
+        return element
     }
 }
 
@@ -1253,9 +1329,9 @@ internal fun UiScope.textFieldControl(
     gestures: GestureConfiguration,
     multiline: Boolean,
     secure: Boolean,
-    placeholder: String?,
+    placeholder: Readable<String?>,
     autofill: AutofillConfiguration?,
-    enabled: Boolean,
+    enabled: Readable<Boolean>,
 ): ControlHandle {
     val parts =
         installParts(
@@ -1381,8 +1457,8 @@ internal fun UiScope.textFieldControl(
             e,
             SemanticsConfiguration(
                 role = SemanticRole.TEXT_FIELD,
-                enabled = enabled,
-                readOnly = !enabled,
+                enabled = enabled.value,
+                readOnly = !enabled.value,
                 value = controller.value.text,
                 textSelection = controller.value.selection,
                 password = secure,
@@ -1390,33 +1466,35 @@ internal fun UiScope.textFieldControl(
             gestures = gesture,
         )
     val cleanups = mutableListOf<AutoCloseable>()
-    if (enabled)
-        context.focus?.let { focus ->
-            focus.configure(e, FocusProperties(focusable = true))
-            cleanups += AutoCloseable { focus.unconfigure(e) }
-            context.events?.let { events ->
-                cleanups +=
-                    events.defaultAction(e, EventType.POINTER_DOWN) {
-                        focus.focus(e, FocusCause.POINTER)
-                    }
-                cleanups += events.on(e, EventType.FOCUS) { editor.focus() }
-                cleanups += events.on(e, EventType.BLUR) { editor.blur() }
-                cleanups +=
-                    events.defaultAction(e, EventType.KEY_DOWN) { event ->
-                        handleEditorKey(editor, event as KeyboardEvent)
-                    }
-            }
+    context.focus?.let { focus ->
+        withComponentScope(e.scope) {
+            effect { focus.configure(e, FocusProperties(focusable = enabled.value)) }
         }
+        cleanups += AutoCloseable { focus.unconfigure(e) }
+        context.events?.let { events ->
+            cleanups +=
+                events.defaultAction(e, EventType.POINTER_DOWN) {
+                    if (enabled.value) focus.focus(e, FocusCause.POINTER)
+                }
+            cleanups += events.on(e, EventType.FOCUS) { if (enabled.value) editor.focus() }
+            cleanups += events.on(e, EventType.BLUR) { editor.blur() }
+            cleanups +=
+                events.defaultAction(e, EventType.KEY_DOWN) { event ->
+                    if (enabled.value) handleEditorKey(editor, event as KeyboardEvent)
+                }
+        }
+    }
     e.attach(
         TextFieldIntegrationAttachment,
         AutoCloseable { cleanups.asReversed().forEach { it.close() } },
     )
-    context.setStyleState(e, DISABLED, !enabled)
-    if (enabled) installHoverAndFocusStates(e, PointerCursorRole.TEXT)
+    installHoverAndFocusStates(e, PointerCursorRole.TEXT)
     withComponentScope(e.scope) {
         effect {
             val value = controller.value
             val empty = value.text.isEmpty()
+            val active = enabled.value
+            context.setStyleState(e, DISABLED, !active)
             context.setStyleState(e, ControlStyleState.EMPTY, empty)
             val displayText =
                 if (secure) "•".repeat(value.text.codePointCount(0, value.text.length))
@@ -1426,10 +1504,12 @@ internal fun UiScope.textFieldControl(
                     TextContent(TextLayoutRequest(it), context.textLayout)
                 }
             placeholderElement.content =
-                placeholder?.takeIf { empty }?.let { TextContent(it, context.textLayout) }
+                placeholder.value?.takeIf { empty }?.let { TextContent(it, context.textLayout) }
             e.attach(
                 SemanticsAttachment,
                 handle.semantics.copy(
+                    enabled = active,
+                    readOnly = !active,
                     value = value.text.takeUnless { secure },
                     textSelection = value.selection,
                 ),
