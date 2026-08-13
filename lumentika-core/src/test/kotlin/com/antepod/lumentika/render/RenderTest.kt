@@ -104,6 +104,41 @@ class RenderTest {
     }
 
     @Test
+    fun `motion clip blur and draw reach immutable property trees`() {
+        val root = Element("root").apply { geometry = Rect(0f, 0f, 100f, 100f) }
+        val child =
+            Element("path").apply {
+                geometry = Rect(10f, 10f, 20f, 20f)
+                content = TextContent("x")
+            }
+        root.append(child)
+        val styles = StyleRuntime()
+        styles.attach(root, state(style {}))
+        styles.attach(child, state(style {}))
+        val render = RenderRuntime(root) { styles.resolve(it).first }
+        render.configureMotion(
+            child,
+            MotionRenderProperties(
+                clip = Rect(0f, 0f, 8f, 20f),
+                blurRadius = 3f,
+                drawLength = 50f,
+                drawProgress = .4f,
+            ),
+        )
+
+        val commit = render.commit()
+        val chunk = commit.paint.chunks.single()
+        val effect = commit.paint.trees.effects.single { it.id == chunk.properties.effect }
+
+        assertEquals(3f, effect.blurRadius)
+        assertEquals(50f, effect.drawLength)
+        assertEquals(.4f, effect.drawProgress)
+        assertSame(child, commit.hitTest.hitTest(Point(15f, 15f)))
+        assertSame(root, commit.hitTest.hitTest(Point(19f, 15f)))
+        root.close()
+    }
+
+    @Test
     fun `custom scene hit region overrides rectangular hit`() {
         val root =
             Element("root").apply {

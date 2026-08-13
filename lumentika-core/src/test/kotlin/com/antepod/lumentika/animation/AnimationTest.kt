@@ -5,6 +5,7 @@ import com.antepod.lumentika.HeadlessRenderBackend
 import com.antepod.lumentika.PlatformServices
 import com.antepod.lumentika.UiRoot
 import com.antepod.lumentika.components.text
+import com.antepod.lumentika.geometry.Matrix3
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
@@ -12,7 +13,10 @@ import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.platform.UiLifecycleState
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.render.MotionRenderProperties
+import com.antepod.lumentika.runtime.Content
 import com.antepod.lumentika.runtime.Element
+import com.antepod.lumentika.runtime.PaintRecorder
+import com.antepod.lumentika.runtime.PathMetrics
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.StyleImpact
 import com.antepod.lumentika.style.StyleRuntime
@@ -250,6 +254,136 @@ class AnimationTest {
             slide(SlideAxis.HORIZONTAL).create(context).sample(0f, 1f).clip,
         )
         assertEquals(TransitionFrame(), fade().create(context).sample(1f, 0f))
+        element.close()
+    }
+
+    @Test
+    fun `standard transition library exposes stable defaults and path timing`() {
+        val element =
+            Element().apply {
+                content =
+                    object : Content, PathMetrics {
+                        override val pathLength = 90f
+                        override val strokeExtension = 10f
+
+                        override fun record(recorder: PaintRecorder, bounds: Rect) = Unit
+                    }
+            }
+        val context =
+            ElementTransitionContext(
+                element,
+                Rect(0f, 0f, 20f, 10f),
+                TransitionDirection.IN,
+            )
+
+        assertEquals(400, fade().create(context).durationMillis)
+        assertEquals(400, fly().create(context).durationMillis)
+        assertEquals(400, slide().create(context).durationMillis)
+        assertEquals(400, scale().create(context).durationMillis)
+        assertEquals(400, blur().create(context).durationMillis)
+        assertEquals(800, draw().create(context).durationMillis)
+        assertEquals(200, draw(speed = .5f).create(context).durationMillis)
+        assertEquals(250, draw(durationForLength = { 250 }).create(context).durationMillis)
+        assertEquals(.875f, StructuralEasings.cubicOut(.5f))
+        assertEquals(.5f, StructuralEasings.cubicInOut(.5f))
+
+        val blurred = blur().create(context).sample(0f, 1f)
+        assertEquals(5f, blurred.blurRadius)
+        assertEquals(0f, blurred.opacity)
+        val drawn = draw().create(context).sample(.25f, .75f)
+        assertEquals(100f, drawn.drawLength)
+        assertEquals(.25f, drawn.drawProgress)
+        assertEquals(
+            1_200,
+            flip()
+                .create(
+                    LayoutAnimationContext(element, context.bounds, context.bounds.copy(x = 100f))
+                )
+                .durationMillis,
+        )
+        element.close()
+    }
+
+    @Test
+    fun `custom transition supports sample and tick with natural progress semantics`() {
+        val clock = UiAnimationClock()
+        val element = Element()
+        val ticks = mutableListOf<Pair<Float, Float>>()
+        var motion: MotionRenderProperties? = null
+        val runtime =
+            ElementAnimationRuntime(
+                clock,
+                { _, value -> motion = value },
+                { Rect(0f, 0f, 20f, 10f) },
+                {},
+            )
+        val custom = ElementTransition {
+            ElementTransitionConfig(
+                durationMillis = 100,
+                tick = { t, u -> ticks += t to u },
+                sample = { t, u ->
+                    TransitionFrame(
+                        transform = Matrix3.translation(10f * u, 0f),
+                        opacity = t,
+                        blurRadius = 4f * u,
+                    )
+                },
+            )
+        }
+
+        runtime.start(element, "custom", custom, TransitionDirection.IN)
+        runtime.afterCommit()
+        assertEquals(0f to 1f, ticks.single())
+        assertEquals(4f, motion?.blurRadius)
+        clock.frame(50_000_000)
+        assertEquals(.5f to .5f, ticks.last())
+        assertEquals(.5f, motion?.opacity)
+        assertEquals(Point(5f, 0f), motion?.transform?.transform(Point(0f, 0f)))
+        clock.frame(100_000_000)
+        assertEquals(1f to 0f, ticks.last())
+        assertEquals(null, motion)
+        runtime.close()
+        element.close()
+    }
+
+    @Test
+    fun `custom keyed animation receives from and to bounds and drives runtime`() {
+        val clock = UiAnimationClock()
+        val element = Element()
+        var bounds = Rect(0f, 0f, 20f, 10f)
+        var received: LayoutAnimationContext? = null
+        val ticks = mutableListOf<Pair<Float, Float>>()
+        var motion: MotionRenderProperties? = null
+        val runtime =
+            ElementAnimationRuntime(
+                clock,
+                { _, value -> motion = value },
+                { bounds },
+                {},
+            )
+        val snapshot = runtime.captureFlip(listOf(element))
+        val animation = LayoutAnimation { context ->
+            received = context
+            LayoutAnimationConfig(
+                durationMillis = 100,
+                tick = { t, u -> ticks += t to u },
+                sample = { _, u ->
+                    TransitionFrame(transform = Matrix3.translation(30f * u, 0f))
+                },
+            )
+        }
+        bounds = Rect(100f, 0f, 20f, 10f)
+        runtime.queueFlip(snapshot, listOf(element), animation)
+        runtime.afterCommit()
+
+        assertEquals(LayoutAnimationContext(element, Rect(0f, 0f, 20f, 10f), bounds), received)
+        assertEquals(Point(30f, 0f), motion?.transform?.transform(Point(0f, 0f)))
+        clock.frame(50_000_000)
+        assertEquals(.5f to .5f, ticks.last())
+        assertEquals(Point(15f, 0f), motion?.transform?.transform(Point(0f, 0f)))
+        clock.frame(100_000_000)
+        assertEquals(null, motion)
+        runtime.close()
         element.close()
     }
 
