@@ -265,6 +265,29 @@ The evidence matrix at the end maps each checklist section to its acceptance tes
 - [x] layout animation routes through Taffy
 - [x] fling/overscroll/cursor blink share frame time model
 
+## Structural animation/transitions
+
+- [x] root-owned structural animation runtime
+- [x] bidirectional enter/exit transition with continuous reversal
+- [x] independent enter and exit transitions
+- [x] outgoing elements remain mounted until the transition group completes
+- [x] interrupted exit cancels deferred removal
+- [x] intro/outro start/end and cancellation events
+- [x] explicit transition cancellation handle
+- [x] custom transition receives committed bounds and direction
+- [x] transition delay/duration/easing
+- [x] `fade` / `fly` / `slide` / `scale` built-ins
+- [x] keyed `crossfade` send/receive pairing
+- [x] crossfade fallback for unmatched keys
+- [x] keyed `forEach` FLIP animation
+- [x] FLIP animates retained moved keys only
+- [x] distance-derived FLIP duration supported
+- [x] FLIP uses one layout then property-only frames
+- [x] animated paint and hit testing share the same transform
+- [x] structural motion honors lifecycle suspension
+- [x] structural motion honors motion-duration scale
+- [x] active structural motion is cancelled on disposal
+
 ## Universal components
 
 - [x] block
@@ -333,7 +356,7 @@ The evidence matrix at the end maps each checklist section to its acceptance tes
 | Taffy layout | [`LayoutRuntimeTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/layout/LayoutRuntimeTest.kt), [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt) |
 | Render/hit testing | [`RenderTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/render/RenderTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
 | Styles/themes | [`StyleTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/style/StyleTest.kt), generated-source compilation in `clean build` |
-| Animation | [`AnimationTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/animation/AnimationTest.kt), [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt) |
+| Animation; structural animation/transitions | [`STRUCTURAL_ANIMATION_SPEC.md`](STRUCTURAL_ANIMATION_SPEC.md), [`AnimationTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/animation/AnimationTest.kt), [`ComponentTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/component/ComponentTest.kt), [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt) |
 | Universal components | [`ComponentsTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/components/ComponentsTest.kt), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
 | Platform adapter readiness | [`PLATFORM_ADAPTER_GUIDE.md`](PLATFORM_ADAPTER_GUIDE.md), [`PlatformInputTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/PlatformInputTest.kt) |
 | Core integration proof | [`IntegrationProofTest.kt`](../lumentika-core/src/test/kotlin/com/antepod/lumentika/IntegrationProofTest.kt), full multi-module `clean build` |
