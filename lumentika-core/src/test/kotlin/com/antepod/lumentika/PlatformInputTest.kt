@@ -2,9 +2,11 @@ package com.antepod.lumentika
 
 import com.antepod.lumentika.components.ScrollRuntimeAttachment
 import com.antepod.lumentika.components.button
+import com.antepod.lumentika.components.checkbox
 import com.antepod.lumentika.components.column
 import com.antepod.lumentika.components.image
 import com.antepod.lumentika.components.scroll
+import com.antepod.lumentika.components.slider
 import com.antepod.lumentika.components.text
 import com.antepod.lumentika.components.textField
 import com.antepod.lumentika.geometry.Point
@@ -20,10 +22,15 @@ import com.antepod.lumentika.input.KeyModifiers
 import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.input.PointerType
 import com.antepod.lumentika.platform.ClipboardService
+import com.antepod.lumentika.platform.PointerCursorRole
+import com.antepod.lumentika.platform.PointerCursorService
 import com.antepod.lumentika.platform.TransferContent
 import com.antepod.lumentika.platform.TransferItem
 import com.antepod.lumentika.platform.TransferSource
 import com.antepod.lumentika.platform.UiEnvironment
+import com.antepod.lumentika.platform.UiFeedbackRequest
+import com.antepod.lumentika.platform.UiFeedbackService
+import com.antepod.lumentika.platform.UiFeedbackType
 import com.antepod.lumentika.render.PaintArtifact
 import com.antepod.lumentika.render.RenderBackend
 import com.antepod.lumentika.runtime.ImageService
@@ -56,6 +63,76 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class PlatformInputTest {
+    @Test
+    fun `controls integrate focus keyboard disabled state feedback and slider events`() {
+        val feedback = mutableListOf<UiFeedbackType>()
+        var cursor = PointerCursorRole.DEFAULT
+        val root =
+            UiRoot(
+                UiEnvironment(Size(200f, 100f)),
+                PlatformServices(
+                    HeadlessFrameScheduler(),
+                    feedback =
+                        object : UiFeedbackService {
+                            override fun perform(request: UiFeedbackRequest) {
+                                feedback += request.type
+                            }
+                        },
+                    cursor =
+                        object : PointerCursorService {
+                            override fun set(role: PointerCursorRole) {
+                                cursor = role
+                            }
+                        },
+                ),
+                HeadlessRenderBackend(),
+            )
+        var clicks = 0
+        val button = root.scope.button { onClick { clicks++ } }
+        val disabled =
+            root.scope.button {
+                enabled = false
+                onClick { clicks++ }
+            }
+        val checked = com.antepod.lumentika.reactive.state(false)
+        val checkbox = root.scope.checkbox { bindValue(checked) }
+        val sliderValue = com.antepod.lumentika.reactive.state(0f)
+        val inputs = mutableListOf<Float>()
+        val changes = mutableListOf<Float>()
+        val slider =
+            root.scope.slider {
+                bindValue(sliderValue)
+                step = .25f
+                onInput(inputs::add)
+                onChange(changes::add)
+            }
+
+        root.focus.focus(button.element, FocusCause.KEYBOARD)
+        assertFalse(root.dispatchKey(EventType.KEY_DOWN, LogicalKey.ENTER, "Enter", 1))
+        assertEquals(1, clicks)
+        root.focus.focus(checkbox.element, FocusCause.KEYBOARD)
+        assertFalse(root.dispatchKey(EventType.KEY_DOWN, LogicalKey.SPACE, "Space", 2))
+        assertTrue(checked.value)
+        root.focus.focus(slider.element, FocusCause.KEYBOARD)
+        assertFalse(root.dispatchKey(EventType.KEY_DOWN, LogicalKey.ARROW_RIGHT, "ArrowRight", 3))
+        assertEquals(.25f, sliderValue.value)
+        assertEquals(listOf(.25f), inputs)
+        assertEquals(listOf(.25f), changes)
+        assertTrue(UiFeedbackType.CONFIRM in feedback)
+        assertTrue(UiFeedbackType.TOGGLE in feedback)
+        assertTrue(UiFeedbackType.SELECTION_CHANGE in feedback)
+
+        disabled.activate()
+        assertEquals(1, clicks)
+        assertFalse(disabled.semantics.enabled)
+        assertTrue(disabled.semantics.actions.isEmpty())
+        root.events.updateHover(button.element, 4)
+        assertEquals(PointerCursorRole.POINTER, cursor)
+        root.events.updateHover(null, 5)
+        assertEquals(PointerCursorRole.DEFAULT, cursor)
+        root.close()
+    }
+
     @Test
     fun `mounted scroll integrates ranges pen keyboard accessibility and scrollbar`() {
         val sources = mutableListOf<ScrollSource>()

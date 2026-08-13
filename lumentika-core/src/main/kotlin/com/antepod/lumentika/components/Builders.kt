@@ -198,7 +198,13 @@ public class TextBuilder internal constructor(element: Element, context: UiConte
     internal fun mount() {
         withComponentScope(element.scope) {
             effect {
-                element.content = TextContent(source(), context.textLayout)
+                val value = source()
+                element.content = TextContent(value, context.textLayout)
+                val semantics = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
+                element.attach(
+                    SemanticsAttachment,
+                    semantics.copy(role = SemanticRole.TEXT, label = semantics.label ?: value),
+                )
                 context.requestFrame(true)
             }
         }
@@ -253,6 +259,7 @@ internal constructor(element: Element, context: UiContext, initial: T) :
 public class ButtonBuilder internal constructor(element: Element, context: UiContext) :
     ValueElementBuilder<String>(element, context, "") {
     public var gestures: GestureConfiguration = context.gestureConfiguration()
+    public var enabled: Boolean = true
     private var click: () -> Unit = {}
 
     public fun onClick(listener: () -> Unit) {
@@ -260,7 +267,7 @@ public class ButtonBuilder internal constructor(element: Element, context: UiCon
     }
 
     internal fun mount(): ControlHandle {
-        val handle = buttonControl(element, local, gestures) { click() }
+        val handle = buttonControl(element, local, gestures, enabled) { click() }
         applySemantics()
         return handle
     }
@@ -275,6 +282,7 @@ public class CheckboxBuilder internal constructor(element: Element, context: UiC
     ValueElementBuilder<Boolean>(element, context, false) {
     public var label: String? = null
     public var gestures: GestureConfiguration = context.gestureConfiguration()
+    public var enabled: Boolean = true
     private var changed: (Boolean) -> Unit = {}
 
     public fun bindValue(source: Mutable<Boolean>) = bind(source)
@@ -284,7 +292,7 @@ public class CheckboxBuilder internal constructor(element: Element, context: UiC
     }
 
     internal fun mount(): ControlHandle {
-        val handle = checkboxControl(element, local, label, gestures) { changed(it) }
+        val handle = checkboxControl(element, local, label, gestures, enabled) { changed(it) }
         applySemantics()
         return handle
     }
@@ -300,6 +308,9 @@ public class SliderBuilder internal constructor(element: Element, context: UiCon
     public var min: Float = 0f
     public var max: Float = 1f
     public var gestures: GestureConfiguration = context.gestureConfiguration()
+    public var enabled: Boolean = true
+    public var step: Float? = null
+    private var input: (Float) -> Unit = {}
     private var changed: (Float) -> Unit = {}
 
     public fun bindValue(source: Mutable<Float>) = bind(source)
@@ -308,9 +319,25 @@ public class SliderBuilder internal constructor(element: Element, context: UiCon
         changed = listener
     }
 
+    public fun onInput(listener: (Float) -> Unit) {
+        input = listener
+    }
+
     internal fun mount(): ControlHandle {
         require(max >= min) { "slider max must be greater than or equal to min" }
-        val handle = sliderControl(element, local, min, max, gestures) { changed(it) }
+        require(step == null || step!!.isFinite() && step!! > 0f)
+        val handle =
+            sliderControl(
+                element,
+                local,
+                min,
+                max,
+                step,
+                gestures,
+                enabled,
+                onInput = input,
+                onChange = changed,
+            )
         applySemantics()
         return handle
     }
@@ -342,6 +369,7 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
     public var placeholder: String? = null
     public var autofill: AutofillConfiguration? = null
     public var gestures: GestureConfiguration = context.gestureConfiguration()
+    public var enabled: Boolean = true
 
     public var value: String
         get() = source()
@@ -386,6 +414,7 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
                 ?: TextEditingController(
                     TextEditingValue(initial, TextRange(initial.length, initial.length))
                 )
+        var lastChangedText = initial
         withComponentScope(element.scope) {
             if (externalController == null) {
                 effect {
@@ -413,7 +442,10 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
                         it.value = editingValue.selection
                     }
                 }
-                changed(text)
+                if (text != lastChangedText) {
+                    lastChangedText = text
+                    changed(text)
+                }
             }
         }
         val handle =
@@ -425,6 +457,7 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
                 secure,
                 placeholder,
                 autofill,
+                enabled,
             )
         applySemantics()
         return handle
@@ -447,6 +480,8 @@ public class ImageBuilder internal constructor(element: Element, context: UiCont
         }
 
     public var size: Size? = null
+    public var description: String? = null
+    public var decorative: Boolean = false
 
     public fun source(value: Readable<ImageSource>) {
         check(sourceProvider == null) { "image source already configured" }
@@ -468,6 +503,14 @@ public class ImageBuilder internal constructor(element: Element, context: UiCont
                 context.requestFrame(true)
             }
         }
+        element.attach(
+            SemanticsAttachment,
+            SemanticsConfiguration(
+                role = SemanticRole.IMAGE,
+                label = description,
+                hidden = decorative,
+            ),
+        )
         applySemantics()
     }
 }

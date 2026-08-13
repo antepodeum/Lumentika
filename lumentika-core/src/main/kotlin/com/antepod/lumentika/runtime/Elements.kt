@@ -7,10 +7,13 @@ import com.antepod.lumentika.input.EventDispatcher
 import com.antepod.lumentika.input.FocusManager
 import com.antepod.lumentika.platform.ClipboardService
 import com.antepod.lumentika.platform.GestureConfiguration
+import com.antepod.lumentika.platform.PointerCursorService
+import com.antepod.lumentika.platform.UiFeedbackService
 import com.antepod.lumentika.reactive.ComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.style.Paint
 import com.antepod.lumentika.style.Style
+import com.antepod.lumentika.style.StyleState
 import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.text.AutofillRuntime
 import com.antepod.lumentika.text.HeadlessTextLayoutService
@@ -273,6 +276,9 @@ public data class UiContext(
     val attachStyle: (Element, Style) -> Unit = { _, _ -> },
     val committedBounds: (Element) -> Rect? = { null },
     val gestureConfiguration: () -> GestureConfiguration = { GestureConfiguration() },
+    val feedback: UiFeedbackService? = null,
+    val cursor: PointerCursorService? = null,
+    val setStyleState: (Element, StyleState, Boolean) -> Unit = { _, _, _ -> },
 )
 
 @UiDsl

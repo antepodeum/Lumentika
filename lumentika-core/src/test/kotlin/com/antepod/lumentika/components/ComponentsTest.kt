@@ -81,6 +81,30 @@ class ComponentsTest {
     }
 
     @Test
+    fun `universal components expose readable content semantics and typed theme parts`() {
+        val root = Element("root")
+        val ui = UiScope(root)
+        val text = ui.text("hello")
+        val image = ui.image(ImageSource.Uri("asset"))
+        val rootStyle = style { opacity = .5f }
+        val theme =
+            com.antepod.lumentika.style.theme {
+                style(Button.Part.ROOT, rootStyle)
+                style(Checkbox.Part.INDICATOR, style {})
+                style(Slider.Part.THUMB, style {})
+                style(TextField.Part.CURSOR, style {})
+                style(Scroll.Part.SCROLLBAR_THUMB, style {})
+                style(Tooltip.Part.POPUP, style {})
+            }
+
+        assertEquals(SemanticRole.TEXT, text.attachment(SemanticsAttachment)!!.role)
+        assertEquals("hello", text.attachment(SemanticsAttachment)!!.label)
+        assertEquals(SemanticRole.IMAGE, image.attachment(SemanticsAttachment)!!.role)
+        assertSame(rootStyle, theme[Button.Part.ROOT])
+        root.close()
+    }
+
+    @Test
     fun `interactive controls use shared gesture recognizers`() {
         val root = Element("root")
         val ui = UiScope(root)

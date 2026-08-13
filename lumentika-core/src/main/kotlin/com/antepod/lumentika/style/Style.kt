@@ -952,7 +952,13 @@ public class Theme
 internal constructor(
     internal val values: Map<StyleVar<*>, Any?>,
     internal val parts: Map<StylePart<*>, Style>,
-)
+) {
+    @Suppress("UNCHECKED_CAST")
+    public operator fun <T> get(variable: StyleVar<T>): T =
+        values.getOrDefault(variable, variable.default) as T
+
+    public operator fun <T : Any> get(part: StylePart<T>): Style? = parts[part]
+}
 
 public class ThemeBuilder {
     private val values = mutableMapOf<StyleVar<*>, Any?>()

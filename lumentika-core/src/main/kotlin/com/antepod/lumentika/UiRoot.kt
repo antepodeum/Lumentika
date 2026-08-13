@@ -98,6 +98,12 @@ public class UiRoot(
                 attachStyle = { target, source -> styles.attach(target, state(source)) },
                 committedBounds = ::committedBounds,
                 gestureConfiguration = { environment.value.gesture },
+                feedback = services.feedback,
+                cursor = services.cursor,
+                setStyleState = { target, styleState, enabled ->
+                    styles.setState(target, styleState, enabled)
+                    requestFrame(false)
+                },
             ),
         )
     public val styleAnimations =

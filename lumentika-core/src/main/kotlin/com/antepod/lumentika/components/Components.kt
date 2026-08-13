@@ -23,7 +23,10 @@ import com.antepod.lumentika.input.KeyboardEvent
 import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.input.PointerType
 import com.antepod.lumentika.platform.GestureConfiguration
+import com.antepod.lumentika.platform.PointerCursorRole
 import com.antepod.lumentika.platform.TransferContent
+import com.antepod.lumentika.platform.UiFeedbackRequest
+import com.antepod.lumentika.platform.UiFeedbackType
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.reactive.effect
@@ -31,16 +34,74 @@ import com.antepod.lumentika.reactive.withComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
+import com.antepod.lumentika.style.ACTIVE
+import com.antepod.lumentika.style.DISABLED
 import com.antepod.lumentika.style.Display
+import com.antepod.lumentika.style.FOCUS
+import com.antepod.lumentika.style.FOCUS_VISIBLE
 import com.antepod.lumentika.style.FlexDirection
+import com.antepod.lumentika.style.HOVER
 import com.antepod.lumentika.style.Position
 import com.antepod.lumentika.style.Style
+import com.antepod.lumentika.style.StylePart
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillConfiguration
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditorRuntime
 import com.antepod.lumentika.text.TextInputConfiguration
 import com.antepod.lumentika.text.TextLayoutRequest
+
+public object Button {
+    public object Part {
+        public val ROOT: StylePart<Button> = StylePart("button.root")
+        public val LABEL: StylePart<Button> = StylePart("button.label")
+        public val ICON: StylePart<Button> = StylePart("button.icon")
+    }
+}
+
+public object Checkbox {
+    public object Part {
+        public val ROOT: StylePart<Checkbox> = StylePart("checkbox.root")
+        public val INDICATOR: StylePart<Checkbox> = StylePart("checkbox.indicator")
+        public val LABEL: StylePart<Checkbox> = StylePart("checkbox.label")
+    }
+}
+
+public object Slider {
+    public object Part {
+        public val ROOT: StylePart<Slider> = StylePart("slider.root")
+        public val TRACK: StylePart<Slider> = StylePart("slider.track")
+        public val THUMB: StylePart<Slider> = StylePart("slider.thumb")
+        public val LABEL: StylePart<Slider> = StylePart("slider.label")
+    }
+}
+
+public object TextField {
+    public object Part {
+        public val ROOT: StylePart<TextField> = StylePart("text-field.root")
+        public val TEXT: StylePart<TextField> = StylePart("text-field.text")
+        public val PLACEHOLDER: StylePart<TextField> = StylePart("text-field.placeholder")
+        public val CURSOR: StylePart<TextField> = StylePart("text-field.cursor")
+        public val SELECTION: StylePart<TextField> = StylePart("text-field.selection")
+        public val SCROLLBAR_TRACK: StylePart<TextField> = StylePart("text-field.scrollbar-track")
+        public val SCROLLBAR_THUMB: StylePart<TextField> = StylePart("text-field.scrollbar-thumb")
+    }
+}
+
+public object Scroll {
+    public object Part {
+        public val ROOT: StylePart<Scroll> = StylePart("scroll.root")
+        public val SCROLLBAR_TRACK: StylePart<Scroll> = StylePart("scroll.scrollbar-track")
+        public val SCROLLBAR_THUMB: StylePart<Scroll> = StylePart("scroll.scrollbar-thumb")
+    }
+}
+
+public object Tooltip {
+    public object Part {
+        public val ROOT: StylePart<Tooltip> = StylePart("tooltip.root")
+        public val POPUP: StylePart<Tooltip> = StylePart("tooltip.popup")
+    }
+}
 
 public class ControlHandle(
     public val element: Element,
@@ -318,14 +379,22 @@ internal constructor(
 }
 
 public fun UiScope.text(value: String): Element =
-    element("text", TextContent(value, context.textLayout))
+    element("text", TextContent(value, context.textLayout)).also {
+        it.attach(
+            SemanticsAttachment,
+            SemanticsConfiguration(role = SemanticRole.TEXT, label = value),
+        )
+    }
 
 public fun UiScope.text(value: Readable<String>): Element = text { value(value) }
 
 public fun UiScope.image(
     source: ImageSource,
     size: com.antepod.lumentika.geometry.Size? = null,
-): Element = element("image", ImageContent(source, size ?: context.images?.intrinsicSize(source)))
+): Element =
+    element("image", ImageContent(source, size ?: context.images?.intrinsicSize(source))).also {
+        it.attach(SemanticsAttachment, SemanticsConfiguration(role = SemanticRole.IMAGE))
+    }
 
 public enum class TooltipPlacement {
     AUTO,
@@ -513,30 +582,124 @@ private fun control(
     return ControlHandle(element, semantics, activate, gestures)
 }
 
+private fun UiScope.installHoverAndFocusStates(
+    element: Element,
+    cursor: PointerCursorRole,
+) {
+    val cleanups = mutableListOf<AutoCloseable>()
+    context.events?.let { events ->
+        cleanups +=
+            events.on(element, EventType.POINTER_ENTER) {
+                context.setStyleState(element, HOVER, true)
+                context.cursor?.set(cursor)
+            }
+        cleanups +=
+            events.on(element, EventType.POINTER_LEAVE) {
+                context.setStyleState(element, HOVER, false)
+                context.setStyleState(element, ACTIVE, false)
+                context.cursor?.set(PointerCursorRole.DEFAULT)
+            }
+        cleanups +=
+            events.on(element, EventType.FOCUS) {
+                context.setStyleState(element, FOCUS, true)
+                context.setStyleState(element, FOCUS_VISIBLE, true)
+            }
+        cleanups +=
+            events.on(element, EventType.BLUR) {
+                context.setStyleState(element, FOCUS, false)
+                context.setStyleState(element, FOCUS_VISIBLE, false)
+                context.setStyleState(element, ACTIVE, false)
+            }
+    }
+    element.scope.own { cleanups.asReversed().forEach(AutoCloseable::close) }
+}
+
+private fun UiScope.installControlInteraction(
+    element: Element,
+    enabled: Boolean,
+    activate: () -> Unit,
+    cursor: PointerCursorRole,
+    keyAction: (LogicalKey) -> Boolean = { false },
+) {
+    context.setStyleState(element, DISABLED, !enabled)
+    if (!enabled) return
+    installHoverAndFocusStates(element, cursor)
+    context.focus?.let { focus ->
+        focus.configure(element, FocusProperties(focusable = true))
+        element.scope.own { focus.unconfigure(element) }
+    }
+    val cleanups = mutableListOf<AutoCloseable>()
+    context.events?.let { events ->
+        cleanups +=
+            events.on(element, EventType.POINTER_DOWN) {
+                context.setStyleState(element, ACTIVE, true)
+                context.focus?.focus(element, FocusCause.POINTER)
+                context.feedback?.perform(UiFeedbackRequest(UiFeedbackType.PRESS))
+            }
+        cleanups +=
+            events.on(element, EventType.POINTER_UP) {
+                context.setStyleState(element, ACTIVE, false)
+            }
+        cleanups +=
+            events.on(element, EventType.POINTER_CANCEL) {
+                context.setStyleState(element, ACTIVE, false)
+            }
+        cleanups +=
+            events.on(element, EventType.KEY_DOWN) { event ->
+                event as KeyboardEvent
+                val handled =
+                    keyAction(event.logicalKey) ||
+                        event.logicalKey == LogicalKey.ENTER ||
+                        event.logicalKey == LogicalKey.SPACE
+                if (handled) {
+                    if (
+                        event.logicalKey == LogicalKey.ENTER || event.logicalKey == LogicalKey.SPACE
+                    ) {
+                        activate()
+                    }
+                    event.preventDefault()
+                }
+            }
+    }
+    element.scope.own { cleanups.asReversed().forEach(AutoCloseable::close) }
+}
+
 internal fun UiScope.buttonControl(
     e: Element,
     label: Readable<String>,
     gestures: GestureConfiguration,
+    enabled: Boolean,
     onClick: () -> Unit,
 ): ControlHandle {
+    val action = {
+        if (enabled) {
+            onClick()
+            context.feedback?.perform(UiFeedbackRequest(UiFeedbackType.CONFIRM))
+        }
+    }
     val handle =
         control(
             e,
             SemanticsConfiguration(
                 role = SemanticRole.BUTTON,
                 label = label.value,
+                enabled = enabled,
+                mergeDescendants = true,
                 actions =
-                    mapOf(
-                        SemanticAction.CLICK to
-                            {
-                                onClick()
-                                true
-                            }
-                    ),
+                    if (enabled)
+                        mapOf(
+                            SemanticAction.CLICK to
+                                {
+                                    action()
+                                    true
+                                }
+                        )
+                    else emptyMap(),
             ),
-            onClick,
-            ControlGestureHandle(TapRecognizer(gestures, onClick)),
+            action,
+            ControlGestureHandle(TapRecognizer(gestures, action)),
         )
+    installControlInteraction(e, enabled, action, PointerCursorRole.POINTER)
     withComponentScope(e.scope) {
         effect {
             val next = label.value
@@ -553,11 +716,15 @@ internal fun UiScope.checkboxControl(
     value: Mutable<Boolean>,
     label: String?,
     gestures: GestureConfiguration,
+    enabled: Boolean,
     onChange: (Boolean) -> Unit = {},
 ): ControlHandle {
     val action = {
-        value.value = !value.value
-        onChange(value.value)
+        if (enabled) {
+            value.value = !value.value
+            onChange(value.value)
+            context.feedback?.perform(UiFeedbackRequest(UiFeedbackType.TOGGLE))
+        }
     }
     val handle =
         control(
@@ -565,19 +732,23 @@ internal fun UiScope.checkboxControl(
             SemanticsConfiguration(
                 role = SemanticRole.CHECKBOX,
                 label = label,
+                enabled = enabled,
                 checked = value.value,
                 actions =
-                    mapOf(
-                        SemanticAction.CLICK to
-                            {
-                                action()
-                                true
-                            }
-                    ),
+                    if (enabled)
+                        mapOf(
+                            SemanticAction.CLICK to
+                                {
+                                    action()
+                                    true
+                                }
+                        )
+                    else emptyMap(),
             ),
             action,
             ControlGestureHandle(TapRecognizer(gestures, action)),
         )
+    installControlInteraction(e, enabled, action, PointerCursorRole.POINTER)
     withComponentScope(e.scope) {
         effect {
             e.attach(SemanticsAttachment, handle.semantics.copy(checked = value.value))
@@ -592,9 +763,26 @@ internal fun UiScope.sliderControl(
     value: Mutable<Float>,
     minimum: Float,
     maximum: Float,
+    step: Float?,
     gestures: GestureConfiguration,
+    enabled: Boolean,
+    onInput: (Float) -> Unit = {},
     onChange: (Float) -> Unit = {},
 ): ControlHandle {
+    fun normalized(next: Float): Float {
+        val clamped = next.coerceIn(minimum, maximum)
+        return step?.let {
+            (minimum + kotlin.math.round((clamped - minimum) / it) * it).coerceIn(minimum, maximum)
+        } ?: clamped
+    }
+    fun setValue(next: Float, final: Boolean) {
+        if (!enabled) return
+        value.value = normalized(next)
+        onInput(value.value)
+        if (final) onChange(value.value)
+        context.feedback?.perform(UiFeedbackRequest(UiFeedbackType.SELECTION_CHANGE))
+    }
+    value.value = normalized(value.value)
     val gesture =
         ControlGestureHandle(
             DragRecognizer(
@@ -602,13 +790,9 @@ internal fun UiScope.sliderControl(
                 DragAxis.HORIZONTAL,
                 onUpdate = { update ->
                     val width = e.geometry.width.takeIf { it > 0f } ?: 100f
-                    value.value =
-                        (value.value + update.delta.x / width * (maximum - minimum)).coerceIn(
-                            minimum,
-                            maximum,
-                        )
-                    onChange(value.value)
+                    setValue(value.value + update.delta.x / width * (maximum - minimum), false)
                 },
+                onEnd = { setValue(value.value, true) },
             )
         )
     val handle =
@@ -616,24 +800,62 @@ internal fun UiScope.sliderControl(
             e,
             SemanticsConfiguration(
                 role = SemanticRole.SLIDER,
-                range = SemanticRange(value.value, minimum, maximum),
+                enabled = enabled,
+                range = SemanticRange(value.value, minimum, maximum, step),
                 actions =
-                    mapOf(
-                        SemanticAction.SET_VALUE to
-                            { v ->
-                                value.value = (v as Number).toFloat().coerceIn(minimum, maximum)
-                                onChange(value.value)
-                                true
-                            }
-                    ),
+                    if (enabled)
+                        mapOf(
+                            SemanticAction.SET_VALUE to
+                                { v ->
+                                    setValue((v as Number).toFloat(), true)
+                                    true
+                                },
+                            SemanticAction.INCREMENT to
+                                {
+                                    setValue(
+                                        value.value + (step ?: (maximum - minimum) / 10f),
+                                        true,
+                                    )
+                                    true
+                                },
+                            SemanticAction.DECREMENT to
+                                {
+                                    setValue(
+                                        value.value - (step ?: (maximum - minimum) / 10f),
+                                        true,
+                                    )
+                                    true
+                                },
+                        )
+                    else emptyMap(),
             ),
             gestures = gesture,
         )
+    installControlInteraction(
+        e,
+        enabled,
+        activate = { setValue(value.value + (step ?: (maximum - minimum) / 10f), true) },
+        cursor = PointerCursorRole.POINTER,
+        keyAction = { key ->
+            when (key) {
+                LogicalKey.ARROW_RIGHT,
+                LogicalKey.ARROW_UP ->
+                    setValue(value.value + (step ?: (maximum - minimum) / 10f), true)
+                LogicalKey.ARROW_LEFT,
+                LogicalKey.ARROW_DOWN ->
+                    setValue(value.value - (step ?: (maximum - minimum) / 10f), true)
+                LogicalKey.HOME -> setValue(minimum, true)
+                LogicalKey.END -> setValue(maximum, true)
+                else -> return@installControlInteraction false
+            }
+            true
+        },
+    )
     withComponentScope(e.scope) {
         effect {
             e.attach(
                 SemanticsAttachment,
-                handle.semantics.copy(range = SemanticRange(value.value, minimum, maximum)),
+                handle.semantics.copy(range = SemanticRange(value.value, minimum, maximum, step)),
             )
             context.requestFrame(false)
         }
@@ -649,6 +871,7 @@ internal fun UiScope.textFieldControl(
     secure: Boolean,
     placeholder: String?,
     autofill: AutofillConfiguration?,
+    enabled: Boolean,
 ): ControlHandle {
     val editor =
         TextEditorRuntime(
@@ -687,6 +910,8 @@ internal fun UiScope.textFieldControl(
             e,
             SemanticsConfiguration(
                 role = SemanticRole.TEXT_FIELD,
+                enabled = enabled,
+                readOnly = !enabled,
                 value = controller.value.text,
                 textSelection = controller.value.selection,
                 password = secure,
@@ -694,26 +919,29 @@ internal fun UiScope.textFieldControl(
             gestures = gesture,
         )
     val cleanups = mutableListOf<AutoCloseable>()
-    context.focus?.let { focus ->
-        focus.configure(e, FocusProperties(focusable = true))
-        cleanups += AutoCloseable { focus.unconfigure(e) }
-        context.events?.let { events ->
-            cleanups +=
-                events.defaultAction(e, EventType.POINTER_DOWN) {
-                    focus.focus(e, FocusCause.POINTER)
-                }
-            cleanups += events.on(e, EventType.FOCUS) { editor.focus() }
-            cleanups += events.on(e, EventType.BLUR) { editor.blur() }
-            cleanups +=
-                events.defaultAction(e, EventType.KEY_DOWN) { event ->
-                    handleEditorKey(editor, event as KeyboardEvent)
-                }
+    if (enabled)
+        context.focus?.let { focus ->
+            focus.configure(e, FocusProperties(focusable = true))
+            cleanups += AutoCloseable { focus.unconfigure(e) }
+            context.events?.let { events ->
+                cleanups +=
+                    events.defaultAction(e, EventType.POINTER_DOWN) {
+                        focus.focus(e, FocusCause.POINTER)
+                    }
+                cleanups += events.on(e, EventType.FOCUS) { editor.focus() }
+                cleanups += events.on(e, EventType.BLUR) { editor.blur() }
+                cleanups +=
+                    events.defaultAction(e, EventType.KEY_DOWN) { event ->
+                        handleEditorKey(editor, event as KeyboardEvent)
+                    }
+            }
         }
-    }
     e.attach(
         TextFieldIntegrationAttachment,
         AutoCloseable { cleanups.asReversed().forEach { it.close() } },
     )
+    context.setStyleState(e, DISABLED, !enabled)
+    if (enabled) installHoverAndFocusStates(e, PointerCursorRole.TEXT)
     withComponentScope(e.scope) {
         effect {
             val value = controller.value
