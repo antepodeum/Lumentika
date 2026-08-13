@@ -10,12 +10,22 @@ import com.antepod.lumentika.gesture.ScrollSource
 import com.antepod.lumentika.gesture.ScrollState
 import com.antepod.lumentika.gesture.SelectionDragRecognizer
 import com.antepod.lumentika.gesture.TapRecognizer
+import com.antepod.lumentika.input.EventType
+import com.antepod.lumentika.input.FocusCause
+import com.antepod.lumentika.input.FocusProperties
+import com.antepod.lumentika.input.KeyboardEvent
+import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.Mutable
+import com.antepod.lumentika.reactive.effect
+import com.antepod.lumentika.reactive.withComponentScope
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
 import com.antepod.lumentika.text.TextEditCommand
 import com.antepod.lumentika.text.TextEditingController
+import com.antepod.lumentika.text.TextEditorRuntime
+import com.antepod.lumentika.text.TextInputConfiguration
+import com.antepod.lumentika.text.TextLayoutRequest
 import com.antepod.lumentika.text.TextRange
 
 public class ControlHandle(
@@ -51,6 +61,8 @@ public class ControlGestureHandle(public val recognizer: GestureRecognizer) : Au
 }
 
 public val GestureAttachment: AttachmentKey<ControlGestureHandle> = AttachmentKey()
+public val TextEditorAttachment: AttachmentKey<TextEditorRuntime> = AttachmentKey()
+private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 
 public fun UiScope.block(content: UiScope.() -> Unit = {}): Element =
     element("block", block = content)
@@ -94,12 +106,13 @@ public fun UiScope.scroll(
 public fun UiScope.list(content: UiScope.() -> Unit = {}): Element =
     element("list", block = content)
 
-public fun UiScope.text(value: String): Element = element("text", TextContent(value))
+public fun UiScope.text(value: String): Element =
+    element("text", TextContent(value, context.textLayout))
 
 public fun UiScope.image(
     source: ImageSource,
     size: com.antepod.lumentika.geometry.Size? = null,
-): Element = element("image", ImageContent(source, size))
+): Element = element("image", ImageContent(source, size ?: context.images?.intrinsicSize(source)))
 
 private fun control(
     element: Element,
@@ -117,7 +130,7 @@ public fun UiScope.button(
     gestures: GestureConfiguration = GestureConfiguration(),
     onClick: () -> Unit = {},
 ): ControlHandle {
-    val e = element("button", TextContent(label))
+    val e = element("button", TextContent(label, context.textLayout))
     return control(
         e,
         SemanticsConfiguration(
@@ -205,30 +218,105 @@ public fun UiScope.slider(
 public fun UiScope.textField(
     controller: TextEditingController = TextEditingController(),
     gestures: GestureConfiguration = GestureConfiguration(),
+    multiline: Boolean = false,
+    secure: Boolean = false,
 ): ControlHandle {
-    val e = element("textField", TextContent(controller.value.text))
+    val e = element("textField", TextContent(controller.value.text, context.textLayout))
+    val editor =
+        TextEditorRuntime(
+            controller,
+            context.textInput,
+            context.textLayout,
+            context.animationClock,
+            TextInputConfiguration(multiline = multiline, secure = secure),
+        )
+    e.attach(TextEditorAttachment, editor)
     val gesture =
         ControlGestureHandle(
             SelectionDragRecognizer(
                 gestures,
                 onUpdate = { update ->
-                    val offset =
-                        (update.position.x / 8f).toInt().coerceIn(0, controller.value.text.length)
-                    controller.apply(TextEditCommand.SetSelection(TextRange(offset, offset)))
+                    val layout = context.textLayout.layout(TextLayoutRequest(controller.value.text))
+                    val offset = layout.offsetForPoint(update.position)
+                    editor.apply(TextEditCommand.SetSelection(TextRange(offset, offset)))
                 },
             )
         )
-    return control(
-        e,
-        SemanticsConfiguration(
-            role = SemanticRole.TEXT_FIELD,
-            value = controller.value.text,
-            textSelection = controller.value.selection,
-            password = false,
-        ),
-        gestures = gesture,
+    val handle =
+        control(
+            e,
+            SemanticsConfiguration(
+                role = SemanticRole.TEXT_FIELD,
+                value = controller.value.text,
+                textSelection = controller.value.selection,
+                password = secure,
+            ),
+            gestures = gesture,
+        )
+    val cleanups = mutableListOf<AutoCloseable>()
+    context.focus?.let { focus ->
+        focus.configure(e, FocusProperties(focusable = true))
+        cleanups += AutoCloseable { focus.unconfigure(e) }
+        context.events?.let { events ->
+            cleanups +=
+                events.defaultAction(e, EventType.POINTER_DOWN) {
+                    focus.focus(e, FocusCause.POINTER)
+                }
+            cleanups += events.on(e, EventType.FOCUS) { editor.focus() }
+            cleanups += events.on(e, EventType.BLUR) { editor.blur() }
+            cleanups +=
+                events.defaultAction(e, EventType.KEY_DOWN) { event ->
+                    handleEditorKey(editor, event as KeyboardEvent, multiline)
+                }
+        }
+    }
+    e.attach(
+        TextFieldIntegrationAttachment,
+        AutoCloseable { cleanups.asReversed().forEach { it.close() } },
     )
+    withComponentScope(e.scope) {
+        effect {
+            val value = controller.value
+            e.content = TextContent(TextLayoutRequest(value.text), context.textLayout)
+            e.attach(
+                SemanticsAttachment,
+                handle.semantics.copy(value = value.text, textSelection = value.selection),
+            )
+            context.requestFrame(true)
+        }
+    }
+    return handle
 }
 
 public fun UiScope.tooltip(text: String, content: UiScope.() -> Unit = {}): Element =
-    element("tooltip", block = content).also { it.content = TextContent(text) }
+    element("tooltip", block = content).also {
+        it.content = TextContent(text, context.textLayout)
+    }
+
+private fun handleEditorKey(
+    editor: TextEditorRuntime,
+    event: KeyboardEvent,
+    multiline: Boolean,
+) {
+    val value = editor.controller.value
+    when (event.logicalKey) {
+        LogicalKey.BACKSPACE -> editor.deletePreviousGrapheme()
+        LogicalKey.DELETE -> editor.apply(TextEditCommand.DeleteSurroundingText(0, 1))
+        LogicalKey.ARROW_LEFT -> {
+            val offset = (value.selection.start - 1).coerceAtLeast(0)
+            editor.apply(TextEditCommand.SetSelection(TextRange(offset, offset)))
+        }
+        LogicalKey.ARROW_RIGHT -> {
+            val offset = (value.selection.end + 1).coerceAtMost(value.text.length)
+            editor.apply(TextEditCommand.SetSelection(TextRange(offset, offset)))
+        }
+        LogicalKey.HOME -> editor.apply(TextEditCommand.SetSelection(TextRange(0, 0)))
+        LogicalKey.END -> {
+            val end = value.text.length
+            editor.apply(TextEditCommand.SetSelection(TextRange(end, end)))
+        }
+        LogicalKey.CHARACTER -> event.text?.let { editor.apply(TextEditCommand.CommitText(it)) }
+        LogicalKey.ENTER -> if (multiline) editor.apply(TextEditCommand.CommitText("\n"))
+        else -> Unit
+    }
+}

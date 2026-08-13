@@ -17,6 +17,8 @@ import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.render.RenderRuntime
 import com.antepod.lumentika.render.SceneRaycastHit
 import com.antepod.lumentika.runtime.Element
+import com.antepod.lumentika.runtime.ImageService
+import com.antepod.lumentika.runtime.UiContext
 import com.antepod.lumentika.runtime.UiScope
 import com.antepod.lumentika.semantics.SemanticsRuntime
 import com.antepod.lumentika.style.StyleImpact
@@ -30,6 +32,10 @@ public data class PlatformServices(
     val feedback: UiFeedbackService? = null,
     val cursor: PointerCursorService? = null,
     val accessibility: com.antepod.lumentika.semantics.AccessibilityAdapter? = null,
+    val textInput: com.antepod.lumentika.text.TextInputService? = null,
+    val textLayout: com.antepod.lumentika.text.TextLayoutService =
+        com.antepod.lumentika.text.HeadlessTextLayoutService,
+    val images: ImageService? = null,
     val autofill: com.antepod.lumentika.text.AutofillService? = null,
     val contentTransfer: ContentTransferService? = null,
     val uriLauncher: UriLauncher? = null,
@@ -62,7 +68,6 @@ public class UiRoot(
     private val backend: RenderBackend,
 ) : AutoCloseable {
     public val element = Element("ui-root")
-    public val scope = UiScope(element)
     public val environment = UiEnvironmentState(initialEnvironment)
     public val styles = StyleRuntime()
     public val events = EventDispatcher(element)
@@ -71,6 +76,19 @@ public class UiRoot(
     public val animations = UiAnimationClock()
     private val defaultStyle = state(style {})
     private val frame = CoalescingFrameScheduler(services.frameScheduler)
+    public val scope =
+        UiScope(
+            element,
+            UiContext(
+                services.textLayout,
+                services.textInput,
+                services.images,
+                animations,
+                focus,
+                events,
+                ::requestFrame,
+            ),
+        )
     public val styleAnimations =
         StyleAnimationRuntime(
             animations,

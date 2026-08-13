@@ -163,12 +163,30 @@ public interface TextInputService {
 
 public data class TextLine(val range: TextRange, val baseline: Float, val bounds: Rect)
 
-public data class TextLayoutResult(val size: Size, val lines: List<TextLine>, val text: String) {
-    public fun offsetForPoint(point: Point): Int = ((point.x / 8f).toInt()).coerceIn(0, text.length)
+public interface TextLayoutResult {
+    public val size: Size
+    public val lines: List<TextLine>
+    public val text: String
 
-    public fun caretRect(offset: Int) = Rect(offset.coerceIn(0, text.length) * 8f, 0f, 1f, 16f)
+    public fun offsetForPoint(point: Point): Int
 
-    public fun selectionRects(range: TextRange) =
+    public fun caretRect(offset: Int): Rect
+
+    public fun selectionRects(range: TextRange): List<Rect>
+}
+
+public data class BasicTextLayoutResult(
+    override val size: Size,
+    override val lines: List<TextLine>,
+    override val text: String,
+) : TextLayoutResult {
+    override fun offsetForPoint(point: Point): Int =
+        ((point.x / 8f).toInt()).coerceIn(0, text.length)
+
+    override fun caretRect(offset: Int): Rect =
+        Rect(offset.coerceIn(0, text.length) * 8f, 0f, 1f, 16f)
+
+    override fun selectionRects(range: TextRange): List<Rect> =
         listOf(Rect(range.start * 8f, 0f, (range.end - range.start) * 8f, 16f))
 }
 
@@ -185,7 +203,7 @@ public interface TextLayoutService {
 public object HeadlessTextLayoutService : TextLayoutService {
     override fun layout(request: TextLayoutRequest): TextLayoutResult {
         val width = minOf(request.maxWidth ?: Float.MAX_VALUE, request.text.length * 8f)
-        return TextLayoutResult(
+        return BasicTextLayoutResult(
             Size(width, 16f),
             listOf(TextLine(TextRange(0, request.text.length), 12f, Rect(0f, 0f, width, 16f))),
             request.text,
@@ -239,6 +257,13 @@ public class TextEditorRuntime(
 
     override fun apply(command: TextEditCommand) {
         controller.apply(command)
+        session?.update(controller.value)
+        blinkEpoch = clock.frameTimeNanos
+        publishGeometry()
+    }
+
+    public fun deletePreviousGrapheme() {
+        controller.deletePreviousGrapheme()
         session?.update(controller.value)
         blinkEpoch = clock.frameTimeNanos
         publishGeometry()

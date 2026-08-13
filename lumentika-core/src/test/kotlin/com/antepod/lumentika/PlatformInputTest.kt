@@ -1,14 +1,34 @@
 package com.antepod.lumentika
 
 import com.antepod.lumentika.components.button
+import com.antepod.lumentika.components.column
+import com.antepod.lumentika.components.image
+import com.antepod.lumentika.components.text
+import com.antepod.lumentika.components.textField
 import com.antepod.lumentika.geometry.Point
+import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.input.EventType
+import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.input.PointerType
 import com.antepod.lumentika.platform.UiEnvironment
+import com.antepod.lumentika.render.PaintArtifact
 import com.antepod.lumentika.render.RenderBackend
+import com.antepod.lumentika.runtime.ImageService
+import com.antepod.lumentika.runtime.ImageSource
+import com.antepod.lumentika.runtime.PaintCommand
 import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.style
+import com.antepod.lumentika.text.TextEditingController
+import com.antepod.lumentika.text.TextInputClient
+import com.antepod.lumentika.text.TextInputConfiguration
+import com.antepod.lumentika.text.TextInputService
+import com.antepod.lumentika.text.TextInputSession
+import com.antepod.lumentika.text.TextLayoutRequest
+import com.antepod.lumentika.text.TextLayoutResult
+import com.antepod.lumentika.text.TextLayoutService
+import com.antepod.lumentika.text.TextLine
+import com.antepod.lumentika.text.TextRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -97,5 +117,116 @@ class PlatformInputTest {
         )
         assertEquals(0, clicks)
         root.close()
+    }
+
+    @Test
+    fun `platform text input layout and image services flow through nested components`() {
+        val layoutService = RecordingLayoutService()
+        val inputService = RecordingInputService()
+        var artifact: PaintArtifact? = null
+        val root =
+            UiRoot(
+                UiEnvironment(Size(200f, 100f)),
+                PlatformServices(
+                    HeadlessFrameScheduler(),
+                    textInput = inputService,
+                    textLayout = layoutService,
+                    images = ImageService { Size(23f, 17f) },
+                ),
+                RenderBackend { artifact = it },
+            )
+        val controller = TextEditingController()
+        lateinit var field: com.antepod.lumentika.components.ControlHandle
+        var imageSize: Size? = null
+        root.scope.column {
+            text("platform text")
+            image(ImageSource.Uri("asset:test")).also {
+                imageSize = (it.content as com.antepod.lumentika.runtime.ImageContent).intrinsicSize
+            }
+            field = textField(controller)
+        }
+        root.styles.attach(
+            field.element,
+            com.antepod.lumentika.reactive.state(
+                style {
+                    width = 100.px
+                    height = 20.px
+                }
+            ),
+        )
+        root.requestFrame()
+        root.frame(1)
+
+        assertEquals(Size(23f, 17f), imageSize)
+        val textCommands =
+            artifact!!.chunks.flatMap { it.commands }.filterIsInstance<PaintCommand.DrawText>()
+        assertTrue(textCommands.isNotEmpty())
+        assertTrue(textCommands.all { it.layout is RecordingLayoutResult })
+        assertTrue(layoutService.requests.any { it.text == "platform text" })
+
+        root.dispatchPointer(
+            PointerInput(
+                PointerInputPhase.DOWN,
+                1,
+                PointerType.MOUSE,
+                Point(field.element.geometry.x + 1f, field.element.geometry.y + 1f),
+                2,
+            )
+        )
+        assertEquals(1, inputService.starts)
+        root.dispatchKey(EventType.KEY_DOWN, LogicalKey.CHARACTER, "KeyA", 3, text = "a")
+        assertEquals("a", controller.value.text)
+        assertEquals("a", inputService.lastValue?.text)
+        root.close()
+        assertEquals(1, inputService.closes)
+    }
+
+    private class RecordingLayoutService : TextLayoutService {
+        val requests = mutableListOf<TextLayoutRequest>()
+
+        override fun layout(request: TextLayoutRequest): TextLayoutResult {
+            requests += request
+            return RecordingLayoutResult(request.text)
+        }
+    }
+
+    private data class RecordingLayoutResult(override val text: String) : TextLayoutResult {
+        override val size = Size(text.length * 7f, 18f)
+        override val lines =
+            listOf(TextLine(TextRange(0, text.length), 14f, Rect(0f, 0f, size.width, 18f)))
+
+        override fun offsetForPoint(point: Point): Int =
+            (point.x / 7f).toInt().coerceIn(0, text.length)
+
+        override fun caretRect(offset: Int) = Rect(offset * 7f, 0f, 1f, 18f)
+
+        override fun selectionRects(range: TextRange) =
+            listOf(Rect(range.start * 7f, 0f, (range.end - range.start) * 7f, 18f))
+    }
+
+    private class RecordingInputService : TextInputService {
+        var starts = 0
+        var closes = 0
+        var lastValue: com.antepod.lumentika.text.TextEditingValue? = null
+
+        override fun start(
+            configuration: TextInputConfiguration,
+            client: TextInputClient,
+        ): TextInputSession {
+            starts++
+            return object : TextInputSession {
+                override fun update(value: com.antepod.lumentika.text.TextEditingValue) {
+                    lastValue = value
+                }
+
+                override fun show() = Unit
+
+                override fun hide() = Unit
+
+                override fun close() {
+                    closes++
+                }
+            }
+        }
     }
 }

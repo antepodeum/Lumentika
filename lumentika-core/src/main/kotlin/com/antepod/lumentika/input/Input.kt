@@ -153,8 +153,18 @@ public class EventDispatcher(private val root: Element) {
         return AutoCloseable { listeners[element]?.get(type)?.remove(entry) }
     }
 
-    public fun defaultAction(element: Element, type: EventType, action: (UIEvent) -> Unit) {
+    public fun defaultAction(
+        element: Element,
+        type: EventType,
+        action: (UIEvent) -> Unit,
+    ): AutoCloseable {
         defaultActions.getOrPut(element, ::mutableMapOf)[type] = action
+        return AutoCloseable {
+            if (defaultActions[element]?.get(type) === action) {
+                defaultActions[element]?.remove(type)
+                if (defaultActions[element].isNullOrEmpty()) defaultActions.remove(element)
+            }
+        }
     }
 
     public fun setPointerCapture(element: Element, pointerId: Int) {
@@ -333,6 +343,11 @@ public class FocusManager(
 
     public fun configure(element: Element, value: FocusProperties) {
         properties[element] = value
+    }
+
+    public fun unconfigure(element: Element) {
+        if (activeElement === element) blur(element)
+        properties.remove(element)
     }
 
     public fun focus(element: Element, cause: FocusCause = FocusCause.PROGRAMMATIC) {

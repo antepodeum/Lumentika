@@ -104,7 +104,7 @@ public data class HitTestArtifact(val generation: Long, val entries: List<HitTes
         }
 }
 
-public interface RenderBackend {
+public fun interface RenderBackend {
     public fun replay(artifact: PaintArtifact)
 }
 

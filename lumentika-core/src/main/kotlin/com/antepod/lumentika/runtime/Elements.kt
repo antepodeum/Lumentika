@@ -1,8 +1,14 @@
 package com.antepod.lumentika.runtime
 
+import com.antepod.lumentika.animation.UiAnimationClock
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
+import com.antepod.lumentika.input.EventDispatcher
+import com.antepod.lumentika.input.FocusManager
 import com.antepod.lumentika.reactive.ComponentScope
+import com.antepod.lumentika.text.HeadlessTextLayoutService
+import com.antepod.lumentika.text.TextInputService
+import com.antepod.lumentika.text.TextLayoutService
 import java.util.concurrent.atomic.AtomicLong
 
 @DslMarker public annotation class UiDsl
@@ -33,7 +39,15 @@ public interface PaintRecorder {
 public sealed interface PaintCommand {
     public data class FillRect(val rect: Rect, val color: Int) : PaintCommand
 
-    public data class DrawText(val text: String, val rect: Rect, val color: Int) : PaintCommand
+    public data class DrawText(
+        val request: com.antepod.lumentika.text.TextLayoutRequest,
+        val layout: com.antepod.lumentika.text.TextLayoutResult,
+        val rect: Rect,
+        val color: Int,
+    ) : PaintCommand {
+        public val text: String
+            get() = request.text
+    }
 
     public data class DrawImage(val source: ImageSource, val rect: Rect) : PaintCommand
 
@@ -41,6 +55,10 @@ public sealed interface PaintCommand {
 }
 
 public interface BackendPaintCommand
+
+public fun interface ImageService {
+    public fun intrinsicSize(source: ImageSource): Size?
+}
 
 public sealed interface ImageSource {
     public data class Bytes(val bytes: ByteArray, val mimeType: String) : ImageSource {
@@ -67,10 +85,12 @@ public interface SceneContent : Content, HitRegionSource {
 
 public class TextContent(
     public val request: com.antepod.lumentika.text.TextLayoutRequest,
-    private val layoutService: com.antepod.lumentika.text.TextLayoutService =
-        com.antepod.lumentika.text.HeadlessTextLayoutService,
+    private val layoutService: TextLayoutService = HeadlessTextLayoutService,
 ) : Content, IntrinsicMeasurable {
-    public constructor(text: String) : this(com.antepod.lumentika.text.TextLayoutRequest(text))
+    public constructor(
+        text: String,
+        layoutService: TextLayoutService = HeadlessTextLayoutService,
+    ) : this(com.antepod.lumentika.text.TextLayoutRequest(text), layoutService)
 
     public val text: String
         get() = request.text
@@ -94,8 +114,15 @@ public class TextContent(
     }
 
     override fun record(recorder: PaintRecorder, bounds: Rect) {
-        layout(bounds.width)
-        recorder.record(PaintCommand.DrawText(text, bounds, 0xff000000.toInt()))
+        val result = layout(bounds.width)
+        recorder.record(
+            PaintCommand.DrawText(
+                request.copy(maxWidth = bounds.width),
+                result,
+                bounds,
+                0xff000000.toInt(),
+            )
+        )
     }
 
     private fun layout(maxWidth: Float?): com.antepod.lumentika.text.TextLayoutResult {
@@ -143,6 +170,8 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
     public var isMounted: Boolean = true
         private set
 
+    private var isClosing: Boolean = false
+
     init {
         OwnershipCounters.mountElement()
     }
@@ -160,9 +189,13 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
     }
 
     public fun remove(child: Element, dispose: Boolean = true): Boolean {
-        if (!mutableChildren.remove(child)) return false
-        child.parent = null
-        if (dispose) child.close()
+        if (child !in mutableChildren) return false
+        try {
+            if (dispose) child.close()
+        } finally {
+            mutableChildren.remove(child)
+            child.parent = null
+        }
         return true
     }
 
@@ -187,14 +220,25 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
     }
 
     override fun close() {
-        if (!isMounted) return
-        isMounted = false
-        OwnershipCounters.unmountElement()
-        mutableChildren.toList().asReversed().forEach { remove(it) }
-        scope.close()
+        if (!isMounted || isClosing) return
+        isClosing = true
+        var failure: Throwable? = null
+        fun safely(block: () -> Unit) {
+            try {
+                block()
+            } catch (error: Throwable) {
+                failure = failure ?: error
+            }
+        }
+        mutableChildren.toList().asReversed().forEach { child -> safely { remove(child) } }
+        safely(scope::close)
         contentListeners.clear()
-        attachments.values.filterIsInstance<AutoCloseable>().forEach(AutoCloseable::close)
+        attachments.values.filterIsInstance<AutoCloseable>().forEach { safely(it::close) }
         attachments.clear()
+        isMounted = false
+        isClosing = false
+        OwnershipCounters.unmountElement()
+        failure?.let { throw it }
     }
 
     public companion object {
@@ -206,8 +250,18 @@ public class Fragment : Element("fragment")
 
 public class AttachmentKey<T : Any>
 
+public data class UiContext(
+    val textLayout: TextLayoutService = HeadlessTextLayoutService,
+    val textInput: TextInputService? = null,
+    val images: ImageService? = null,
+    val animationClock: UiAnimationClock = UiAnimationClock(),
+    val focus: FocusManager? = null,
+    val events: EventDispatcher? = null,
+    val requestFrame: (layoutDirty: Boolean) -> Unit = {},
+)
+
 @UiDsl
-public open class UiScope(public val parent: Element) {
+public open class UiScope(public val parent: Element, public val context: UiContext = UiContext()) {
     public fun element(
         kind: String = "element",
         content: Content? = null,
@@ -216,14 +270,16 @@ public open class UiScope(public val parent: Element) {
         val element = Element(kind)
         element.content = content
         parent.append(element)
-        UiScope(element).block()
+        nested(element).block()
         return element
     }
 
     public fun fragment(block: UiScope.() -> Unit = {}): Fragment {
         val fragment = Fragment()
         parent.append(fragment)
-        UiScope(fragment).block()
+        nested(fragment).block()
         return fragment
     }
+
+    public fun nested(parent: Element): UiScope = UiScope(parent, context)
 }

@@ -219,7 +219,7 @@ public fun <T> contextKey(): ContextKey<T> = ContextKey()
 public fun <T> UiScope.provide(key: ContextKey<T>, value: T, content: UiScope.() -> Unit): Element {
     val provider = element("context-provider")
     provider.attach(contextAttachment, mutableMapOf(key to value))
-    UiScope(provider).content()
+    nested(provider).content()
     return provider
 }
 
@@ -240,7 +240,7 @@ public fun UiScope.show(condition: Readable<Boolean>, content: UiScope.() -> Uni
     val anchor = element("show")
     withComponentScope(anchor.scope) {
         effect {
-            if (condition.value && anchor.children.isEmpty()) UiScope(anchor).content()
+            if (condition.value && anchor.children.isEmpty()) nested(anchor).content()
             else if (!condition.value) anchor.children.toList().forEach { anchor.remove(it) }
         }
     }
@@ -266,7 +266,7 @@ public fun <T, K> UiScope.forEach(
                     keyed.remove(itemKey)
                         ?: Element("keyed-item").also {
                             anchor.append(it)
-                            UiScope(it).content(item)
+                            nested(it).content(item)
                         }
                 next[itemKey] = child
                 anchor.move(child, index)
