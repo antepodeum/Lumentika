@@ -198,9 +198,10 @@ private data class ComponentDeclaration(
 
     fun parameter(): String =
         when (kind) {
-            DeclarationKind.PROP,
+            DeclarationKind.PROP ->
+                "$identifier: PropInput<${requireNotNull(valueType)}> = ComponentInput.Omitted"
             DeclarationKind.BINDING ->
-                "$identifier: ComponentInput<${requireNotNull(valueType)}> = ComponentInput.Omitted"
+                "$identifier: BindingInput<${requireNotNull(valueType)}> = ComponentInput.Omitted"
             DeclarationKind.EVENT ->
                 "$eventName: (${eventListenerType(requireNotNull(valueType))})? = null"
             DeclarationKind.SLOT,

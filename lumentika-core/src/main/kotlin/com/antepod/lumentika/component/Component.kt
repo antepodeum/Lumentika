@@ -27,35 +27,41 @@ public annotation class UIComponent
 
 private object Missing
 
-/** A strongly typed generated-component argument. */
-public sealed interface ComponentInput<out T> {
+/** A strongly typed generated one-way property argument. */
+public sealed interface PropInput<out T>
+
+/** A strongly typed generated binding argument. */
+public sealed interface BindingInput<out T>
+
+/** Typed generated-component argument implementations. */
+public object ComponentInput {
     /** Leaves a declaration at its component-defined default. */
-    public data object Omitted : ComponentInput<Nothing>
+    public data object Omitted : PropInput<Nothing>, BindingInput<Nothing>
 
     /** Supplies a constant value. */
-    public data class Constant<T>(public val value: T) : ComponentInput<T>
+    public data class Constant<T>(public val value: T) : PropInput<T>, BindingInput<T>
 
     /** Supplies a one-way reactive source. */
-    public data class Source<T>(public val value: Readable<T>) : ComponentInput<T>
+    public data class Source<T>(public val value: Readable<T>) : PropInput<T>, BindingInput<T>
 
     /** Supplies a scope-owned tracked formula. */
-    public data class Formula<T>(public val value: () -> T) : ComponentInput<T>
+    public data class Formula<T>(public val value: () -> T) : PropInput<T>, BindingInput<T>
 
-    /** Supplies a mutable source, interpreted as two-way only by a [Binding]. */
-    public data class Bound<T>(public val value: Mutable<T>) : ComponentInput<T>
+    /** Supplies a mutable two-way source to a [Binding]. */
+    public data class Bound<T>(public val value: Mutable<T>) : BindingInput<T>
 }
 
 /** Creates a constant generated-component argument. */
-public fun <T> constant(value: T): ComponentInput<T> = ComponentInput.Constant(value)
+public fun <T> constant(value: T): ComponentInput.Constant<T> = ComponentInput.Constant(value)
 
 /** Creates a one-way generated-component argument. */
-public fun <T> source(value: Readable<T>): ComponentInput<T> = ComponentInput.Source(value)
+public fun <T> source(value: Readable<T>): ComponentInput.Source<T> = ComponentInput.Source(value)
 
 /** Creates a two-way generated-component binding argument. */
-public fun <T> bind(value: Mutable<T>): ComponentInput<T> = ComponentInput.Bound(value)
+public fun <T> bind(value: Mutable<T>): ComponentInput.Bound<T> = ComponentInput.Bound(value)
 
 /** Creates a tracked-formula generated-component argument. */
-public fun <T> formula(value: () -> T): ComponentInput<T> = ComponentInput.Formula(value)
+public fun <T> formula(value: () -> T): ComponentInput.Formula<T> = ComponentInput.Formula(value)
 
 /** Base class for externally configured component values. */
 public sealed class Declaration<T>(initial: Any?) {
@@ -167,18 +173,17 @@ public class Binding<T> internal constructor(initial: Any?) : Declaration<T>(ini
 }
 
 /** Applies this generated argument to a one-way [Prop]. */
-public fun <T> ComponentInput<T>.applyTo(declaration: Prop<T>, scope: ComponentScope) {
+public fun <T> PropInput<T>.applyTo(declaration: Prop<T>, scope: ComponentScope) {
     when (this) {
         ComponentInput.Omitted -> Unit
         is ComponentInput.Constant -> declaration.set(value)
         is ComponentInput.Source -> declaration.source(value, scope)
         is ComponentInput.Formula -> declaration.source(scope, value)
-        is ComponentInput.Bound -> declaration.source(value, scope)
     }
 }
 
 /** Applies this generated argument to a [Binding], preserving two-way mutable semantics. */
-public fun <T> ComponentInput<T>.applyTo(declaration: Binding<T>, scope: ComponentScope) {
+public fun <T> BindingInput<T>.applyTo(declaration: Binding<T>, scope: ComponentScope) {
     when (this) {
         ComponentInput.Omitted -> Unit
         is ComponentInput.Constant -> declaration.set(value)

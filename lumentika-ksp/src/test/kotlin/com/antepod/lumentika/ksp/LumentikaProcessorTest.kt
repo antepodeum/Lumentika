@@ -80,9 +80,9 @@ class LumentikaProcessorTest {
         val generated =
             compilation.kspSourcesDir.walkTopDown().single { it.name == "ProofDsl.kt" }.readText()
         assertContains(generated, "public fun UiScope.`proof`(")
-        assertContains(generated, "`title`: ComponentInput<kotlin.String>")
-        assertContains(generated, "`nullable`: ComponentInput<kotlin.String?>")
-        assertContains(generated, "`checked`: ComponentInput<kotlin.Boolean>")
+        assertContains(generated, "`title`: PropInput<kotlin.String>")
+        assertContains(generated, "`nullable`: PropInput<kotlin.String?>")
+        assertContains(generated, "`checked`: BindingInput<kotlin.Boolean>")
         assertContains(generated, "`onChanged`: ((kotlin.Boolean) -> kotlin.Unit)?")
         assertContains(generated, "`onClosed`: (() -> kotlin.Unit)?")
         assertContains(generated, "`footer`: UiScope.() -> Unit = {}")

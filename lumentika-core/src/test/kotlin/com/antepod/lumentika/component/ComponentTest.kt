@@ -30,6 +30,35 @@ class ComponentTest {
         override fun view(): Element = ui.element()
     }
 
+    private class RequiredInputs : Component() {
+        val optional = prop("component default")
+        val nullable = prop<String?>(null)
+        val required = requiredProp<String>()
+        val requiredBinding = requiredBinding<Int>()
+
+        override fun view(): Element = ui.element()
+    }
+
+    @Test
+    fun `typed generated inputs preserve defaults nullable values and required checks`() {
+        val missing = RequiredInputs()
+        assertFailsWith<IllegalArgumentException> { missing.mount(UiScope(Element())) }
+        assertEquals(0, missing.viewExecutions)
+
+        val configured = RequiredInputs()
+        constant<String?>(null).applyTo(configured.nullable, configured.componentScope)
+        constant("ready").applyTo(configured.required, configured.componentScope)
+        constant(7).applyTo(configured.requiredBinding, configured.componentScope)
+        configured.mount(UiScope(Element()))
+
+        assertEquals("component default", configured.optional.value)
+        assertEquals(null, configured.nullable.value)
+        assertEquals("ready", configured.required.value)
+        assertEquals(7, configured.requiredBinding.value)
+        assertEquals(1, configured.viewExecutions)
+        configured.close()
+    }
+
     @Test
     fun `view executes once and binding is two way`() {
         val root = Element()
