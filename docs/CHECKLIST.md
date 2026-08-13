@@ -90,32 +90,32 @@
 
 ## Gestures
 
-- [ ] GestureArena
-- [ ] tap
+- [x] GestureArena
+- [x] tap
 - [ ] double tap
 - [ ] long press
 - [ ] drag/pan
 - [ ] scale
 - [ ] cooperative gesture teams
-- [ ] touch slop from environment
+- [x] touch slop from environment
 - [ ] long-press/double-tap timing from environment
-- [ ] velocity tracking
+- [x] velocity tracking
 - [ ] min/max fling velocity from environment
-- [ ] gesture cancellation on unmount
+- [x] gesture cancellation on unmount
 - [ ] slider-vs-scroll arbitration
 - [ ] text-selection-vs-scroll arbitration
 
 ## Scrolling
 
-- [ ] core ScrollState
+- [x] core ScrollState
 - [ ] wheel source
 - [ ] touch/pen drag source
 - [ ] keyboard/accessibility/programmatic source
-- [ ] nested preScroll/local/postScroll
-- [ ] consumed/unconsumed conservation
+- [x] nested preScroll/local/postScroll
+- [x] consumed/unconsumed conservation
 - [ ] preFling/local/postFling
 - [ ] root-clock fling animation
-- [ ] overscroll state separated from range
+- [x] overscroll state separated from range
 - [ ] scrollbar behavior
 - [ ] scroll offset does not trigger Taffy
 
@@ -245,38 +245,38 @@
 
 ## Animation
 
-- [ ] tween/spring
+- [x] tween/spring
 - [ ] transitions
-- [ ] generated AnimationAdapter
-- [ ] one track/element/property
-- [ ] continuous retargeting
+- [x] generated AnimationAdapter
+- [x] one track/element/property
+- [x] continuous retargeting
 - [ ] sparse effective overlay
-- [ ] root frame clock
-- [ ] motion-duration-scale policy
+- [x] root frame clock
+- [x] motion-duration-scale policy
 - [ ] layout animation routes through Taffy
 - [ ] fling/overscroll/cursor blink share frame time model
 
 ## Universal components
 
-- [ ] block
-- [ ] flex
-- [ ] row
-- [ ] column
-- [ ] grid
-- [ ] stack
-- [ ] scroll
-- [ ] list
-- [ ] text
-- [ ] image
-- [ ] button
-- [ ] checkbox
-- [ ] slider
-- [ ] textField
-- [ ] tooltip
-- [ ] universal components have no native platform resource/render/service types
+- [x] block
+- [x] flex
+- [x] row
+- [x] column
+- [x] grid
+- [x] stack
+- [x] scroll
+- [x] list
+- [x] text
+- [x] image
+- [x] button
+- [x] checkbox
+- [x] slider
+- [x] textField
+- [x] tooltip
+- [x] universal components have no native platform resource/render/service types
 - [ ] interactive controls use shared gesture runtime
-- [ ] interactive controls install default semantics
-- [ ] textField uses shared text-editing runtime
+- [x] interactive controls install default semantics
+- [x] textField uses shared text-editing runtime
 
 
 ## Core integration proof
