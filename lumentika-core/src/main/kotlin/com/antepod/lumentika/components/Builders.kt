@@ -84,19 +84,27 @@ public class SemanticsBuilder internal constructor(private val initial: Semantic
         )
 }
 
-/** Builds an immutable accessibility configuration. */
-public fun semantics(block: SemanticsBuilder.() -> Unit): SemanticsConfiguration =
-    SemanticsBuilder(SemanticsConfiguration()).apply(block).build()
+/** Scope-independent typed accessibility updates applied over component-provided semantics. */
+public class ElementSemantics internal constructor(internal val update: SemanticsBuilder.() -> Unit)
+
+/** Builds an accessibility update for a component's `semantics` argument. */
+public fun semantics(block: SemanticsBuilder.() -> Unit): ElementSemantics = ElementSemantics(block)
+
+internal fun Element.applySemantics(value: ElementSemantics?) {
+    if (value == null) return
+    val current = attachment(SemanticsAttachment) ?: SemanticsConfiguration()
+    attach(SemanticsAttachment, SemanticsBuilder(current).apply(value.update).build())
+}
 
 private fun UiScope.configure(
     element: Element,
     style: Style?,
     partStyles: Map<out StylePart<*>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
 ) {
     style?.let { context.attachStyle(element, it) }
     partStyles.forEach { (part, value) -> context.attachPartStyle(element, part, value) }
-    semantics?.let { element.attach(SemanticsAttachment, it) }
+    element.applySemantics(semantics)
     if (style != null || partStyles.isNotEmpty()) context.requestFrame(true)
     if (semantics != null) context.requestFrame(false)
 }
@@ -108,7 +116,7 @@ public fun UiScope.scroll(
     nestedScroll: NestedScrollConnection? = null,
     style: Style? = null,
     partStyles: Map<StylePart<Scroll>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element {
     val element = element()
@@ -126,7 +134,7 @@ public fun UiScope.list(
     nestedScroll: NestedScrollConnection? = null,
     style: Style? = null,
     partStyles: Map<StylePart<Scroll>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element {
     val element = element()
@@ -139,12 +147,12 @@ public fun UiScope.list(
         },
     )
     mountScroll(element, state, gestures, nestedScroll)
-    configure(
-        element,
-        style,
-        partStyles,
-        semantics ?: SemanticsConfiguration(role = SemanticRole.LIST),
+    val baseSemantics = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
+    element.attach(
+        SemanticsAttachment,
+        baseSemantics.copy(role = SemanticRole.LIST),
     )
+    configure(element, style, partStyles, semantics)
     nested(element).content()
     return element
 }
@@ -154,9 +162,14 @@ private fun UiScope.mountText(
     alignment: TextAlign,
     direction: Direction,
     style: Style?,
-    semantics: SemanticsConfiguration?,
+    semantics: ElementSemantics?,
 ): Element {
     val element = element()
+    var lastValue = untracked(source)
+    element.attach(
+        SemanticsAttachment,
+        SemanticsConfiguration(role = SemanticRole.TEXT, label = lastValue),
+    )
     configure(element, style, semantics = semantics)
     withComponentScope(element.scope) {
         effect {
@@ -166,13 +179,11 @@ private fun UiScope.mountText(
                     TextLayoutRequest(value, alignment = alignment, direction = direction),
                     context.textLayout,
                 )
-            val current = element.attachment(SemanticsAttachment)
-            if (current == null) {
-                element.attach(
-                    SemanticsAttachment,
-                    SemanticsConfiguration(role = SemanticRole.TEXT, label = value),
-                )
+            val current = element.attachment(SemanticsAttachment)!!
+            if (current.label == lastValue) {
+                element.attach(SemanticsAttachment, current.copy(label = value))
             }
+            lastValue = value
             context.requestFrame(true)
         }
     }
@@ -185,7 +196,7 @@ public fun UiScope.text(
     alignment: TextAlign = TextAlign.START,
     direction: Direction = Direction.LTR,
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
 ): Element = mountText({ value }, alignment, direction, style, semantics)
 
 /** Mounts text backed by a one-way reactive source. */
@@ -194,7 +205,7 @@ public fun UiScope.text(
     alignment: TextAlign = TextAlign.START,
     direction: Direction = Direction.LTR,
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
 ): Element = mountText({ value.value }, alignment, direction, style, semantics)
 
 /** Mounts text computed by a scope-owned tracked formula. */
@@ -203,7 +214,7 @@ public fun UiScope.text(
     alignment: TextAlign = TextAlign.START,
     direction: Direction = Direction.LTR,
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
 ): Element = mountText(value, alignment, direction, style, semantics)
 
 private fun <T> UiScope.controlValue(
@@ -226,7 +237,7 @@ private fun UiScope.mountButton(
     enabled: Boolean,
     style: Style?,
     partStyles: Map<StylePart<Button>, Style>,
-    semantics: SemanticsConfiguration?,
+    semantics: ElementSemantics?,
     onClick: () -> Unit,
 ): ControlHandle {
     val element = element()
@@ -242,7 +253,7 @@ public fun UiScope.button(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Button>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onClick: () -> Unit = {},
 ): ControlHandle = mountButton({ value }, gestures, enabled, style, partStyles, semantics, onClick)
 
@@ -253,7 +264,7 @@ public fun UiScope.button(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Button>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onClick: () -> Unit = {},
 ): ControlHandle =
     mountButton({ value.value }, gestures, enabled, style, partStyles, semantics, onClick)
@@ -265,7 +276,7 @@ public fun UiScope.button(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Button>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onClick: () -> Unit = {},
 ): ControlHandle = mountButton(value, gestures, enabled, style, partStyles, semantics, onClick)
 
@@ -277,7 +288,7 @@ private fun UiScope.mountCheckbox(
     enabled: Boolean,
     style: Style?,
     partStyles: Map<StylePart<Checkbox>, Style>,
-    semantics: SemanticsConfiguration?,
+    semantics: ElementSemantics?,
     onChange: (Boolean) -> Unit,
 ): ControlHandle {
     val element = element()
@@ -299,7 +310,7 @@ public fun UiScope.checkbox(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Checkbox>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onChange: (Boolean) -> Unit = {},
 ): ControlHandle =
     mountCheckbox(
@@ -322,7 +333,7 @@ public fun UiScope.checkbox(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Checkbox>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onChange: (Boolean) -> Unit = {},
 ): ControlHandle =
     mountCheckbox(
@@ -345,7 +356,7 @@ public fun UiScope.checkbox(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Checkbox>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onChange: (Boolean) -> Unit = {},
 ): ControlHandle =
     mountCheckbox(
@@ -368,7 +379,7 @@ public fun UiScope.checkbox(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Checkbox>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onChange: (Boolean) -> Unit = {},
 ): ControlHandle =
     mountCheckbox(
@@ -394,7 +405,7 @@ private fun UiScope.mountSlider(
     enabled: Boolean,
     style: Style?,
     partStyles: Map<StylePart<Slider>, Style>,
-    semantics: SemanticsConfiguration?,
+    semantics: ElementSemantics?,
     onInput: (Float) -> Unit,
     onChange: (Float) -> Unit,
 ): ControlHandle {
@@ -433,7 +444,7 @@ public fun UiScope.slider(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Slider>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onInput: (Float) -> Unit = {},
     onChange: (Float) -> Unit = {},
 ): ControlHandle =
@@ -464,7 +475,7 @@ public fun UiScope.slider(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Slider>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onInput: (Float) -> Unit = {},
     onChange: (Float) -> Unit = {},
 ): ControlHandle =
@@ -495,7 +506,7 @@ public fun UiScope.slider(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Slider>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onInput: (Float) -> Unit = {},
     onChange: (Float) -> Unit = {},
 ): ControlHandle =
@@ -526,7 +537,7 @@ public fun UiScope.slider(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<Slider>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onInput: (Float) -> Unit = {},
     onChange: (Float) -> Unit = {},
 ): ControlHandle =
@@ -559,7 +570,7 @@ private fun UiScope.mountTextField(
     enabled: Boolean,
     style: Style?,
     partStyles: Map<StylePart<TextField>, Style>,
-    semantics: SemanticsConfiguration?,
+    semantics: ElementSemantics?,
     onChange: (String) -> Unit,
 ): ControlHandle {
     val element = element()
@@ -631,7 +642,7 @@ public fun UiScope.textField(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<TextField>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onChange: (String) -> Unit = {},
 ): ControlHandle =
     mountTextField(
@@ -664,7 +675,7 @@ public fun UiScope.textField(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<TextField>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onChange: (String) -> Unit = {},
 ): ControlHandle =
     mountTextField(
@@ -697,7 +708,7 @@ public fun UiScope.textField(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<TextField>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onChange: (String) -> Unit = {},
 ): ControlHandle =
     mountTextField(
@@ -730,7 +741,7 @@ public fun UiScope.textField(
     gestures: GestureConfiguration = context.gestureConfiguration(),
     style: Style? = null,
     partStyles: Map<StylePart<TextField>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     onChange: (String) -> Unit = {},
 ): ControlHandle =
     mountTextField(
@@ -756,9 +767,17 @@ private fun UiScope.mountImage(
     description: String?,
     decorative: Boolean,
     style: Style?,
-    semantics: SemanticsConfiguration?,
+    semantics: ElementSemantics?,
 ): Element {
     val element = element()
+    element.attach(
+        SemanticsAttachment,
+        SemanticsConfiguration(
+            role = SemanticRole.IMAGE,
+            label = description,
+            hidden = decorative,
+        ),
+    )
     withComponentScope(element.scope) {
         effect {
             val next = source()
@@ -766,17 +785,7 @@ private fun UiScope.mountImage(
             context.requestFrame(true)
         }
     }
-    configure(
-        element,
-        style,
-        semantics =
-            semantics
-                ?: SemanticsConfiguration(
-                    role = SemanticRole.IMAGE,
-                    label = description,
-                    hidden = decorative,
-                ),
-    )
+    configure(element, style, semantics = semantics)
     return element
 }
 
@@ -787,7 +796,7 @@ public fun UiScope.image(
     description: String? = null,
     decorative: Boolean = false,
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
 ): Element = mountImage({ source }, size, description, decorative, style, semantics)
 
 /** Mounts a one-way reactive image source. */
@@ -797,7 +806,7 @@ public fun UiScope.image(
     description: String? = null,
     decorative: Boolean = false,
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
 ): Element = mountImage({ source.value }, size, description, decorative, style, semantics)
 
 /** Mounts an image source computed by a tracked formula. */
@@ -807,7 +816,7 @@ public fun UiScope.image(
     description: String? = null,
     decorative: Boolean = false,
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
 ): Element = mountImage(source, size, description, decorative, style, semantics)
 
 private fun UiScope.mountTooltipComponent(
@@ -818,7 +827,7 @@ private fun UiScope.mountTooltipComponent(
     offset: Float,
     style: Style?,
     partStyles: Map<StylePart<Tooltip>, Style>,
-    semantics: SemanticsConfiguration?,
+    semantics: ElementSemantics?,
     content: UiScope.() -> Unit,
 ): Element {
     require(showDelayMillis >= 0 && hideDelayMillis >= 0)
@@ -840,7 +849,7 @@ public fun UiScope.tooltip(
     offset: Float = 8f,
     style: Style? = null,
     partStyles: Map<StylePart<Tooltip>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element =
     mountTooltipComponent(
@@ -864,7 +873,7 @@ public fun UiScope.tooltip(
     offset: Float = 8f,
     style: Style? = null,
     partStyles: Map<StylePart<Tooltip>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element =
     mountTooltipComponent(
@@ -888,7 +897,7 @@ public fun UiScope.tooltip(
     offset: Float = 8f,
     style: Style? = null,
     partStyles: Map<StylePart<Tooltip>, Style> = emptyMap(),
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element =
     mountTooltipComponent(

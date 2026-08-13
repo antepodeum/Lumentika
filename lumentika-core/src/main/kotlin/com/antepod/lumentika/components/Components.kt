@@ -197,13 +197,13 @@ private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey(
 private fun UiScope.mountContainer(
     structuralStyle: Style,
     style: Style?,
-    semantics: SemanticsConfiguration?,
+    semantics: ElementSemantics?,
     content: UiScope.() -> Unit,
 ): Element {
     val element = element()
     context.attachStyle(element, structuralStyle)
     style?.let { context.attachStyle(element, it) }
-    semantics?.let { element.attach(SemanticsAttachment, it) }
+    element.applySemantics(semantics)
     nested(element).content()
     return element
 }
@@ -211,14 +211,14 @@ private fun UiScope.mountContainer(
 /** Mounts a block-layout container; trailing [content] mounts children only. */
 public fun UiScope.block(
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element = mountContainer(com.antepod.lumentika.style.style {}, style, semantics, content)
 
 /** Mounts a generic flex-layout container; trailing [content] mounts children only. */
 public fun UiScope.flex(
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element =
     mountContainer(
@@ -231,7 +231,7 @@ public fun UiScope.flex(
 /** Mounts a horizontal flex container; trailing [content] mounts children only. */
 public fun UiScope.row(
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element =
     mountContainer(
@@ -247,7 +247,7 @@ public fun UiScope.row(
 /** Mounts a vertical flex container; trailing [content] mounts children only. */
 public fun UiScope.column(
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element =
     mountContainer(
@@ -263,7 +263,7 @@ public fun UiScope.column(
 /** Mounts a grid-layout container; trailing [content] mounts children only. */
 public fun UiScope.grid(
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element =
     mountContainer(
@@ -276,7 +276,7 @@ public fun UiScope.grid(
 /** Mounts an overlay stack container; trailing [content] mounts children only. */
 public fun UiScope.stack(
     style: Style? = null,
-    semantics: SemanticsConfiguration? = null,
+    semantics: ElementSemantics? = null,
     content: UiScope.() -> Unit = {},
 ): Element =
     mountContainer(

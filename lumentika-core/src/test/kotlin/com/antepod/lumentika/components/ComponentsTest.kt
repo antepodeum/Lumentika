@@ -56,6 +56,7 @@ class ComponentsTest {
                     value = label,
                     partStyles = mapOf(Button.Part.LABEL to style { color = instanceLabel }),
                     style = style { background = rgb(1, 2, 3) },
+                    semantics = semantics { label = "Themed action" },
                 )
             checkbox = checkbox(checked = checked, label = "check")
         }
@@ -69,6 +70,8 @@ class ComponentsTest {
         assertEquals(instanceLabel, root.styles.resolve(buttonLabel).first[Properties.Color])
         assertEquals(rgb(1, 2, 3), root.styles.resolve(button.element).first[Properties.Background])
         assertEquals(indicatorPaint, root.styles.resolve(indicator).first[Properties.Background])
+        assertEquals(SemanticRole.BUTTON, button.semantics.role)
+        assertEquals("Themed action", button.semantics.label)
 
         val stableLabel = buttonLabel
         val stableIndicatorPaint = root.styles.resolve(indicator).first.paint
