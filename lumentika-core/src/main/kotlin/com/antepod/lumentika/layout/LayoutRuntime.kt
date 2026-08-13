@@ -7,6 +7,7 @@ import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.Fragment
 import com.antepod.lumentika.runtime.IntrinsicMeasurable
 import com.antepod.lumentika.runtime.IntrinsicMeasureInput
+import com.antepod.lumentika.runtime.MeasureSpace
 import com.antepod.lumentika.style.Auto
 import com.antepod.lumentika.style.Calc
 import com.antepod.lumentika.style.DimensionValue
@@ -35,14 +36,22 @@ public class LayoutRuntime(
     private val units: UnitResolver,
     private val resolveStyle: (Element) -> ResolvedStyle,
     rounding: Boolean = true,
+    private val onLayoutRequested: () -> Unit = {},
 ) : AutoCloseable {
-    private val tree = TaffyTree<Element>()
+    private val tree = TaffyTree<MeasureHandle>()
     private val nodes = LinkedHashMap<Element, NodeId>()
+    private val measures = LinkedHashMap<Element, MeasureHandle>()
     private val syntheticRoot: NodeId = tree.newLeaf(TaffyStyle.DEFAULT)
     private var dirty = true
     private var lastComputedFrame = Long.MIN_VALUE
     private var generation = 0L
     public var computeCount: Long = 0
+        private set
+
+    public var measurementCount: Long = 0
+        private set
+
+    public var intrinsicMarkDirtyCount: Long = 0
         private set
 
     public var snapshot: LayoutSnapshot = LayoutSnapshot(0, 0, emptyMap())
@@ -74,22 +83,25 @@ public class LayoutRuntime(
                 AvailableSpace.definite(environment.viewport.height),
             ),
         ) { known, available, _, context, _ ->
-            val measurable = context.orElse(null)?.content as? IntrinsicMeasurable
+            val input =
+                IntrinsicMeasureInput(
+                    knownWidth = known.width.orElse(null),
+                    knownHeight = known.height.orElse(null),
+                    availableWidth = available.width.toMeasureSpace(),
+                    availableHeight = available.height.toMeasureSpace(),
+                )
             val measured =
-                measurable?.measure(
-                    IntrinsicMeasureInput(
-                        knownWidth = known.width.orElse(null),
-                        knownHeight = known.height.orElse(null),
-                        availableWidth = available.width.intoOptional().orElse(null),
-                        availableHeight = available.height.intoOptional().orElse(null),
-                    )
-                ) ?: com.antepod.lumentika.geometry.Size.ZERO
-            TaffySize(measured.width, measured.height)
+                context.orElse(null)?.measure(input) ?: com.antepod.lumentika.geometry.Size.ZERO
+            TaffySize(
+                finite(input.knownWidth ?: measured.width),
+                finite(input.knownHeight ?: measured.height),
+            )
         }
         val geometries = LinkedHashMap<Long, Rect>()
         commit(logicalRoot, 0f, 0f, geometries)
         generation++
         computeCount++
+        measures.values.forEach(MeasureHandle::commit)
         dirty = false
         snapshot = LayoutSnapshot(generation, frameTimeNanos, geometries)
         return snapshot
@@ -100,7 +112,10 @@ public class LayoutRuntime(
         val rootNode = ensureNode(logicalRoot, environment, visited)
         tree.setChildren(syntheticRoot, listOf(rootNode))
         val stale = nodes.keys.filter { it !in visited }
-        stale.asReversed().forEach { element -> tree.remove(nodes.remove(element)!!) }
+        stale.asReversed().forEach { element ->
+            tree.remove(nodes.remove(element)!!)
+            measures.remove(element)?.close()
+        }
     }
 
     private fun ensureNode(
@@ -112,7 +127,26 @@ public class LayoutRuntime(
         visited += element
         val style = project(resolveStyle(element), environment)
         val node =
-            nodes[element] ?: tree.newLeafWithContext(style, element).also { nodes[element] = it }
+            nodes[element]
+                ?: run {
+                    lateinit var created: NodeId
+                    lateinit var handle: MeasureHandle
+                    handle =
+                        MeasureHandle(element.content) {
+                            if (!handle.markedDirty) {
+                                tree.markDirty(created)
+                                handle.markedDirty = true
+                                intrinsicMarkDirtyCount++
+                            }
+                            dirty = true
+                            onLayoutRequested()
+                        }
+                    created = tree.newLeafWithContext(style, handle)
+                    handle.subscription = element.onContentChanged(handle::update)
+                    nodes[element] = created
+                    measures[element] = handle
+                    created
+                }
         tree.setStyle(node, style)
         val children = flatten(element.children).map { ensureNode(it, environment, visited) }
         tree.setChildren(node, children)
@@ -220,6 +254,50 @@ public class LayoutRuntime(
     }
 
     override fun close() {
+        measures.values.forEach(MeasureHandle::close)
+        measures.clear()
         tree.close()
     }
+
+    private inner class MeasureHandle(
+        content: com.antepod.lumentika.runtime.Content?,
+        private val invalidated: () -> Unit = {},
+    ) : AutoCloseable {
+        private var measurable = content as? IntrinsicMeasurable
+        private val cache =
+            mutableMapOf<IntrinsicMeasureInput, com.antepod.lumentika.geometry.Size>()
+        var markedDirty = false
+        var subscription: AutoCloseable? = null
+
+        fun measure(input: IntrinsicMeasureInput): com.antepod.lumentika.geometry.Size =
+            cache.getOrPut(input) {
+                measurementCount++
+                measurable?.measure(input) ?: com.antepod.lumentika.geometry.Size.ZERO
+            }
+
+        fun update(content: com.antepod.lumentika.runtime.Content?) {
+            measurable = content as? IntrinsicMeasurable
+            cache.clear()
+            invalidated()
+        }
+
+        fun commit() {
+            markedDirty = false
+        }
+
+        override fun close() {
+            subscription?.close()
+            subscription = null
+            cache.clear()
+        }
+    }
+
+    private fun AvailableSpace.toMeasureSpace(): MeasureSpace =
+        when (kind()) {
+            AvailableSpace.Kind.DEFINITE -> MeasureSpace.Definite(unwrap())
+            AvailableSpace.Kind.MIN_CONTENT -> MeasureSpace.MinContent
+            AvailableSpace.Kind.MAX_CONTENT -> MeasureSpace.MaxContent
+        }
+
+    private fun finite(value: Float): Float = if (value.isFinite()) value else 0f
 }

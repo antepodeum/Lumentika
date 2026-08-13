@@ -5,6 +5,9 @@ import com.antepod.lumentika.platform.LogicalUnitResolver
 import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.Element
+import com.antepod.lumentika.runtime.IntrinsicMeasureInput
+import com.antepod.lumentika.runtime.MeasureSpace
+import com.antepod.lumentika.runtime.PaintRecorder
 import com.antepod.lumentika.runtime.TextContent
 import com.antepod.lumentika.runtime.UiScope
 import com.antepod.lumentika.style.StyleRuntime
@@ -12,6 +15,7 @@ import com.antepod.lumentika.style.dp
 import com.antepod.lumentika.style.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class LayoutRuntimeTest {
@@ -59,5 +63,43 @@ class LayoutRuntimeTest {
         runtime.frame(2, environment)
         assertEquals(2, runtime.computeCount)
         runtime.close()
+    }
+
+    @Test
+    fun `intrinsic content keeps a stable cached handle and coalesces mark dirty`() {
+        val root = Element("root")
+        val text = UiScope(root).element("text", TextContent("first"))
+        val styles = StyleRuntime()
+        styles.attach(root, state(style {}))
+        val runtime = LayoutRuntime(root, LogicalUnitResolver, { styles.resolve(it).first }, false)
+        val environment = UiEnvironment(Size(200f, 100f))
+
+        runtime.frame(1, environment)
+        val initialMeasurements = runtime.measurementCount
+        text.content = TextContent("second")
+        text.content = TextContent("third")
+
+        assertEquals(1, runtime.intrinsicMarkDirtyCount)
+        runtime.frame(2, environment)
+        assertTrue(runtime.measurementCount > initialMeasurements)
+        assertEquals("third", (text.content as TextContent).text)
+        runtime.close()
+    }
+
+    @Test
+    fun `text measurement and painting share the same layout result`() {
+        val content = TextContent("shared")
+        val input = IntrinsicMeasureInput(availableWidth = MeasureSpace.Definite(48f))
+        content.measure(input)
+        val measuredLayout = content.lastLayoutResult
+
+        content.record(
+            object : PaintRecorder {
+                override fun record(command: com.antepod.lumentika.runtime.PaintCommand) = Unit
+            },
+            com.antepod.lumentika.geometry.Rect(0f, 0f, 48f, 16f),
+        )
+
+        assertSame(measuredLayout, content.lastLayoutResult)
     }
 }

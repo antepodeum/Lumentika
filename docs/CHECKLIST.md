@@ -165,7 +165,7 @@
 - [x] offset→caret rect
 - [x] selection rectangles
 - [x] cursor geometry publication
-- [ ] text measurement/render layout identity
+- [x] text measurement/render layout identity
 - [x] caret auto-scroll
 - [x] cursor blink uses root clock
 
@@ -199,9 +199,9 @@
 - [x] Fragment flattening
 - [x] public API contains no Taffy types
 - [x] environment units resolved before Taffy
-- [ ] text layout intrinsic bridge
-- [ ] stable measurement cache
-- [ ] markDirty on intrinsic changes
+- [x] text layout intrinsic bridge
+- [x] stable measurement cache
+- [x] markDirty on intrinsic changes
 - [x] retained committed geometry
 - [x] rounding policy defined
 - [x] compute only when requested

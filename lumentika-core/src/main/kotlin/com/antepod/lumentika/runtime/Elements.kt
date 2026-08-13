@@ -10,9 +10,17 @@ import java.util.concurrent.atomic.AtomicLong
 public data class IntrinsicMeasureInput(
     val knownWidth: Float? = null,
     val knownHeight: Float? = null,
-    val availableWidth: Float? = null,
-    val availableHeight: Float? = null,
+    val availableWidth: MeasureSpace = MeasureSpace.MaxContent,
+    val availableHeight: MeasureSpace = MeasureSpace.MaxContent,
 )
+
+public sealed interface MeasureSpace {
+    public data class Definite(val value: Float) : MeasureSpace
+
+    public data object MinContent : MeasureSpace
+
+    public data object MaxContent : MeasureSpace
+}
 
 public interface IntrinsicMeasurable {
     public fun measure(input: IntrinsicMeasureInput): Size
@@ -57,19 +65,46 @@ public interface SceneContent : Content, HitRegionSource {
     public fun raycast(localPoint: com.antepod.lumentika.geometry.Point): Any?
 }
 
-public data class TextContent(var text: String) : Content, IntrinsicMeasurable {
+public class TextContent(
+    public val request: com.antepod.lumentika.text.TextLayoutRequest,
+    private val layoutService: com.antepod.lumentika.text.TextLayoutService =
+        com.antepod.lumentika.text.HeadlessTextLayoutService,
+) : Content, IntrinsicMeasurable {
+    public constructor(text: String) : this(com.antepod.lumentika.text.TextLayoutRequest(text))
+
+    public val text: String
+        get() = request.text
+
+    private val layouts =
+        mutableMapOf<
+            com.antepod.lumentika.text.TextLayoutRequest,
+            com.antepod.lumentika.text.TextLayoutResult,
+        >()
+    public var lastLayoutResult: com.antepod.lumentika.text.TextLayoutResult? = null
+        private set
+
     override fun measure(input: IntrinsicMeasureInput): Size {
-        val naturalWidth = text.length * 8f
-        val width =
+        val maxWidth =
             input.knownWidth
-                ?: input.availableWidth?.let { minOf(it, naturalWidth) }
-                ?: naturalWidth
-        val lines = if (width <= 0f) 1 else maxOf(1, kotlin.math.ceil(naturalWidth / width).toInt())
-        return Size(width, input.knownHeight ?: lines * 16f)
+                ?: (input.availableWidth as? MeasureSpace.Definite)?.value
+                ?: request.maxWidth
+        return layout(maxWidth).size.let {
+            Size(input.knownWidth ?: it.width, input.knownHeight ?: it.height)
+        }
     }
 
     override fun record(recorder: PaintRecorder, bounds: Rect) {
+        layout(bounds.width)
         recorder.record(PaintCommand.DrawText(text, bounds, 0xff000000.toInt()))
+    }
+
+    private fun layout(maxWidth: Float?): com.antepod.lumentika.text.TextLayoutResult {
+        val effective = request.copy(maxWidth = maxWidth)
+        return layouts
+            .getOrPut(effective) { layoutService.layout(effective) }
+            .also {
+                lastLayoutResult = it
+            }
     }
 }
 
@@ -94,7 +129,14 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
     public val children: List<Element>
         get() = mutableChildren
 
+    private val contentListeners = LinkedHashSet<(Content?) -> Unit>()
     public var content: Content? = null
+        set(value) {
+            if (field === value) return
+            field = value
+            contentListeners.toList().forEach { it(value) }
+        }
+
     public var geometry: Rect = Rect(0f, 0f, 0f, 0f)
     public val scope: ComponentScope = ComponentScope()
     private val attachments = mutableMapOf<AttachmentKey<*>, Any>()
@@ -135,11 +177,17 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
         return attachments[key] as T?
     }
 
+    public fun onContentChanged(listener: (Content?) -> Unit): AutoCloseable {
+        contentListeners += listener
+        return AutoCloseable { contentListeners -= listener }
+    }
+
     override fun close() {
         if (!isMounted) return
         isMounted = false
         mutableChildren.toList().asReversed().forEach { remove(it) }
         scope.close()
+        contentListeners.clear()
         attachments.clear()
     }
 

@@ -42,9 +42,15 @@ public class UiRoot(
     public val semantics = SemanticsRuntime(element)
     public val animations = UiAnimationClock()
     private val defaultStyle = state(Style(emptyList()))
-    private val layout = LayoutRuntime(element, services.units, { styles.resolve(it).first })
-    private val render = RenderRuntime(element) { styles.resolve(it).first }
     private val frame = CoalescingFrameScheduler(services.frameScheduler)
+    private val layout =
+        LayoutRuntime(
+            element,
+            services.units,
+            { styles.resolve(it).first },
+            onLayoutRequested = frame::requestFrame,
+        )
+    private val render = RenderRuntime(element) { styles.resolve(it).first }
     public var frameTimeNanos = 0L
         private set
 
