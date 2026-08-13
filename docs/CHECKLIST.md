@@ -4,7 +4,7 @@
 
 - [ ] `com.antepod:lumentika-core` contains all universal UI mechanics
 - [x] Taffy4J is included in core
-- [ ] Taffy4J is the sole layout implementation
+- [x] Taffy4J is the sole layout implementation
 - [x] core has no native platform or mod-loader dependency
 - [ ] native platform types do not appear in universal component APIs
 - [ ] concrete platform libraries depend on core, never the reverse
@@ -193,20 +193,20 @@
 
 ## Taffy layout
 
-- [ ] one Taffy tree/root
-- [ ] synthetic definite viewport root
-- [ ] stable projected node identity
-- [ ] Fragment flattening
+- [x] one Taffy tree/root
+- [x] synthetic definite viewport root
+- [x] stable projected node identity
+- [x] Fragment flattening
 - [x] public API contains no Taffy types
 - [x] environment units resolved before Taffy
 - [ ] text layout intrinsic bridge
 - [ ] stable measurement cache
 - [ ] markDirty on intrinsic changes
-- [ ] retained committed geometry
-- [ ] rounding policy defined
-- [ ] compute only when requested
-- [ ] max one compute/root/frame
-- [ ] render cannot feed layout geometry back
+- [x] retained committed geometry
+- [x] rounding policy defined
+- [x] compute only when requested
+- [x] max one compute/root/frame
+- [x] render cannot feed layout geometry back
 
 ## Render/hit testing
 
