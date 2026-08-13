@@ -4,8 +4,20 @@ import com.antepod.lumentika.geometry.Matrix3
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.render.MotionRenderProperties
 import com.antepod.lumentika.runtime.Element
+import com.antepod.lumentika.runtime.PathMetrics
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlin.math.min
+import kotlin.math.pow
+import kotlin.math.sqrt
+
+public object StructuralEasings {
+    public val linear: (Float) -> Float = { it }
+    public val cubicOut: (Float) -> Float = { value -> 1f - (1f - value).pow(3) }
+    public val cubicInOut: (Float) -> Float = { value ->
+        if (value < .5f) 4f * value.pow(3) else 1f - (-2f * value + 2f).pow(3) / 2f
+    }
+}
 
 public enum class TransitionDirection {
     IN,
@@ -47,9 +59,16 @@ public data class TransitionEvents(
 public data class TransitionFrame(
     val transform: Matrix3 = Matrix3.IDENTITY,
     val opacity: Float = 1f,
+    val clip: Rect? = null,
+    val blurRadius: Float = 0f,
+    val drawLength: Float? = null,
+    val drawProgress: Float = 1f,
 ) {
     init {
         require(opacity.isFinite() && opacity in 0f..1f)
+        require(blurRadius.isFinite() && blurRadius >= 0f)
+        require(drawLength == null || drawLength.isFinite() && drawLength >= 0f)
+        require(drawProgress.isFinite() && drawProgress in 0f..1f)
     }
 }
 
@@ -61,9 +80,10 @@ public data class ElementTransitionContext(
 
 public data class ElementTransitionConfig(
     val delayMillis: Long = 0,
-    val durationMillis: Long = 150,
-    val easing: (Float) -> Float = { it },
-    val sample: (t: Float, u: Float) -> TransitionFrame,
+    val durationMillis: Long = 400,
+    val easing: (Float) -> Float = StructuralEasings.linear,
+    val tick: (t: Float, u: Float) -> Unit = { _, _ -> },
+    val sample: (t: Float, u: Float) -> TransitionFrame = { _, _ -> TransitionFrame() },
 ) {
     init {
         require(delayMillis >= 0)
@@ -102,10 +122,10 @@ public fun inOut(
 ): StructuralTransition = StructuralTransition(enter = enter, exit = exit)
 
 public fun fade(
-    durationMillis: Long = 150,
+    durationMillis: Long = 400,
     delayMillis: Long = 0,
     opacity: Float = 0f,
-    easing: (Float) -> Float = { it },
+    easing: (Float) -> Float = StructuralEasings.linear,
 ): ElementTransition {
     require(opacity in 0f..1f)
     return ElementTransition {
@@ -119,9 +139,9 @@ public fun fly(
     x: Float = 0f,
     y: Float = 0f,
     opacity: Float = 0f,
-    durationMillis: Long = 200,
+    durationMillis: Long = 400,
     delayMillis: Long = 0,
-    easing: (Float) -> Float = { it },
+    easing: (Float) -> Float = StructuralEasings.cubicOut,
 ): ElementTransition {
     require(opacity in 0f..1f)
     return ElementTransition {
@@ -139,9 +159,9 @@ public fun scale(
     opacity: Float = 0f,
     originX: Float = .5f,
     originY: Float = .5f,
-    durationMillis: Long = 150,
+    durationMillis: Long = 400,
     delayMillis: Long = 0,
-    easing: (Float) -> Float = { it },
+    easing: (Float) -> Float = StructuralEasings.cubicOut,
 ): ElementTransition {
     require(start >= 0f && start.isFinite())
     require(opacity in 0f..1f)
@@ -168,16 +188,67 @@ public enum class SlideAxis {
 
 public fun slide(
     axis: SlideAxis = SlideAxis.VERTICAL,
-    durationMillis: Long = 200,
+    durationMillis: Long = 400,
     delayMillis: Long = 0,
-    easing: (Float) -> Float = { it },
-): ElementTransition = ElementTransition {
+    easing: (Float) -> Float = StructuralEasings.cubicOut,
+): ElementTransition = ElementTransition { context ->
     ElementTransitionConfig(delayMillis, durationMillis, easing) { t, _ ->
         TransitionFrame(
-            transform =
-                if (axis == SlideAxis.HORIZONTAL) Matrix3.scale(t, 1f) else Matrix3.scale(1f, t),
-            opacity = t,
+            clip =
+                if (axis == SlideAxis.HORIZONTAL)
+                    Rect(0f, 0f, context.bounds.width * t, context.bounds.height)
+                else Rect(0f, 0f, context.bounds.width, context.bounds.height * t),
+            opacity = min(t * 20f, 1f),
         )
+    }
+}
+
+public fun blur(
+    amount: Float = 5f,
+    opacity: Float = 0f,
+    durationMillis: Long = 400,
+    delayMillis: Long = 0,
+    easing: (Float) -> Float = StructuralEasings.cubicInOut,
+): ElementTransition {
+    require(amount.isFinite() && amount >= 0f)
+    require(opacity in 0f..1f)
+    return ElementTransition {
+        ElementTransitionConfig(delayMillis, durationMillis, easing) { t, u ->
+            TransitionFrame(
+                opacity = opacity + (1f - opacity) * t,
+                blurRadius = amount * u,
+            )
+        }
+    }
+}
+
+public fun draw(
+    durationMillis: Long? = null,
+    speed: Float? = null,
+    durationForLength: ((length: Float) -> Long)? = null,
+    delayMillis: Long = 0,
+    easing: (Float) -> Float = StructuralEasings.cubicInOut,
+): ElementTransition {
+    require(durationMillis == null || durationMillis >= 0)
+    require(speed == null || speed.isFinite() && speed > 0f)
+    require(listOf(durationMillis, speed, durationForLength).count { it != null } <= 1) {
+        "draw accepts only one of durationMillis, speed, or durationForLength"
+    }
+    return ElementTransition { context ->
+        val metrics =
+            context.element.content as? PathMetrics
+                ?: error("draw requires element content implementing PathMetrics")
+        val length = metrics.pathLength + metrics.strokeExtension
+        require(length.isFinite() && length >= 0f) { "Path length must be finite and non-negative" }
+        val duration =
+            durationMillis
+                ?: speed?.let { (length / it).toLong() }
+                ?: durationForLength?.invoke(length)
+                ?: 800L
+        require(duration >= 0) { "draw duration must be non-negative" }
+        ElementTransitionConfig(delayMillis, duration, easing) { t, _ ->
+            TransitionFrame(drawLength = length, drawProgress = t)
+        }
     }
 }
 
@@ -248,38 +319,94 @@ internal constructor(
 public fun crossfade(
     delayMillis: Long = 0,
     durationMillis: (distance: Float) -> Long = { distance ->
-        kotlin.math.sqrt(distance.coerceAtLeast(0f)).times(30f).toLong().coerceAtLeast(100L)
+        sqrt(distance.coerceAtLeast(0f)).times(30f).toLong()
     },
-    easing: (Float) -> Float = { it },
-    fallback: ElementTransition? = fade(),
+    easing: (Float) -> Float = StructuralEasings.cubicOut,
+    fallback: ElementTransition? = null,
 ): CrossfadeTransitions {
     require(delayMillis >= 0)
     return CrossfadeTransitions(delayMillis, durationMillis, easing, fallback)
 }
 
-public data class FlipAnimation(
+public data class LayoutAnimationContext(
+    val element: Element,
+    val from: Rect,
+    val to: Rect,
+)
+
+public data class LayoutAnimationConfig(
     val delayMillis: Long = 0,
-    val durationMillis: (distance: Float) -> Long = { 200L },
-    val easing: (Float) -> Float = { it },
+    val durationMillis: Long = 400,
+    val easing: (Float) -> Float = StructuralEasings.linear,
+    val tick: (t: Float, u: Float) -> Unit = { _, _ -> },
+    val sample: (t: Float, u: Float) -> TransitionFrame = { _, _ -> TransitionFrame() },
 ) {
     init {
         require(delayMillis >= 0)
+        require(durationMillis >= 0)
+    }
+}
+
+public fun interface LayoutAnimation {
+    public fun create(context: LayoutAnimationContext): LayoutAnimationConfig
+}
+
+public data class FlipAnimation(
+    val delayMillis: Long = 0,
+    val durationMillis: (distance: Float) -> Long = { distance ->
+        (sqrt(distance) * 120f).toLong()
+    },
+    val easing: (Float) -> Float = StructuralEasings.cubicOut,
+) : LayoutAnimation {
+    init {
+        require(delayMillis >= 0)
+    }
+
+    override fun create(context: LayoutAnimationContext): LayoutAnimationConfig {
+        require(context.to.width > 0f && context.to.height > 0f) {
+            "FLIP target bounds must have positive dimensions"
+        }
+        val dx = context.from.x - context.to.x
+        val dy = context.from.y - context.to.y
+        val scaleX = context.from.width / context.to.width
+        val scaleY = context.from.height / context.to.height
+        val duration = durationMillis(hypot(dx, dy))
+        require(duration >= 0) { "FLIP duration must be non-negative" }
+        return LayoutAnimationConfig(
+            delayMillis,
+            duration,
+            easing,
+            sample = { _, u ->
+                TransitionFrame(
+                    transform =
+                        Matrix3.translation(dx * u, dy * u) *
+                            Matrix3.scale(1f + (scaleX - 1f) * u, 1f + (scaleY - 1f) * u)
+                )
+            },
+        )
     }
 }
 
 public fun flip(
-    durationMillis: Long = 200,
+    durationMillis: Long? = null,
     delayMillis: Long = 0,
-    easing: (Float) -> Float = { it },
+    easing: (Float) -> Float = StructuralEasings.cubicOut,
 ): FlipAnimation {
-    require(durationMillis >= 0)
-    return FlipAnimation(delayMillis, { durationMillis }, easing)
+    require(durationMillis == null || durationMillis >= 0)
+    return FlipAnimation(
+        delayMillis,
+        durationMillis?.let { fixed -> { _: Float -> fixed } }
+            ?: { distance ->
+                (sqrt(distance.coerceAtLeast(0f)) * 120f).toLong()
+            },
+        easing,
+    )
 }
 
 public fun flip(
     durationMillis: (distance: Float) -> Long,
     delayMillis: Long = 0,
-    easing: (Float) -> Float = { it },
+    easing: (Float) -> Float = StructuralEasings.cubicOut,
 ): FlipAnimation = FlipAnimation(delayMillis, durationMillis, easing)
 
 public data class LayoutAnimationEvent(val element: Element)
@@ -328,20 +455,20 @@ public class ElementAnimationRuntime(
         var current: Float = from,
     )
 
-    private data class PendingFlip(
+    private data class PendingLayoutAnimation(
         val element: Element,
         val from: Rect,
-        val animation: FlipAnimation,
+        val animation: LayoutAnimation,
         val events: LayoutAnimationEvents,
     )
 
     private val pending = linkedMapOf<Key, Pending>()
-    private val pendingFlips = linkedMapOf<Element, PendingFlip>()
+    private val pendingLayoutAnimations = linkedMapOf<Element, PendingLayoutAnimation>()
     private val tracks = linkedMapOf<Key, Track>()
     private var scheduled = false
 
     public val activeCount: Int
-        get() = pending.size + pendingFlips.size + tracks.size
+        get() = pending.size + pendingLayoutAnimations.size + tracks.size
 
     public fun isActive(element: Element, channel: Any): Boolean {
         val key = Key(element, channel)
@@ -398,60 +525,52 @@ public class ElementAnimationRuntime(
     public fun queueFlip(
         snapshot: FlipSnapshot,
         retained: Collection<Element>,
-        animation: FlipAnimation,
+        animation: LayoutAnimation,
         events: LayoutAnimationEvents = LayoutAnimationEvents(),
     ) {
         retained.forEach { element ->
             val from = snapshot.bounds[element] ?: return@forEach
-            pendingFlips.put(element, PendingFlip(element, from, animation, events))?.let {
-                it.events.onCancel(LayoutAnimationEvent(it.element))
-            }
+            pendingLayoutAnimations
+                .put(element, PendingLayoutAnimation(element, from, animation, events))
+                ?.let {
+                    it.events.onCancel(LayoutAnimationEvent(it.element))
+                }
         }
-        if (pendingFlips.isNotEmpty()) requestFrame()
+        if (pendingLayoutAnimations.isNotEmpty()) requestFrame()
     }
 
     /** Starts transitions after layout and committed geometry are available. */
     public fun afterCommit(): Boolean {
-        if (pending.isEmpty() && pendingFlips.isEmpty()) return false
+        if (pending.isEmpty() && pendingLayoutAnimations.isEmpty()) return false
         val starts = pending.values.toMutableList()
         pending.clear()
-        val flips = pendingFlips.values.toList()
-        pendingFlips.clear()
-        flips.forEach { flip ->
-            val to = committedBounds(flip.element) ?: return@forEach
-            if (to == flip.from || to.width <= 0f || to.height <= 0f) return@forEach
-            val dx = flip.from.x - to.x
-            val dy = flip.from.y - to.y
-            val scaleX = flip.from.width / to.width
-            val scaleY = flip.from.height / to.height
-            val distance = hypot(dx, dy)
-            val duration = flip.animation.durationMillis(distance)
-            require(duration >= 0) { "FLIP duration must be non-negative" }
-            val event = LayoutAnimationEvent(flip.element)
+        val layoutAnimations = pendingLayoutAnimations.values.toList()
+        pendingLayoutAnimations.clear()
+        layoutAnimations.forEach { pendingAnimation ->
+            val to = committedBounds(pendingAnimation.element) ?: return@forEach
+            if (to == pendingAnimation.from || to.width <= 0f || to.height <= 0f) return@forEach
+            val config =
+                pendingAnimation.animation.create(
+                    LayoutAnimationContext(pendingAnimation.element, pendingAnimation.from, to)
+                )
+            val event = LayoutAnimationEvent(pendingAnimation.element)
             starts +=
                 Pending(
-                    Key(flip.element, FlipChannel),
+                    Key(pendingAnimation.element, FlipChannel),
                     ElementTransition {
                         ElementTransitionConfig(
-                            flip.animation.delayMillis,
-                            duration,
-                            flip.animation.easing,
-                        ) { t, u ->
-                            TransitionFrame(
-                                transform =
-                                    Matrix3.translation(dx * u, dy * u) *
-                                        Matrix3.scale(
-                                            1f + (scaleX - 1f) * u,
-                                            1f + (scaleY - 1f) * u,
-                                        )
-                            )
-                        }
+                            config.delayMillis,
+                            config.durationMillis,
+                            config.easing,
+                            config.tick,
+                            config.sample,
+                        )
                     },
                     TransitionDirection.IN,
                     fromOverride = null,
-                    onStart = { flip.events.onStart(event) },
-                    onEnd = { flip.events.onEnd(event) },
-                    onCancel = { flip.events.onCancel(event) },
+                    onStart = { pendingAnimation.events.onStart(event) },
+                    onEnd = { pendingAnimation.events.onEnd(event) },
+                    onCancel = { pendingAnimation.events.onCancel(event) },
                     onFinished = {},
                 )
         }
@@ -484,10 +603,12 @@ public class ElementAnimationRuntime(
                 val from = pendingTrack.fromOverride ?: defaultFrom
                 pendingTrack.onStart()
                 if (clock.motionScale == 0f || config.durationMillis == 0L) {
-                    configureMotion(element, config.sample(target, 1f - target).toMotion())
+                    config.tick(target, 1f - target)
+                    configureMotion(element, null)
                     pendingTrack.onEnd()
                     pendingTrack.onFinished()
                 } else {
+                    config.tick(from, 1f - from)
                     tracks[pendingTrack.key] =
                         Track(
                             pendingTrack.key,
@@ -536,6 +657,7 @@ public class ElementAnimationRuntime(
                         .let(track.config.easing)
                         .coerceIn(0f, 1f)
             track.current = track.from + (track.target - track.from) * fraction
+            track.config.tick(track.current, 1f - track.current)
             if (fraction >= 1f) completed += track
         }
         tracks.keys.map(Key::element).distinct().forEach(::apply)
@@ -570,6 +692,13 @@ public class ElementAnimationRuntime(
                         result * sample.transform
                     },
                 opacity = samples.fold(1f) { result, sample -> result * sample.opacity },
+                clip =
+                    samples.mapNotNull(TransitionFrame::clip).reduceOrNull { left, right ->
+                        left.intersect(right) ?: Rect(0f, 0f, 0f, 0f)
+                    },
+                blurRadius = samples.sumOf { it.blurRadius.toDouble() }.toFloat(),
+                drawLength = samples.mapNotNull(TransitionFrame::drawLength).lastOrNull(),
+                drawProgress = samples.lastOrNull { it.drawLength != null }?.drawProgress ?: 1f,
             ),
         )
     }
@@ -597,10 +726,10 @@ public class ElementAnimationRuntime(
         pending.values.forEach { it.cancel() }
         tracks.values.forEach { it.cancel() }
         pending.clear()
-        pendingFlips.values.forEach {
+        pendingLayoutAnimations.values.forEach {
             it.events.onCancel(LayoutAnimationEvent(it.element))
         }
-        pendingFlips.clear()
+        pendingLayoutAnimations.clear()
         tracks.clear()
         elements.forEach { configureMotion(it, null) }
         scheduled = false
@@ -611,9 +740,6 @@ private object FlipChannel
 
 private fun naturalTransition(): ElementTransitionConfig =
     ElementTransitionConfig(durationMillis = 0) { _, _ -> TransitionFrame() }
-
-private fun TransitionFrame.toMotion(): MotionRenderProperties =
-    MotionRenderProperties(transform, opacity)
 
 private fun TransitionEvents.start(element: Element, direction: TransitionDirection) {
     dispatch(

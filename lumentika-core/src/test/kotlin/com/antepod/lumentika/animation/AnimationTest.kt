@@ -210,10 +210,13 @@ class AnimationTest {
         )
 
         clock.frame(50_000_000)
-        assertEquals(Point(50f, 0f), motions.getValue(sender).transform.transform(Point(0f, 0f)))
-        assertEquals(Point(-50f, 0f), motions.getValue(receiver).transform.transform(Point(0f, 0f)))
-        assertEquals(.5f, motions.getValue(sender).opacity)
-        assertEquals(.5f, motions.getValue(receiver).opacity)
+        assertEquals(Point(87.5f, 0f), motions.getValue(sender).transform.transform(Point(0f, 0f)))
+        assertEquals(
+            Point(-12.5f, 0f),
+            motions.getValue(receiver).transform.transform(Point(0f, 0f)),
+        )
+        assertEquals(.125f, motions.getValue(sender).opacity)
+        assertEquals(.875f, motions.getValue(receiver).opacity)
         clock.frame(100_000_000)
         assertTrue(motions.isEmpty())
 
@@ -243,12 +246,8 @@ class AnimationTest {
             scale(start = .5f).create(context).sample(0f, 1f).transform.transform(Point(10f, 5f)),
         )
         assertEquals(
-            Point(0f, 5f),
-            slide(SlideAxis.HORIZONTAL)
-                .create(context)
-                .sample(0f, 1f)
-                .transform
-                .transform(Point(10f, 5f)),
+            Rect(0f, 0f, 0f, 10f),
+            slide(SlideAxis.HORIZONTAL).create(context).sample(0f, 1f).clip,
         )
         assertEquals(TransitionFrame(), fade().create(context).sample(1f, 0f))
         element.close()

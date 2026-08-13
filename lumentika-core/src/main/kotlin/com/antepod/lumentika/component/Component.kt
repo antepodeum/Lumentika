@@ -2,7 +2,7 @@ package com.antepod.lumentika.component
 
 import com.antepod.lumentika.animation.ElementAnimationRuntime
 import com.antepod.lumentika.animation.ElementTransition
-import com.antepod.lumentika.animation.FlipAnimation
+import com.antepod.lumentika.animation.LayoutAnimation
 import com.antepod.lumentika.animation.LayoutAnimationEvents
 import com.antepod.lumentika.animation.StructuralTransition
 import com.antepod.lumentika.animation.TransitionDirection
@@ -412,7 +412,7 @@ private class ShowTransitionController(
 public fun <T, K> UiScope.forEach(
     items: Readable<List<T>>,
     key: (T) -> K,
-    animation: FlipAnimation? = null,
+    animation: LayoutAnimation? = null,
     animationEvents: LayoutAnimationEvents = LayoutAnimationEvents(),
     content: UiScope.(T) -> Unit,
 ): Element {

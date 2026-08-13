@@ -88,6 +88,15 @@ public interface Content {
     public fun record(recorder: PaintRecorder, bounds: Rect)
 }
 
+/** Geometry required by the standard draw transition. Values are expressed in local pixels. */
+public interface PathMetrics {
+    public val pathLength: Float
+
+    /** Extra visible length contributed by non-butt stroke caps. */
+    public val strokeExtension: Float
+        get() = 0f
+}
+
 public interface HitRegionSource {
     public fun hitTest(localPoint: com.antepod.lumentika.geometry.Point, bounds: Rect): Boolean
 }

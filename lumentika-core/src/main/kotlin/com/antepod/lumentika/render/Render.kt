@@ -27,6 +27,9 @@ public data class EffectNode(
     val id: PropertyNodeId,
     val parent: PropertyNodeId?,
     val opacity: Float,
+    val blurRadius: Float = 0f,
+    val drawLength: Float? = null,
+    val drawProgress: Float = 1f,
 )
 
 public data class ScrollNode(val id: PropertyNodeId, val parent: PropertyNodeId?, val offset: Point)
@@ -118,9 +121,16 @@ public data class RenderProperties(
 public data class MotionRenderProperties(
     val transform: Matrix3 = Matrix3.IDENTITY,
     val opacity: Float = 1f,
+    val clip: Rect? = null,
+    val blurRadius: Float = 0f,
+    val drawLength: Float? = null,
+    val drawProgress: Float = 1f,
 ) {
     init {
         require(opacity.isFinite() && opacity in 0f..1f)
+        require(blurRadius.isFinite() && blurRadius >= 0f)
+        require(drawLength == null || drawLength.isFinite() && drawLength >= 0f)
+        require(drawProgress.isFinite() && drawProgress in 0f..1f)
     }
 }
 
@@ -253,13 +263,26 @@ public class RenderRuntime(
             )
         val entersTopLayer = config.topLayer && !parent.topLayer
         val inheritedClip = if (entersTopLayer) ParentState.INFINITE_CLIP else parent.clip
+        val localClip =
+            when {
+                config.clip != null && motion.clip != null -> config.clip.intersect(motion.clip)
+                config.clip != null -> config.clip
+                else -> motion.clip
+            }
         val clip =
-            (config.clip?.let { transformedBounds(transform, it) } ?: inheritedClip).intersect(
+            (localClip?.let { transformedBounds(transform, it) } ?: inheritedClip).intersect(
                 inheritedClip
             ) ?: Rect(0f, 0f, 0f, 0f)
         val transformId = builder.transform(parent.transformId, transform)
         val clipId = builder.clip(if (entersTopLayer) null else parent.clipId, clip)
-        val effectId = builder.effect(parent.effectId, style[Properties.Opacity] * motion.opacity)
+        val effectId =
+            builder.effect(
+                parent.effectId,
+                style[Properties.Opacity] * motion.opacity,
+                motion.blurRadius,
+                motion.drawLength,
+                motion.drawProgress,
+            )
         val scrollId = builder.scroll(parent.scrollId, config.scrollOffset)
         val stackId = builder.stack(parent.stackId, style[Properties.ZIndex])
         val order = builder.nextOrder++
@@ -381,8 +404,16 @@ public class RenderRuntime(
         fun clip(parent: PropertyNodeId?, value: Rect) =
             PropertyNodeId(clips.size).also { clips += ClipNode(it, parent, value) }
 
-        fun effect(parent: PropertyNodeId?, value: Float) =
-            PropertyNodeId(effects.size).also { effects += EffectNode(it, parent, value) }
+        fun effect(
+            parent: PropertyNodeId?,
+            opacity: Float,
+            blurRadius: Float,
+            drawLength: Float?,
+            drawProgress: Float,
+        ) =
+            PropertyNodeId(effects.size).also {
+                effects += EffectNode(it, parent, opacity, blurRadius, drawLength, drawProgress)
+            }
 
         fun scroll(parent: PropertyNodeId?, value: Point) =
             PropertyNodeId(scrolls.size).also { scrolls += ScrollNode(it, parent, value) }
