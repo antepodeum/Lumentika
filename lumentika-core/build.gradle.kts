@@ -11,6 +11,7 @@ import org.gradle.api.tasks.TaskAction
 plugins {
     id("buildsrc.convention.kotlin-jvm")
     `java-library`
+    alias(libs.plugins.ksp)
     id("com.vanniktech.maven.publish")
     id("org.jetbrains.dokka")
 }
@@ -179,6 +180,7 @@ tasks.withType<Jar>().configureEach {
 dependencies {
     api(libs.kotlinxCoroutines)
     implementation(libs.taffy4j)
+    ksp(project(":lumentika-ksp"))
     testImplementation(kotlin("test"))
 }
 

@@ -18,9 +18,9 @@ tasks.withType<Jar>().configureEach {
 }
 
 dependencies {
-    implementation(project(":lumentika-core"))
     implementation(libs.kspApi)
     testImplementation(kotlin("test"))
+    testImplementation(project(":lumentika-core"))
     testImplementation(libs.kotlinCompileTestingKsp)
 }
 
