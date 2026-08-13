@@ -29,8 +29,12 @@ public sealed class Declaration<T>(initial: Any?) {
         local = state(if (initial === Missing) null as T else initial as T)
     }
 
-    public open val value: T get() = local.value
-    internal fun ensureConfigured(name: String) { require(configured) { "Required declaration '$name' was not configured" } }
+    public open val value: T
+        get() = local.value
+
+    internal fun ensureConfigured(name: String) {
+        require(configured) { "Required declaration '$name' was not configured" }
+    }
 
     public fun set(value: T) {
         sourceHandle?.close()
@@ -45,10 +49,16 @@ public sealed class Declaration<T>(initial: Any?) {
         sourceHandle = withComponentScope(scope) { effect { local.value = source.value } }
     }
 
-    public fun source(scope: ComponentScope, block: () -> T) = source(withComponentScope(scope) { derived(block = block) }, scope)
+    public fun source(scope: ComponentScope, block: () -> T) =
+        source(withComponentScope(scope) { derived(block = block) }, scope)
 
-    internal fun dispose() { sourceHandle?.close() }
-    protected fun write(value: T) { local.value = value }
+    internal fun dispose() {
+        sourceHandle?.close()
+    }
+
+    protected fun write(value: T) {
+        local.value = value
+    }
 }
 
 public class Prop<T> internal constructor(initial: Any?) : Declaration<T>(initial), Readable<T>
@@ -74,7 +84,11 @@ public class Binding<T> internal constructor(initial: Any?) : Declaration<T>(ini
                 val next = source.value
                 if (next != value) {
                     syncing = true
-                    try { write(next) } finally { syncing = false }
+                    try {
+                        write(next)
+                    } finally {
+                        syncing = false
+                    }
                 }
             }
         }
@@ -85,17 +99,26 @@ public class Event<E> internal constructor() {
     private val listeners = LinkedHashSet<(E) -> Unit>()
     public var bubbles: Boolean = false
         private set
+
     public fun bubbles(): Event<E> = apply { bubbles = true }
+
     public fun listen(listener: (E) -> Unit): AutoCloseable {
         listeners += listener
         return AutoCloseable { listeners -= listener }
     }
-    public fun emit(event: E) { listeners.toList().forEach { it(event) } }
+
+    public fun emit(event: E) {
+        listeners.toList().forEach { it(event) }
+    }
 }
 
 public open class Slot internal constructor() {
     internal var content: (UiScope.() -> Unit)? = null
-    public fun configure(content: UiScope.() -> Unit) { this.content = content }
+
+    public fun configure(content: UiScope.() -> Unit) {
+        this.content = content
+    }
+
     public fun mount(scope: UiScope): Fragment = scope.fragment { content?.invoke(this) }
 }
 
@@ -107,16 +130,24 @@ public abstract class Component : AutoCloseable {
     private var mounted: Element? = null
     protected lateinit var ui: UiScope
         private set
+
     public var viewExecutions: Int = 0
         private set
 
     protected fun <T> prop(default: T): Prop<T> = register(Prop(default))
+
     protected fun <T> requiredProp(): Prop<T> = register(Prop(Missing))
+
     protected fun <T> binding(default: T): Binding<T> = register(Binding(default))
+
     protected fun <T> requiredBinding(): Binding<T> = register(Binding(Missing))
+
     protected fun <E> event(): Event<E> = Event()
+
     protected fun slot(): Slot = Slot()
+
     protected fun slotList(): SlotList = SlotList()
+
     protected fun <T : Declaration<*>> register(declaration: T): T {
         declarations += "declaration${declarations.size}" to declaration
         return declaration
@@ -126,10 +157,11 @@ public abstract class Component : AutoCloseable {
         check(mounted == null) { "Component already mounted" }
         declarations.forEach { (name, declaration) -> declaration.ensureConfigured(name) }
         ui = scope
-        val result = withComponentScope(componentScope) {
-            viewExecutions++
-            view()
-        }
+        val result =
+            withComponentScope(componentScope) {
+                viewExecutions++
+                view()
+            }
         mounted = result
         return result
     }
@@ -145,15 +177,24 @@ public abstract class Component : AutoCloseable {
 }
 
 public fun <T> prop(default: T): Prop<T> = Prop(default)
+
 public fun <T> prop(): Prop<T> = Prop(Missing)
+
 public fun <T> binding(default: T): Binding<T> = Binding(default)
+
 public fun <T> binding(): Binding<T> = Binding(Missing)
+
 public fun <E> event(): Event<E> = Event()
+
 public fun slot(): Slot = Slot()
+
 public fun slotList(): SlotList = SlotList()
 
 public class ContextKey<T> internal constructor()
-private val contextAttachment = com.antepod.lumentika.runtime.AttachmentKey<MutableMap<ContextKey<*>, Any?>>()
+
+private val contextAttachment =
+    com.antepod.lumentika.runtime.AttachmentKey<MutableMap<ContextKey<*>, Any?>>()
+
 public fun <T> contextKey(): ContextKey<T> = ContextKey()
 
 public fun <T> UiScope.provide(key: ContextKey<T>, value: T, content: UiScope.() -> Unit): Element {
@@ -187,7 +228,11 @@ public fun UiScope.show(condition: Readable<Boolean>, content: UiScope.() -> Uni
     return anchor
 }
 
-public fun <T, K> UiScope.forEach(items: Readable<List<T>>, key: (T) -> K, content: UiScope.(T) -> Unit): Element {
+public fun <T, K> UiScope.forEach(
+    items: Readable<List<T>>,
+    key: (T) -> K,
+    content: UiScope.(T) -> Unit,
+): Element {
     val anchor = element("for-each")
     val keyed = LinkedHashMap<K, Element>()
     withComponentScope(anchor.scope) {
@@ -198,10 +243,12 @@ public fun <T, K> UiScope.forEach(items: Readable<List<T>>, key: (T) -> K, conte
             val next = LinkedHashMap<K, Element>()
             nextItems.forEachIndexed { index, item ->
                 val itemKey = key(item)
-                val child = keyed.remove(itemKey) ?: Element("keyed-item").also {
-                    anchor.append(it)
-                    UiScope(it).content(item)
-                }
+                val child =
+                    keyed.remove(itemKey)
+                        ?: Element("keyed-item").also {
+                            anchor.append(it)
+                            UiScope(it).content(item)
+                        }
                 next[itemKey] = child
                 anchor.move(child, index)
             }

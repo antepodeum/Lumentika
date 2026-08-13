@@ -1,13 +1,13 @@
 package com.antepod.lumentika.reactive
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 
 class ReactiveTest {
     @Test
@@ -85,13 +85,14 @@ class ReactiveTest {
     fun `async derived cancels stale generations`() = runBlocking {
         val source = state(1)
         val scope = ComponentScope(Dispatchers.Unconfined)
-        val async = withComponentScope(scope) {
-            derivedAsync {
-                val captured = source.value
-                delay(if (captured == 1) 30 else 1)
-                captured * 10
+        val async =
+            withComponentScope(scope) {
+                derivedAsync {
+                    val captured = source.value
+                    delay(if (captured == 1) 30 else 1)
+                    captured * 10
+                }
             }
-        }
         source.value = 2
         delay(40)
         assertTrue(async.hasValue)

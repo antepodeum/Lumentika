@@ -14,11 +14,14 @@ class StyleTest {
     @Test
     fun `style variants resolve and report orthogonal impact`() {
         val element = Element()
-        val source = state(style {
-            width = 10.px
-            background = rgb(1, 2, 3)
-            on(HOVER) { opacity = 0.5f }
-        })
+        val source =
+            state(
+                style {
+                    width = 10.px
+                    background = rgb(1, 2, 3)
+                    on(HOVER) { opacity = 0.5f }
+                }
+            )
         val runtime = StyleRuntime()
         runtime.attach(element, source)
         val (_, initial) = runtime.resolve(element)
@@ -33,7 +36,16 @@ class StyleTest {
 
     @Test
     fun `environment units resolve before layout`() {
-        val environment = UiEnvironment(Size(100f, 100f), units = com.antepod.lumentika.platform.UnitEnvironment(density = 2f, fontScale = 1.5f, physicalPixelScale = 0.5f))
+        val environment =
+            UiEnvironment(
+                Size(100f, 100f),
+                units =
+                    com.antepod.lumentika.platform.UnitEnvironment(
+                        density = 2f,
+                        fontScale = 1.5f,
+                        physicalPixelScale = 0.5f,
+                    ),
+            )
         assertEquals(10f, resolveLength(5.dp, environment, LogicalUnitResolver))
         assertEquals(10f, resolveLength(5.sp, environment, LogicalUnitResolver))
         assertEquals(2.5f, resolveLength(5.physicalPx, environment, LogicalUnitResolver))

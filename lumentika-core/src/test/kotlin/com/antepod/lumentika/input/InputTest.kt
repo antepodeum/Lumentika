@@ -22,16 +22,36 @@ class InputTest {
         dispatcher.on(target, EventType.POINTER_DOWN) { trace += "target" }
         dispatcher.on(parent, EventType.POINTER_DOWN) { trace += "parent-bubble" }
         dispatcher.defaultAction(target, EventType.POINTER_DOWN) { trace += "default" }
-        dispatcher.dispatch(EventType.POINTER_DOWN, PointerEvent(target, 1, PointerType.MOUSE, Point(1f, 2f), timestampNanos = 1))
-        assertEquals(listOf("root-capture", "target-capture", "target", "parent-bubble", "default"), trace)
+        dispatcher.dispatch(
+            EventType.POINTER_DOWN,
+            PointerEvent(target, 1, PointerType.MOUSE, Point(1f, 2f), timestampNanos = 1),
+        )
+        assertEquals(
+            listOf("root-capture", "target-capture", "target", "parent-bubble", "default"),
+            trace,
+        )
     }
 
-    @Test fun `hover follows actual hit while capture and focus within follows ancestry`() {
-        val root=Element("root");val parent=Element("parent").also(root::append);val captured=Element("captured").also(root::append);val actual=Element("actual").also(parent::append);val dispatcher=EventDispatcher(root);val trace=mutableListOf<String>()
-        dispatcher.on(actual,EventType.POINTER_ENTER){trace+="actual-enter"};dispatcher.on(captured,EventType.POINTER_ENTER){trace+="captured-enter"};dispatcher.setPointerCapture(captured,1);dispatcher.updateHover(actual,1)
-        assertTrue("actual-enter" in trace);assertFalse("captured-enter" in trace)
-        val focus=FocusManager(root,dispatcher);focus.configure(actual,FocusProperties(focusable=true));focus.focus(actual,FocusCause.KEYBOARD)
-        assertTrue(focus.focusVisible);assertTrue(parent in focus.focusWithin);assertTrue(root in focus.focusWithin)
+    @Test
+    fun `hover follows actual hit while capture and focus within follows ancestry`() {
+        val root = Element("root")
+        val parent = Element("parent").also(root::append)
+        val captured = Element("captured").also(root::append)
+        val actual = Element("actual").also(parent::append)
+        val dispatcher = EventDispatcher(root)
+        val trace = mutableListOf<String>()
+        dispatcher.on(actual, EventType.POINTER_ENTER) { trace += "actual-enter" }
+        dispatcher.on(captured, EventType.POINTER_ENTER) { trace += "captured-enter" }
+        dispatcher.setPointerCapture(captured, 1)
+        dispatcher.updateHover(actual, 1)
+        assertTrue("actual-enter" in trace)
+        assertFalse("captured-enter" in trace)
+        val focus = FocusManager(root, dispatcher)
+        focus.configure(actual, FocusProperties(focusable = true))
+        focus.focus(actual, FocusCause.KEYBOARD)
+        assertTrue(focus.focusVisible)
+        assertTrue(parent in focus.focusWithin)
+        assertTrue(root in focus.focusWithin)
     }
 
     @Test
@@ -42,10 +62,17 @@ class InputTest {
         val dispatcher = EventDispatcher(root)
         var delivered: Element? = null
         var defaultRan = false
-        dispatcher.on(first, EventType.POINTER_MOVE) { delivered = it.currentTarget; it.preventDefault() }
+        dispatcher.on(first, EventType.POINTER_MOVE) {
+            delivered = it.currentTarget
+            it.preventDefault()
+        }
         dispatcher.defaultAction(first, EventType.POINTER_MOVE) { defaultRan = true }
         dispatcher.setPointerCapture(first, 2)
-        val allowed = dispatcher.dispatch(EventType.POINTER_MOVE, PointerEvent(second, 2, PointerType.TOUCH, Point(0f, 0f), timestampNanos = 2))
+        val allowed =
+            dispatcher.dispatch(
+                EventType.POINTER_MOVE,
+                PointerEvent(second, 2, PointerType.TOUCH, Point(0f, 0f), timestampNanos = 2),
+            )
         assertSame(first, delivered)
         assertFalse(allowed)
         assertFalse(defaultRan)

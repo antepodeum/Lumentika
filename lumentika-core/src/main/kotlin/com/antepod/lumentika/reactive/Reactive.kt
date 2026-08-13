@@ -1,5 +1,7 @@
 package com.antepod.lumentika.reactive
 
+import java.util.LinkedHashSet
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -8,8 +10,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asContextElement
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.LinkedHashSet
-import java.util.concurrent.atomic.AtomicLong
 
 public interface Readable<out T> {
     public val value: T
@@ -24,6 +24,7 @@ public interface Mutable<T> : Readable<T> {
 }
 
 public interface State<T> : Mutable<T>
+
 public interface Derived<out T> : Readable<T>
 
 public interface AsyncDerived<out T> : Readable<T> {
@@ -38,6 +39,7 @@ private interface Observer {
 
 private interface Source {
     fun addObserver(observer: Observer)
+
     fun removeObserver(observer: Observer)
 }
 
@@ -181,11 +183,14 @@ private class DerivedImpl<T>(
     private val calculate: () -> T,
     private val equal: (T, T) -> Boolean,
 ) : SourceNode(), Derived<T>, DependencyObserverBridge {
-    private val observer = object : DependencyObserver() {
-        override fun invalidate() = invalidateDerived()
-        fun evaluate(): T = collect(calculate)
-        fun dispose() = clearDependencies()
-    }
+    private val observer =
+        object : DependencyObserver() {
+            override fun invalidate() = invalidateDerived()
+
+            fun evaluate(): T = collect(calculate)
+
+            fun dispose() = clearDependencies()
+        }
     private var initialized = false
     private var dirty = true
     private var computing = false
@@ -212,8 +217,7 @@ private class DerivedImpl<T>(
         computing = true
         try {
             val next = observer.evaluate()
-            @Suppress("UNCHECKED_CAST")
-            val changed = !initialized || !equal(current as T, next)
+            @Suppress("UNCHECKED_CAST") val changed = !initialized || !equal(current as T, next)
             current = next
             initialized = true
             dirty = false
@@ -230,9 +234,7 @@ private interface DependencyObserverBridge {
     fun disposeDependencies()
 }
 
-public class ComponentScope(
-    dispatcher: CoroutineDispatcher = Dispatchers.Default,
-) : AutoCloseable {
+public class ComponentScope(dispatcher: CoroutineDispatcher = Dispatchers.Default) : AutoCloseable {
     private val cleanups = ArrayDeque<() -> Unit>()
     internal val coroutineScope = CoroutineScope(SupervisorJob() + dispatcher)
     public var isDisposed: Boolean = false
@@ -276,7 +278,9 @@ public fun currentComponentScope(): ComponentScope? = currentScope.get()
 public fun onCleanup(cleanup: () -> Unit) {
     val registrar = ReactiveRuntime.cleanupRegistrar.get()
     if (registrar != null) registrar(cleanup)
-    else requireNotNull(currentScope.get()) { "onCleanup requires an active ComponentScope" }.own(cleanup)
+    else
+        requireNotNull(currentScope.get()) { "onCleanup requires an active ComponentScope" }
+            .own(cleanup)
 }
 
 private class Effect(
@@ -334,11 +338,16 @@ private class AsyncDerivedImpl<T>(
     private var job: Job? = null
     private var stored: Any? = null
     @Volatile private var disposed = false
-    @Volatile override var pending: Boolean = true
+    @Volatile
+    override var pending: Boolean = true
         private set
-    @Volatile override var hasValue: Boolean = false
+
+    @Volatile
+    override var hasValue: Boolean = false
         private set
-    @Volatile override var error: Throwable? = null
+
+    @Volatile
+    override var error: Throwable? = null
         private set
 
     init {
@@ -376,29 +385,32 @@ private class AsyncDerivedImpl<T>(
             (nextDependencies - dependencies).forEach { it.removeObserver(this) }
             nextDependencies.clear()
         }
-        job = scope.coroutineScope.launch(ReactiveRuntime.tracker.asContextElement(this)) {
-            try {
-                val result = calculate()
-                if (generation.get() != activeGeneration || disposed) return@launch
-                synchronized(this@AsyncDerivedImpl) {
-                    (dependencies - nextDependencies).forEach { it.removeObserver(this@AsyncDerivedImpl) }
-                    dependencies.clear()
-                    dependencies += nextDependencies
+        job =
+            scope.coroutineScope.launch(ReactiveRuntime.tracker.asContextElement(this)) {
+                try {
+                    val result = calculate()
+                    if (generation.get() != activeGeneration || disposed) return@launch
+                    synchronized(this@AsyncDerivedImpl) {
+                        (dependencies - nextDependencies).forEach {
+                            it.removeObserver(this@AsyncDerivedImpl)
+                        }
+                        dependencies.clear()
+                        dependencies += nextDependencies
+                    }
+                    stored = result
+                    hasValue = true
+                    pending = false
+                    error = null
+                    publishInvalidation()
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (failure: Throwable) {
+                    if (generation.get() != activeGeneration || disposed) return@launch
+                    pending = false
+                    error = failure
+                    publishInvalidation()
                 }
-                stored = result
-                hasValue = true
-                pending = false
-                error = null
-                publishInvalidation()
-            } catch (cancelled: kotlinx.coroutines.CancellationException) {
-                throw cancelled
-            } catch (failure: Throwable) {
-                if (generation.get() != activeGeneration || disposed) return@launch
-                pending = false
-                error = failure
-                publishInvalidation()
             }
-        }
     }
 
     override fun close() {
@@ -414,10 +426,15 @@ private class AsyncDerivedImpl<T>(
     }
 }
 
-public fun <T> state(initial: T, equal: (T, T) -> Boolean = { first, second -> first == second }): State<T> =
-    StateImpl(initial, equal)
+public fun <T> state(
+    initial: T,
+    equal: (T, T) -> Boolean = { first, second -> first == second },
+): State<T> = StateImpl(initial, equal)
 
-public fun <T> derived(equal: (T, T) -> Boolean = { first, second -> first == second }, block: () -> T): Derived<T> {
+public fun <T> derived(
+    equal: (T, T) -> Boolean = { first, second -> first == second },
+    block: () -> T,
+): Derived<T> {
     val result = DerivedImpl(block, equal)
     currentScope.get()?.own(result::disposeDependencies)
     return result
@@ -426,10 +443,13 @@ public fun <T> derived(equal: (T, T) -> Boolean = { first, second -> first == se
 public fun effect(block: () -> Unit): AutoCloseable = Effect(block, currentScope.get())
 
 public fun <T> derivedAsync(block: suspend () -> T): AsyncDerived<T> {
-    val scope = requireNotNull(currentScope.get()) { "derivedAsync requires an active ComponentScope" }
+    val scope =
+        requireNotNull(currentScope.get()) { "derivedAsync requires an active ComponentScope" }
     return AsyncDerivedImpl(block, scope)
 }
 
 public fun <T> batch(block: () -> T): T = ReactiveRuntime.batch(block)
+
 public fun <T> untracked(block: () -> T): T = ReactiveRuntime.untracked(block)
+
 public fun flushReactiveWork(): Unit = ReactiveRuntime.flush()

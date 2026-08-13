@@ -7,7 +7,6 @@ import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.TextContent
 import com.antepod.lumentika.runtime.UiScope
-import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.StyleRuntime
 import com.antepod.lumentika.style.dp
 import com.antepod.lumentika.style.style
@@ -25,10 +24,27 @@ class LayoutRuntimeTest {
             element("text", TextContent("hello"))
         }
         val styles = StyleRuntime()
-        styles.attach(root, state(style { width = 100.dp; height = 100.dp }))
+        styles.attach(
+            root,
+            state(
+                style {
+                    width = 100.dp
+                    height = 100.dp
+                }
+            ),
+        )
         val first = root.children.single().children.first()
-        styles.attach(first, state(style { width = 40.dp; height = 20.dp }))
-        val runtime = LayoutRuntime(root, LogicalUnitResolver, { styles.resolve(it).first }, rounding = false)
+        styles.attach(
+            first,
+            state(
+                style {
+                    width = 40.dp
+                    height = 20.dp
+                }
+            ),
+        )
+        val runtime =
+            LayoutRuntime(root, LogicalUnitResolver, { styles.resolve(it).first }, rounding = false)
         val environment = UiEnvironment(Size(100f, 100f))
 
         val initial = runtime.frame(1, environment)

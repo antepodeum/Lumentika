@@ -1,10 +1,10 @@
 package com.antepod.utils
 
-import kotlin.time.Instant
 import kotlin.time.Clock
-import kotlinx.serialization.Serializable
-import kotlinx.coroutines.*
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+import kotlinx.coroutines.*
+import kotlinx.serialization.Serializable
 
 @Serializable
 class Printer(val message: String) {

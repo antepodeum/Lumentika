@@ -8,52 +8,139 @@ import com.antepod.lumentika.runtime.AttachmentKey
 import com.antepod.lumentika.runtime.Element
 
 public sealed interface DimensionValue
-public sealed interface LengthPercentageValue
-public sealed interface LengthPercentageAutoValue
-public sealed interface AbsoluteLengthValue
-public data class Px(val value: Float) : DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
-public data class Dp(val value: Float) : DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
-public data class Sp(val value: Float) : DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
-public data class PhysicalPx(val value: Float) : DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
-public data class Percent(val fraction: Float) : DimensionValue, LengthPercentageValue, LengthPercentageAutoValue
-public data object Auto : DimensionValue, LengthPercentageAutoValue
-public data class Calc(val terms: List<Pair<Float, DimensionValue>>) : DimensionValue, LengthPercentageValue, LengthPercentageAutoValue
 
-public val Number.px: Px get() = Px(toFloat())
-public val Number.dp: Dp get() = Dp(toFloat())
-public val Number.sp: Sp get() = Sp(toFloat())
-public val Number.physicalPx: PhysicalPx get() = PhysicalPx(toFloat())
-public val Number.percent: Percent get() = Percent(toFloat() / 100f)
+public sealed interface LengthPercentageValue
+
+public sealed interface LengthPercentageAutoValue
+
+public sealed interface AbsoluteLengthValue
+
+public data class Px(val value: Float) :
+    DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
+
+public data class Dp(val value: Float) :
+    DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
+
+public data class Sp(val value: Float) :
+    DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
+
+public data class PhysicalPx(val value: Float) :
+    DimensionValue, LengthPercentageValue, LengthPercentageAutoValue, AbsoluteLengthValue
+
+public data class Percent(val fraction: Float) :
+    DimensionValue, LengthPercentageValue, LengthPercentageAutoValue
+
+public data object Auto : DimensionValue, LengthPercentageAutoValue
+
+public data class Calc(val terms: List<Pair<Float, DimensionValue>>) :
+    DimensionValue, LengthPercentageValue, LengthPercentageAutoValue
+
+public val Number.px: Px
+    get() = Px(toFloat())
+public val Number.dp: Dp
+    get() = Dp(toFloat())
+public val Number.sp: Sp
+    get() = Sp(toFloat())
+public val Number.physicalPx: PhysicalPx
+    get() = PhysicalPx(toFloat())
+public val Number.percent: Percent
+    get() = Percent(toFloat() / 100f)
+
 public fun auto(): Auto = Auto
 
 public data class Edges<T>(val top: T, val right: T, val bottom: T, val left: T)
+
 public fun <T> edges(all: T): Edges<T> = Edges(all, all, all, all)
-public fun <T> edges(vertical: T, horizontal: T): Edges<T> = Edges(vertical, horizontal, vertical, horizontal)
-public fun <T> edges(top: T, right: T, bottom: T, left: T): Edges<T> = Edges(top, right, bottom, left)
+
+public fun <T> edges(vertical: T, horizontal: T): Edges<T> =
+    Edges(vertical, horizontal, vertical, horizontal)
+
+public fun <T> edges(top: T, right: T, bottom: T, left: T): Edges<T> =
+    Edges(top, right, bottom, left)
 
 public sealed interface Paint
+
 public data class SolidPaint(val argb: Int) : Paint
+
 public data class GradientStop(val offset: Float, val color: Int)
-public data class LinearGradientPaint(val angleDegrees: Float, val stops: List<GradientStop>) : Paint
+
+public data class LinearGradientPaint(val angleDegrees: Float, val stops: List<GradientStop>) :
+    Paint
+
 public data class RadialGradientPaint(val stops: List<GradientStop>) : Paint
+
 public data class ImagePaint(val source: String) : Paint
+
 public data class LayeredPaint(val layers: List<Paint>) : Paint
-public fun rgb(red: Int, green: Int, blue: Int, alpha: Int = 255): SolidPaint = SolidPaint(
-    (alpha.coerceIn(0, 255) shl 24) or (red.coerceIn(0, 255) shl 16) or (green.coerceIn(0, 255) shl 8) or blue.coerceIn(0, 255),
-)
 
-public enum class Display { NONE, BLOCK, FLEX, GRID }
-public enum class Position { RELATIVE, ABSOLUTE }
-public enum class Overflow { VISIBLE, CLIP, HIDDEN, SCROLL, AUTO }
-public enum class FlexDirection { ROW, ROW_REVERSE, COLUMN, COLUMN_REVERSE }
-public enum class FlexWrap { NO_WRAP, WRAP, WRAP_REVERSE }
-public enum class Align { AUTO, START, END, CENTER, STRETCH, SPACE_BETWEEN, SPACE_AROUND, SPACE_EVENLY }
-public enum class Visibility { VISIBLE, HIDDEN }
-public enum class PointerEvents { AUTO, NONE }
+public fun rgb(red: Int, green: Int, blue: Int, alpha: Int = 255): SolidPaint =
+    SolidPaint(
+        (alpha.coerceIn(0, 255) shl 24) or
+            (red.coerceIn(0, 255) shl 16) or
+            (green.coerceIn(0, 255) shl 8) or
+            blue.coerceIn(0, 255)
+    )
 
-@JvmInline public value class StyleImpact(public val bits: Int) {
+public enum class Display {
+    NONE,
+    BLOCK,
+    FLEX,
+    GRID,
+}
+
+public enum class Position {
+    RELATIVE,
+    ABSOLUTE,
+}
+
+public enum class Overflow {
+    VISIBLE,
+    CLIP,
+    HIDDEN,
+    SCROLL,
+    AUTO,
+}
+
+public enum class FlexDirection {
+    ROW,
+    ROW_REVERSE,
+    COLUMN,
+    COLUMN_REVERSE,
+}
+
+public enum class FlexWrap {
+    NO_WRAP,
+    WRAP,
+    WRAP_REVERSE,
+}
+
+public enum class Align {
+    AUTO,
+    START,
+    END,
+    CENTER,
+    STRETCH,
+    SPACE_BETWEEN,
+    SPACE_AROUND,
+    SPACE_EVENLY,
+}
+
+public enum class Visibility {
+    VISIBLE,
+    HIDDEN,
+}
+
+public enum class PointerEvents {
+    AUTO,
+    NONE,
+}
+
+@JvmInline
+public value class StyleImpact(public val bits: Int) {
     public operator fun plus(other: StyleImpact): StyleImpact = StyleImpact(bits or other.bits)
+
     public fun contains(other: StyleImpact): Boolean = bits and other.bits != 0
+
     public companion object {
         public val NONE = StyleImpact(0)
         public val LAYOUT = StyleImpact(1 shl 0)
@@ -79,90 +166,284 @@ public class StyleProperty<T>(
 )
 
 public object Properties {
-    public val Display = StyleProperty(0, "display", com.antepod.lumentika.style.Display.BLOCK, impact = StyleImpact.LAYOUT)
+    public val Display =
+        StyleProperty(
+            0,
+            "display",
+            com.antepod.lumentika.style.Display.BLOCK,
+            impact = StyleImpact.LAYOUT,
+        )
     public val Width = StyleProperty<DimensionValue>(1, "width", Auto, impact = StyleImpact.LAYOUT)
-    public val Height = StyleProperty<DimensionValue>(2, "height", Auto, impact = StyleImpact.LAYOUT)
-    public val MinWidth = StyleProperty<DimensionValue>(3, "minWidth", Auto, impact = StyleImpact.LAYOUT)
-    public val MinHeight = StyleProperty<DimensionValue>(4, "minHeight", Auto, impact = StyleImpact.LAYOUT)
-    public val MaxWidth = StyleProperty<DimensionValue>(5, "maxWidth", Auto, impact = StyleImpact.LAYOUT)
-    public val MaxHeight = StyleProperty<DimensionValue>(6, "maxHeight", Auto, impact = StyleImpact.LAYOUT)
-    public val Padding = StyleProperty(7, "padding", edges<DimensionValue>(0.px), impact = StyleImpact.LAYOUT)
-    public val Margin = StyleProperty(8, "margin", edges<DimensionValue>(0.px), impact = StyleImpact.LAYOUT)
+    public val Height =
+        StyleProperty<DimensionValue>(2, "height", Auto, impact = StyleImpact.LAYOUT)
+    public val MinWidth =
+        StyleProperty<DimensionValue>(3, "minWidth", Auto, impact = StyleImpact.LAYOUT)
+    public val MinHeight =
+        StyleProperty<DimensionValue>(4, "minHeight", Auto, impact = StyleImpact.LAYOUT)
+    public val MaxWidth =
+        StyleProperty<DimensionValue>(5, "maxWidth", Auto, impact = StyleImpact.LAYOUT)
+    public val MaxHeight =
+        StyleProperty<DimensionValue>(6, "maxHeight", Auto, impact = StyleImpact.LAYOUT)
+    public val Padding =
+        StyleProperty(7, "padding", edges<DimensionValue>(0.px), impact = StyleImpact.LAYOUT)
+    public val Margin =
+        StyleProperty(8, "margin", edges<DimensionValue>(0.px), impact = StyleImpact.LAYOUT)
     public val Gap = StyleProperty<DimensionValue>(9, "gap", 0.px, impact = StyleImpact.LAYOUT)
-    public val FlexDirection = StyleProperty(10, "flexDirection", com.antepod.lumentika.style.FlexDirection.ROW, impact = StyleImpact.LAYOUT)
+    public val FlexDirection =
+        StyleProperty(
+            10,
+            "flexDirection",
+            com.antepod.lumentika.style.FlexDirection.ROW,
+            impact = StyleImpact.LAYOUT,
+        )
     public val FlexGrow = StyleProperty(11, "flexGrow", 0f, impact = StyleImpact.LAYOUT)
     public val FlexShrink = StyleProperty(12, "flexShrink", 1f, impact = StyleImpact.LAYOUT)
-    public val Overflow = StyleProperty(13, "overflow", com.antepod.lumentika.style.Overflow.VISIBLE, impact = StyleImpact.LAYOUT + StyleImpact.CLIP + StyleImpact.SCROLL)
-    public val Background = StyleProperty<Paint?>(14, "background", null, impact = StyleImpact.PAINT)
+    public val Overflow =
+        StyleProperty(
+            13,
+            "overflow",
+            com.antepod.lumentika.style.Overflow.VISIBLE,
+            impact = StyleImpact.LAYOUT + StyleImpact.CLIP + StyleImpact.SCROLL,
+        )
+    public val Background =
+        StyleProperty<Paint?>(14, "background", null, impact = StyleImpact.PAINT)
     public val Opacity = StyleProperty(15, "opacity", 1f, impact = StyleImpact.EFFECT)
     public val ZIndex = StyleProperty(16, "zIndex", 0, impact = StyleImpact.STACKING)
-    public val Visibility = StyleProperty(17, "visibility", com.antepod.lumentika.style.Visibility.VISIBLE, true, StyleImpact.PAINT + StyleImpact.INTERACTION + StyleImpact.SEMANTICS + StyleImpact.INHERITANCE)
-    public val PointerEvents = StyleProperty(18, "pointerEvents", com.antepod.lumentika.style.PointerEvents.AUTO, impact = StyleImpact.INTERACTION)
-    public val FontSize = StyleProperty<DimensionValue>(19, "fontSize", 16.sp, true, StyleImpact.INTRINSIC_MEASURE + StyleImpact.LAYOUT + StyleImpact.PAINT + StyleImpact.INHERITANCE)
-    public val Color = StyleProperty<Paint>(20, "color", rgb(0, 0, 0), true, StyleImpact.PAINT + StyleImpact.INHERITANCE)
-    public val all: List<StyleProperty<*>> = listOf(Display, Width, Height, MinWidth, MinHeight, MaxWidth, MaxHeight, Padding, Margin, Gap, FlexDirection, FlexGrow, FlexShrink, Overflow, Background, Opacity, ZIndex, Visibility, PointerEvents, FontSize, Color)
+    public val Visibility =
+        StyleProperty(
+            17,
+            "visibility",
+            com.antepod.lumentika.style.Visibility.VISIBLE,
+            true,
+            StyleImpact.PAINT +
+                StyleImpact.INTERACTION +
+                StyleImpact.SEMANTICS +
+                StyleImpact.INHERITANCE,
+        )
+    public val PointerEvents =
+        StyleProperty(
+            18,
+            "pointerEvents",
+            com.antepod.lumentika.style.PointerEvents.AUTO,
+            impact = StyleImpact.INTERACTION,
+        )
+    public val FontSize =
+        StyleProperty<DimensionValue>(
+            19,
+            "fontSize",
+            16.sp,
+            true,
+            StyleImpact.INTRINSIC_MEASURE +
+                StyleImpact.LAYOUT +
+                StyleImpact.PAINT +
+                StyleImpact.INHERITANCE,
+        )
+    public val Color =
+        StyleProperty<Paint>(
+            20,
+            "color",
+            rgb(0, 0, 0),
+            true,
+            StyleImpact.PAINT + StyleImpact.INHERITANCE,
+        )
+    public val all: List<StyleProperty<*>> =
+        listOf(
+            Display,
+            Width,
+            Height,
+            MinWidth,
+            MinHeight,
+            MaxWidth,
+            MaxHeight,
+            Padding,
+            Margin,
+            Gap,
+            FlexDirection,
+            FlexGrow,
+            FlexShrink,
+            Overflow,
+            Background,
+            Opacity,
+            ZIndex,
+            Visibility,
+            PointerEvents,
+            FontSize,
+            Color,
+        )
 }
 
 public interface StyleState
-public enum class BuiltinStyleState : StyleState { HOVER, ACTIVE, FOCUS, FOCUS_VISIBLE, FOCUS_WITHIN, DISABLED }
+
+public enum class BuiltinStyleState : StyleState {
+    HOVER,
+    ACTIVE,
+    FOCUS,
+    FOCUS_VISIBLE,
+    FOCUS_WITHIN,
+    DISABLED,
+}
+
 public val HOVER: StyleState = BuiltinStyleState.HOVER
 public val ACTIVE: StyleState = BuiltinStyleState.ACTIVE
 public val FOCUS: StyleState = BuiltinStyleState.FOCUS
 public val FOCUS_VISIBLE: StyleState = BuiltinStyleState.FOCUS_VISIBLE
 public val FOCUS_WITHIN: StyleState = BuiltinStyleState.FOCUS_WITHIN
 public val DISABLED: StyleState = BuiltinStyleState.DISABLED
-public sealed interface StyleCondition { public fun matches(states: Set<StyleState>): Boolean }
-private data class HasState(val state: StyleState) : StyleCondition { override fun matches(states: Set<StyleState>) = state in states }
-private data class All(val conditions: List<StyleCondition>) : StyleCondition { override fun matches(states: Set<StyleState>) = conditions.all { it.matches(states) } }
-private data class AnyCondition(val conditions: List<StyleCondition>) : StyleCondition { override fun matches(states: Set<StyleState>) = conditions.any { it.matches(states) } }
-private data class Not(val condition: StyleCondition) : StyleCondition { override fun matches(states: Set<StyleState>) = !condition.matches(states) }
+
+public sealed interface StyleCondition {
+    public fun matches(states: Set<StyleState>): Boolean
+}
+
+private data class HasState(val state: StyleState) : StyleCondition {
+    override fun matches(states: Set<StyleState>) = state in states
+}
+
+private data class All(val conditions: List<StyleCondition>) : StyleCondition {
+    override fun matches(states: Set<StyleState>) = conditions.all { it.matches(states) }
+}
+
+private data class AnyCondition(val conditions: List<StyleCondition>) : StyleCondition {
+    override fun matches(states: Set<StyleState>) = conditions.any { it.matches(states) }
+}
+
+private data class Not(val condition: StyleCondition) : StyleCondition {
+    override fun matches(states: Set<StyleState>) = !condition.matches(states)
+}
+
 public fun condition(state: StyleState): StyleCondition = HasState(state)
+
 public fun all(vararg states: StyleState): StyleCondition = All(states.map(::HasState))
+
 public fun any(vararg states: StyleState): StyleCondition = AnyCondition(states.map(::HasState))
+
 public fun not(state: StyleState): StyleCondition = Not(HasState(state))
 
-public data class StyleEntry(val property: StyleProperty<*>, val value: Any?, val condition: StyleCondition? = null)
+public data class StyleEntry(
+    val property: StyleProperty<*>,
+    val value: Any?,
+    val condition: StyleCondition? = null,
+)
+
 public class Style internal constructor(internal val entries: List<StyleEntry>)
 
 public class StyleBuilder internal constructor(private val condition: StyleCondition? = null) {
     private val entries = mutableListOf<StyleEntry>()
-    public fun include(style: Style) { entries += style.entries.map { if (condition == null) it else it.copy(condition = condition) } }
-    public fun <T> set(property: StyleProperty<T>, value: T) { entries += StyleEntry(property, value, condition) }
+
+    public fun include(style: Style) {
+        entries +=
+            style.entries.map { if (condition == null) it else it.copy(condition = condition) }
+    }
+
+    public fun <T> set(property: StyleProperty<T>, value: T) {
+        entries += StyleEntry(property, value, condition)
+    }
+
     public fun on(state: StyleState, block: StyleBuilder.() -> Unit) = on(condition(state), block)
-    public fun on(condition: StyleCondition, block: StyleBuilder.() -> Unit) { entries += StyleBuilder(condition).apply(block).entries }
-    public var display: Display get() = error("write-only") ; set(value) = set(Properties.Display, value)
-    public var width: DimensionValue get() = error("write-only") ; set(value) = set(Properties.Width, value)
-    public var height: DimensionValue get() = error("write-only") ; set(value) = set(Properties.Height, value)
-    public var minWidth: DimensionValue get() = error("write-only") ; set(value) = set(Properties.MinWidth, value)
-    public var minHeight: DimensionValue get() = error("write-only") ; set(value) = set(Properties.MinHeight, value)
-    public var maxWidth: DimensionValue get() = error("write-only") ; set(value) = set(Properties.MaxWidth, value)
-    public var maxHeight: DimensionValue get() = error("write-only") ; set(value) = set(Properties.MaxHeight, value)
-    public var padding: Edges<DimensionValue> get() = error("write-only") ; set(value) = set(Properties.Padding, value)
-    public var margin: Edges<DimensionValue> get() = error("write-only") ; set(value) = set(Properties.Margin, value)
-    public var gap: DimensionValue get() = error("write-only") ; set(value) = set(Properties.Gap, value)
-    public var flexDirection: FlexDirection get() = error("write-only") ; set(value) = set(Properties.FlexDirection, value)
-    public var flexGrow: Float get() = error("write-only") ; set(value) = set(Properties.FlexGrow, value)
-    public var flexShrink: Float get() = error("write-only") ; set(value) = set(Properties.FlexShrink, value)
-    public var overflow: Overflow get() = error("write-only") ; set(value) = set(Properties.Overflow, value)
-    public var background: Paint? get() = error("write-only") ; set(value) = set(Properties.Background, value)
-    public var opacity: Float get() = error("write-only") ; set(value) = set(Properties.Opacity, value.coerceIn(0f, 1f))
-    public var zIndex: Int get() = error("write-only") ; set(value) = set(Properties.ZIndex, value)
+
+    public fun on(condition: StyleCondition, block: StyleBuilder.() -> Unit) {
+        entries += StyleBuilder(condition).apply(block).entries
+    }
+
+    public var display: Display
+        get() = error("write-only")
+        set(value) = set(Properties.Display, value)
+
+    public var width: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.Width, value)
+
+    public var height: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.Height, value)
+
+    public var minWidth: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.MinWidth, value)
+
+    public var minHeight: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.MinHeight, value)
+
+    public var maxWidth: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.MaxWidth, value)
+
+    public var maxHeight: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.MaxHeight, value)
+
+    public var padding: Edges<DimensionValue>
+        get() = error("write-only")
+        set(value) = set(Properties.Padding, value)
+
+    public var margin: Edges<DimensionValue>
+        get() = error("write-only")
+        set(value) = set(Properties.Margin, value)
+
+    public var gap: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.Gap, value)
+
+    public var flexDirection: FlexDirection
+        get() = error("write-only")
+        set(value) = set(Properties.FlexDirection, value)
+
+    public var flexGrow: Float
+        get() = error("write-only")
+        set(value) = set(Properties.FlexGrow, value)
+
+    public var flexShrink: Float
+        get() = error("write-only")
+        set(value) = set(Properties.FlexShrink, value)
+
+    public var overflow: Overflow
+        get() = error("write-only")
+        set(value) = set(Properties.Overflow, value)
+
+    public var background: Paint?
+        get() = error("write-only")
+        set(value) = set(Properties.Background, value)
+
+    public var opacity: Float
+        get() = error("write-only")
+        set(value) = set(Properties.Opacity, value.coerceIn(0f, 1f))
+
+    public var zIndex: Int
+        get() = error("write-only")
+        set(value) = set(Properties.ZIndex, value)
+
     internal fun build(): Style = Style(entries.toList())
 }
 
 public fun style(block: StyleBuilder.() -> Unit): Style = StyleBuilder().apply(block).build()
 
 public class StyleVar<T>(public val default: T)
+
 public fun <T> styleVar(default: T): StyleVar<T> = StyleVar(default)
+
 public class StylePart<T : Any>(public val name: String)
-public class Theme internal constructor(internal val values: Map<StyleVar<*>, Any?>, internal val parts: Map<StylePart<*>, Style>)
+
+public class Theme
+internal constructor(
+    internal val values: Map<StyleVar<*>, Any?>,
+    internal val parts: Map<StylePart<*>, Style>,
+)
+
 public class ThemeBuilder {
     private val values = mutableMapOf<StyleVar<*>, Any?>()
     private val parts = mutableMapOf<StylePart<*>, Style>()
-    public fun <T> set(variable: StyleVar<T>, value: T) { values[variable] = value }
-    public fun <T : Any> style(part: StylePart<T>, style: Style) { parts[part] = style }
+
+    public fun <T> set(variable: StyleVar<T>, value: T) {
+        values[variable] = value
+    }
+
+    public fun <T : Any> style(part: StylePart<T>, style: Style) {
+        parts[part] = style
+    }
+
     internal fun build() = Theme(values.toMap(), parts.toMap())
 }
+
 public fun theme(block: ThemeBuilder.() -> Unit): Theme = ThemeBuilder().apply(block).build()
 
 public data class ResolvedStyle(private val values: Map<StyleProperty<*>, Any?>) {
@@ -171,55 +452,106 @@ public data class ResolvedStyle(private val values: Map<StyleProperty<*>, Any?>)
         return (values[property] ?: property.initialValue) as T
     }
 }
-public data class StyleChangeSet(val impact: StyleImpact, val changedProperties: Set<StyleProperty<*>>)
-private data class ElementStyleState(val sources: MutableList<Readable<Style>>, val states: MutableSet<StyleState>, var resolved: ResolvedStyle?)
+
+public data class StyleChangeSet(
+    val impact: StyleImpact,
+    val changedProperties: Set<StyleProperty<*>>,
+)
+
+private data class ElementStyleState(
+    val sources: MutableList<Readable<Style>>,
+    val states: MutableSet<StyleState>,
+    var resolved: ResolvedStyle?,
+)
+
 private val styleStateKey = AttachmentKey<ElementStyleState>()
 
 public class StyleRuntime {
     public fun attach(element: Element, source: Readable<Style>) {
         state(element).sources += source
     }
+
     public fun setState(element: Element, styleState: StyleState, enabled: Boolean) {
         if (enabled) state(element).states += styleState else state(element).states -= styleState
     }
+
     public fun resolve(element: Element): Pair<ResolvedStyle, StyleChangeSet> {
         val state = state(element)
         val values = mutableMapOf<StyleProperty<*>, Any?>()
         val parent = element.parent?.attachment(styleStateKey)?.resolved
-        Properties.all.filter { it.inherited }.forEach { property -> parent?.let { values[property] = getUntyped(it, property) } }
+        Properties.all
+            .filter { it.inherited }
+            .forEach { property -> parent?.let { values[property] = getUntyped(it, property) } }
         state.sources.forEach { source ->
-            source.value.entries.forEach { entry -> if (entry.condition?.matches(state.states) != false) values[entry.property] = entry.value }
+            source.value.entries.forEach { entry ->
+                if (entry.condition?.matches(state.states) != false)
+                    values[entry.property] = entry.value
+            }
         }
         val next = ResolvedStyle(values)
         val previous = state.resolved
-        val changed = Properties.all.filterTo(linkedSetOf()) { previous == null || getUntyped(previous, it) != getUntyped(next, it) }
+        val changed =
+            Properties.all.filterTo(linkedSetOf()) {
+                previous == null || getUntyped(previous, it) != getUntyped(next, it)
+            }
         state.resolved = next
-        return next to StyleChangeSet(changed.fold(StyleImpact.NONE) { impact, property -> impact + property.impact }, changed)
+        return next to
+            StyleChangeSet(
+                changed.fold(StyleImpact.NONE) { impact, property -> impact + property.impact },
+                changed,
+            )
     }
-    private fun state(element: Element): ElementStyleState = element.attachment(styleStateKey) ?: ElementStyleState(mutableListOf(), mutableSetOf(), null).also { element.attach(styleStateKey, it) }
+
+    private fun state(element: Element): ElementStyleState =
+        element.attachment(styleStateKey)
+            ?: ElementStyleState(mutableListOf(), mutableSetOf(), null).also {
+                element.attach(styleStateKey, it)
+            }
+
     private fun getUntyped(style: ResolvedStyle, property: StyleProperty<*>): Any? {
         @Suppress("UNCHECKED_CAST")
         return style[property as StyleProperty<Any?>]
     }
 }
 
-public fun resolveLength(value: DimensionValue, environment: UiEnvironment, units: UnitResolver, basis: Float = 0f): Float? = when (value) {
-    is Px -> value.value
-    is Dp -> units.resolveDp(value.value, environment)
-    is Sp -> units.resolveSp(value.value, environment)
-    is PhysicalPx -> units.resolvePhysicalPx(value.value, environment)
-    is Percent -> value.fraction * basis
-    is Calc -> value.terms.sumOf { (coefficient, term) -> coefficient.toDouble() * (resolveLength(term, environment, units, basis) ?: 0f) }.toFloat()
-    Auto -> null
+public fun resolveLength(
+    value: DimensionValue,
+    environment: UiEnvironment,
+    units: UnitResolver,
+    basis: Float = 0f,
+): Float? =
+    when (value) {
+        is Px -> value.value
+        is Dp -> units.resolveDp(value.value, environment)
+        is Sp -> units.resolveSp(value.value, environment)
+        is PhysicalPx -> units.resolvePhysicalPx(value.value, environment)
+        is Percent -> value.fraction * basis
+        is Calc ->
+            value.terms
+                .sumOf { (coefficient, term) ->
+                    coefficient.toDouble() * (resolveLength(term, environment, units, basis) ?: 0f)
+                }
+                .toFloat()
+        Auto -> null
+    }
+
+public enum class EnvironmentInset {
+    SYSTEM_BARS,
+    DISPLAY_CUTOUT,
+    IME,
+    SYSTEM_GESTURES,
+    SAFE_DRAWING,
+    SAFE_GESTURES,
+    SAFE_CONTENT,
 }
 
-public enum class EnvironmentInset { SYSTEM_BARS, DISPLAY_CUTOUT, IME, SYSTEM_GESTURES, SAFE_DRAWING, SAFE_GESTURES, SAFE_CONTENT }
-public fun environmentInsets(type: EnvironmentInset, environment: UiEnvironment): Insets = when (type) {
-    EnvironmentInset.SYSTEM_BARS -> environment.insets.systemBars
-    EnvironmentInset.DISPLAY_CUTOUT -> environment.insets.displayCutout
-    EnvironmentInset.IME -> environment.insets.ime
-    EnvironmentInset.SYSTEM_GESTURES -> environment.insets.systemGestures
-    EnvironmentInset.SAFE_DRAWING -> environment.insets.safeDrawing
-    EnvironmentInset.SAFE_GESTURES -> environment.insets.safeGestures
-    EnvironmentInset.SAFE_CONTENT -> environment.insets.safeContent
-}
+public fun environmentInsets(type: EnvironmentInset, environment: UiEnvironment): Insets =
+    when (type) {
+        EnvironmentInset.SYSTEM_BARS -> environment.insets.systemBars
+        EnvironmentInset.DISPLAY_CUTOUT -> environment.insets.displayCutout
+        EnvironmentInset.IME -> environment.insets.ime
+        EnvironmentInset.SYSTEM_GESTURES -> environment.insets.systemGestures
+        EnvironmentInset.SAFE_DRAWING -> environment.insets.safeDrawing
+        EnvironmentInset.SAFE_GESTURES -> environment.insets.safeGestures
+        EnvironmentInset.SAFE_CONTENT -> environment.insets.safeContent
+    }

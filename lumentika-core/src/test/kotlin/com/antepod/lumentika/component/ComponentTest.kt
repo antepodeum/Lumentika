@@ -12,6 +12,7 @@ class ComponentTest {
     private class Counter : Component() {
         val label = prop("Count")
         val count = binding(0)
+
         override fun view(): Element = ui.element("counter")
     }
 
@@ -43,7 +44,10 @@ class ComponentTest {
         items.value = listOf(2, 3)
         assertEquals(0, shown.children.size)
         assertSame(two, repeated.children[0])
-        assertEquals(listOf("item-2", "item-3"), repeated.children.map { it.children.single().kind })
+        assertEquals(
+            listOf("item-2", "item-3"),
+            repeated.children.map { it.children.single().kind },
+        )
     }
 
     @Test
