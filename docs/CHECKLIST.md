@@ -78,12 +78,12 @@
 - [x] timestamped pointer samples
 - [x] optional historical/coalesced samples
 - [x] pointer capture
-- [ ] hover remains actual hit path
+- [x] hover remains actual hit path
 - [x] normalized keyboard model
 - [x] key repeat/modifiers
 - [x] one input focus manager/root
 - [x] focus/blur + focusin/focusout
-- [ ] focus-visible/focus-within
+- [x] focus-visible/focus-within
 - [x] focus repair before disposal
 - [x] accessibility focus remains separate
 - [x] IME composition is not raw key input
@@ -133,12 +133,12 @@
 - [x] merge descendants
 - [x] clear descendants
 - [x] hidden semantics
-- [ ] semantic bounds use committed transforms/clips
+- [x] semantic bounds use committed transforms/clips
 - [x] accessibility focus separate from input focus
 - [x] live regions/announcements
 - [x] semantic dirty tracking
 - [x] platform adapter action routing
-- [ ] button/checkbox/slider/textField default semantics
+- [x] button/checkbox/slider/textField default semantics
 
 ## Text layout/editing
 
@@ -186,10 +186,10 @@
 - [x] Fragment boxless
 - [x] Content retained recording
 - [x] IntrinsicMeasurable
-- [ ] HitRegionSource
+- [x] HitRegionSource
 - [ ] no visual/layout mega-bag on Element
 - [x] platform-specific Content/Paint extension boundary
-- [ ] scene objects are not Elements
+- [x] scene objects are not Elements
 
 ## Taffy layout
 
@@ -222,9 +222,9 @@
 - [x] reverse paint-order hit testing
 - [x] transform/clip parity with hit testing
 - [x] property-only updates reuse paint
-- [ ] transformed overflow can extend reachability only
+- [x] transformed overflow can extend reachability only
 - [ ] custom scene local hit/raycast
-- [ ] semantic bounds use same coordinate chain
+- [x] semantic bounds use same coordinate chain
 - [x] platform replay extension boundary
 
 ## Styles/themes
@@ -287,7 +287,7 @@
 - [x] gesture arbitration trace
 - [x] nested scroll/fling trace
 - [x] text composition/editing/session trace
-- [ ] semantic action/accessibility-focus trace
+- [x] semantic action/accessibility-focus trace
 - [x] autofill/content-transfer trace
 - [ ] opacity transition absence-of-layout trace
 - [ ] width animation max-one-layout trace

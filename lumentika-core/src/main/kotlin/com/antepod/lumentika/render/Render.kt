@@ -6,6 +6,7 @@ import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.PaintCommand
 import com.antepod.lumentika.runtime.PaintRecorder
+import com.antepod.lumentika.runtime.HitRegionSource
 import com.antepod.lumentika.style.PointerEvents
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.ResolvedStyle
@@ -46,12 +47,13 @@ public data class HitTestEntry(
     val clip: Rect,
     val paintOrder: Int,
     val topLayer: Boolean,
+    val customRegion: HitRegionSource? = null,
 )
 public data class HitTestArtifact(val generation: Long, val entries: List<HitTestEntry>) {
     public fun hitTest(point: Point): Element? = entries.asReversed().firstNotNullOfOrNull { entry ->
         if (!entry.clip.contains(point)) return@firstNotNullOfOrNull null
         val local = entry.rootTransform.inverse()?.transform(point) ?: return@firstNotNullOfOrNull null
-        entry.element.takeIf { entry.localBounds.contains(local) }
+        entry.element.takeIf { entry.customRegion?.hitTest(local, entry.localBounds) ?: entry.localBounds.contains(local) }
     }
 }
 
@@ -124,7 +126,7 @@ public class RenderRuntime(
             }
             builder.chunks += PaintChunk(element, propertyState, commands, order, topLayer)
         }
-        if (style[Properties.PointerEvents] != PointerEvents.NONE) builder.hitEntries += HitTestEntry(element, Rect(0f, 0f, element.geometry.width, element.geometry.height), transform, clip, order, topLayer)
+        if (style[Properties.PointerEvents] != PointerEvents.NONE) builder.hitEntries += HitTestEntry(element, Rect(0f, 0f, element.geometry.width, element.geometry.height), transform, clip, order, topLayer, element.content as? HitRegionSource)
         val childState = ParentState(transform, clip, transformId, clipId, effectId, scrollId, stackId, topLayer)
         element.children.sortedBy { resolveStyle(it)[Properties.ZIndex] }.forEach { walk(it, childState, builder) }
     }

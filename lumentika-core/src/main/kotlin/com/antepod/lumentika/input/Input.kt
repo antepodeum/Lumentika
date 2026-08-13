@@ -83,6 +83,7 @@ public class EventDispatcher(private val root: Element) {
     private val listeners = mutableMapOf<Element, MutableMap<EventType, MutableList<Listener>>>()
     private val defaultActions = mutableMapOf<Element, MutableMap<EventType, (UIEvent) -> Unit>>()
     private val pointerCapture = mutableMapOf<Int, Element>()
+    private var hoverPath: List<Element> = emptyList()
 
     public fun on(element: Element, type: EventType, capture: Boolean = false, listener: (UIEvent) -> Unit): AutoCloseable {
         require(isInRoot(element)) { "Listener element is outside dispatcher root" }
@@ -105,6 +106,12 @@ public class EventDispatcher(private val root: Element) {
     }
 
     public fun captured(pointerId: Int): Element? = pointerCapture[pointerId]?.takeIf { it.isMounted && isInRoot(it) }
+    public fun updateHover(actualHit: Element?, timestampNanos: Long) {
+        val next = actualHit?.let(::path) ?: emptyList()
+        (hoverPath - next.toSet()).asReversed().forEach { dispatch(EventType.POINTER_LEAVE, PointerEvent(it,-1,PointerType.MOUSE,Point(0f,0f),timestampNanos=timestampNanos,cancelable=false)) }
+        (next - hoverPath.toSet()).forEach { dispatch(EventType.POINTER_ENTER, PointerEvent(it,-1,PointerType.MOUSE,Point(0f,0f),timestampNanos=timestampNanos,cancelable=false)) }
+        hoverPath = next
+    }
 
     public fun dispatch(type: EventType, event: BaseEvent): Boolean {
         val target = if (event is PointerEvent) captured(event.pointerId) ?: event.target else event.target
@@ -178,6 +185,7 @@ public class FocusManager(
         private set
     public var focusVisible: Boolean = false
         private set
+    public val focusWithin: Set<Element> get() { val result=linkedSetOf<Element>();var current=activeElement;while(current!=null){result+=current;current=current.parent};return result }
 
     public fun configure(element: Element, value: FocusProperties) { properties[element] = value }
 

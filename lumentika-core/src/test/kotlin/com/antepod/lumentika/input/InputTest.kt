@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class InputTest {
     @Test
@@ -23,6 +24,14 @@ class InputTest {
         dispatcher.defaultAction(target, EventType.POINTER_DOWN) { trace += "default" }
         dispatcher.dispatch(EventType.POINTER_DOWN, PointerEvent(target, 1, PointerType.MOUSE, Point(1f, 2f), timestampNanos = 1))
         assertEquals(listOf("root-capture", "target-capture", "target", "parent-bubble", "default"), trace)
+    }
+
+    @Test fun `hover follows actual hit while capture and focus within follows ancestry`() {
+        val root=Element("root");val parent=Element("parent").also(root::append);val captured=Element("captured").also(root::append);val actual=Element("actual").also(parent::append);val dispatcher=EventDispatcher(root);val trace=mutableListOf<String>()
+        dispatcher.on(actual,EventType.POINTER_ENTER){trace+="actual-enter"};dispatcher.on(captured,EventType.POINTER_ENTER){trace+="captured-enter"};dispatcher.setPointerCapture(captured,1);dispatcher.updateHover(actual,1)
+        assertTrue("actual-enter" in trace);assertFalse("captured-enter" in trace)
+        val focus=FocusManager(root,dispatcher);focus.configure(actual,FocusProperties(focusable=true));focus.focus(actual,FocusCause.KEYBOARD)
+        assertTrue(focus.focusVisible);assertTrue(parent in focus.focusWithin);assertTrue(root in focus.focusWithin)
     }
 
     @Test

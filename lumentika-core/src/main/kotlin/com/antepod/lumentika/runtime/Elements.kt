@@ -43,6 +43,8 @@ public sealed interface ImageSource {
 public interface Content {
     public fun record(recorder: PaintRecorder, bounds: Rect)
 }
+public interface HitRegionSource { public fun hitTest(localPoint: com.antepod.lumentika.geometry.Point, bounds: Rect): Boolean }
+public interface SceneContent : Content, HitRegionSource { public fun raycast(localPoint: com.antepod.lumentika.geometry.Point): Any? }
 
 public data class TextContent(var text: String) : Content, IntrinsicMeasurable {
     override fun measure(input: IntrinsicMeasureInput): Size {

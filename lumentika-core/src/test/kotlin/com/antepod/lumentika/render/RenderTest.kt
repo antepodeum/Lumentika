@@ -11,6 +11,7 @@ import com.antepod.lumentika.style.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import com.antepod.lumentika.runtime.HitRegionSource
 
 class RenderTest {
     @Test
@@ -26,6 +27,12 @@ class RenderTest {
         assertSame(child, commit.hitTest.hitTest(Point(30f, 30f)))
         assertEquals(Point(10f, 10f), render.rootToLocal(child, Point(30f, 30f)))
         assertEquals(commit.paint.generation, commit.hitTest.generation)
+    }
+
+    @Test fun `custom scene hit region overrides rectangular hit`() {
+        val root=Element("root").apply{geometry=Rect(0f,0f,20f,20f);content=object:com.antepod.lumentika.runtime.Content,HitRegionSource{override fun record(recorder:com.antepod.lumentika.runtime.PaintRecorder,bounds:Rect){};override fun hitTest(localPoint:Point,bounds:Rect)=localPoint.x<5f}}
+        val styles=StyleRuntime();styles.attach(root,state(style{}));val hit=RenderRuntime(root){styles.resolve(it).first}.commit().hitTest
+        assertSame(root,hit.hitTest(Point(2f,10f)));assertEquals(null,hit.hitTest(Point(10f,10f)))
     }
 
     @Test

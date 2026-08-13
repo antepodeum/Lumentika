@@ -4,6 +4,8 @@ import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.render.HitTestArtifact
 import com.antepod.lumentika.runtime.Element
 import java.util.concurrent.atomic.AtomicLong
+import com.antepod.lumentika.geometry.Point
+import com.antepod.lumentika.runtime.AttachmentKey
 
 @JvmInline public value class SemanticsNodeId(val value: Long)
 public enum class SemanticRole { NONE, BUTTON, CHECKBOX, SLIDER, TEXT_FIELD, IMAGE, TEXT, LIST, LIST_ITEM, SCROLL_VIEW, TOOLTIP }
@@ -26,6 +28,7 @@ public data class SemanticsNode(val id: SemanticsNodeId, val elementId: Long, va
 public data class SemanticsArtifact(val generation: Long, val roots: List<SemanticsNodeId>, val nodes: Map<SemanticsNodeId, SemanticsNode>, val accessibilityFocus: SemanticsNodeId?)
 public data class SemanticsChangeSet(val added: Set<SemanticsNodeId>, val removed: Set<SemanticsNodeId>, val changed: Set<SemanticsNodeId>)
 public interface AccessibilityAdapter { public fun onArtifactCommitted(artifact: SemanticsArtifact, changes: SemanticsChangeSet); public fun announce(message: String, priority: LiveRegion) }
+public val SemanticsAttachment: AttachmentKey<SemanticsConfiguration> = AttachmentKey()
 
 public class SemanticsRuntime(private val root: Element) {
     private val ids = mutableMapOf<Element, SemanticsNodeId>()
@@ -39,11 +42,13 @@ public class SemanticsRuntime(private val root: Element) {
         val entries = hit.entries.associateBy { it.element }
         val nodes = linkedMapOf<SemanticsNodeId, SemanticsNode>()
         fun walk(element: Element): List<SemanticsNodeId> {
-            val config = configs[element]
+            val config = configs[element] ?: element.attachment(SemanticsAttachment)
             if (config?.hidden == true) return emptyList()
             val children = if (config?.clearDescendants == true) emptyList() else element.children.flatMap(::walk)
             if (config == null) return children
-            val id = ids.getValue(element); val bounds = entries[element]?.let { it.clip.intersect(element.geometry) } ?: element.geometry
+            val id = ids.getOrPut(element) { SemanticsNodeId(nextId.incrementAndGet()) }; val bounds = entries[element]?.let { entry ->
+                val local=entry.localBounds;val points=listOf(Point(local.x,local.y),Point(local.right,local.y),Point(local.right,local.bottom),Point(local.x,local.bottom)).map(entry.rootTransform::transform);val transformed=Rect(points.minOf{it.x},points.minOf{it.y},points.maxOf{it.x}-points.minOf{it.x},points.maxOf{it.y}-points.minOf{it.y});entry.clip.intersect(transformed) ?: Rect(0f,0f,0f,0f)
+            } ?: element.geometry
             nodes[id] = SemanticsNode(id, element.id, config, bounds, if (config.mergeDescendants) emptyList() else children)
             return listOf(id)
         }
