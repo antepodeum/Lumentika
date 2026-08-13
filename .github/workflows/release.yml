@@ -45,6 +45,9 @@ jobs:
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Validate documentation
+        run: python3 scripts/check_docs.py
+
       - name: Run release gate
         run: ./gradlew clean build spotlessCheck -PreleaseVersion=${{ steps.version.outputs.value }}
 

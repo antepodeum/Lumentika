@@ -35,6 +35,9 @@ jobs:
       - name: Verify wrapper permissions
         run: test -x ./gradlew
 
+      - name: Validate documentation
+        run: python3 scripts/check_docs.py
+
       - name: Run release gate
         run: ./gradlew clean build spotlessCheck
 
