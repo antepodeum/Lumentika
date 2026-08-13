@@ -12,9 +12,9 @@ import kotlin.test.assertTrue
 class InputTest {
     @Test
     fun `capture target bubble and default action have deterministic order`() {
-        val root = Element("root")
-        val parent = Element("parent").also(root::append)
-        val target = Element("target").also(parent::append)
+        val root = Element()
+        val parent = Element().also(root::append)
+        val target = Element().also(parent::append)
         val dispatcher = EventDispatcher(root)
         val trace = mutableListOf<String>()
         dispatcher.on(root, EventType.POINTER_DOWN, capture = true) { trace += "root-capture" }
@@ -34,10 +34,10 @@ class InputTest {
 
     @Test
     fun `hover follows actual hit while capture and focus within follows ancestry`() {
-        val root = Element("root")
-        val parent = Element("parent").also(root::append)
-        val captured = Element("captured").also(root::append)
-        val actual = Element("actual").also(parent::append)
+        val root = Element()
+        val parent = Element().also(root::append)
+        val captured = Element().also(root::append)
+        val actual = Element().also(parent::append)
         val dispatcher = EventDispatcher(root)
         val trace = mutableListOf<String>()
         dispatcher.on(actual, EventType.POINTER_ENTER) { trace += "actual-enter" }
@@ -56,9 +56,9 @@ class InputTest {
 
     @Test
     fun `prevent default and pointer capture work`() {
-        val root = Element("root")
-        val first = Element("first").also(root::append)
-        val second = Element("second").also(root::append)
+        val root = Element()
+        val first = Element().also(root::append)
+        val second = Element().also(root::append)
         val dispatcher = EventDispatcher(root)
         var delivered: Element? = null
         var defaultRan = false
@@ -80,10 +80,10 @@ class InputTest {
 
     @Test
     fun `focus traversal and repair exclude removed subtree`() {
-        val root = Element("root")
-        val first = Element("first").also(root::append)
-        val branch = Element("branch").also(root::append)
-        val second = Element("second").also(branch::append)
+        val root = Element()
+        val first = Element().also(root::append)
+        val branch = Element().also(root::append)
+        val second = Element().also(branch::append)
         val dispatcher = EventDispatcher(root)
         val focus = FocusManager(root, dispatcher)
         focus.configure(first, FocusProperties(focusable = true))

@@ -36,7 +36,7 @@ class AnimationTest {
                 PlatformServices(HeadlessFrameScheduler()),
                 HeadlessRenderBackend(),
             )
-        val element = root.scope.element("animated")
+        val element = root.scope.element()
         root.styles.attach(element, state(style { opacity = 1f }))
         root.frame(10_000_000)
         root.styleAnimations.transition(
@@ -137,7 +137,7 @@ class AnimationTest {
                 PlatformServices(scheduler),
                 HeadlessRenderBackend(),
             )
-        val child = root.scope.element("animated")
+        val child = root.scope.element()
         root.styles.attach(
             child,
             state(
@@ -185,9 +185,9 @@ class AnimationTest {
         val clock = UiAnimationClock()
         val motions = mutableMapOf<Element, MotionRenderProperties>()
         val bounds = mutableMapOf<Element, Rect>()
-        val root = Element("root")
-        val sender = Element("sender").also(root::append)
-        val receiver = Element("receiver").also(root::append)
+        val root = Element()
+        val sender = Element().also(root::append)
+        val receiver = Element().also(root::append)
         bounds[sender] = Rect(0f, 0f, 20f, 20f)
         bounds[receiver] = Rect(100f, 0f, 40f, 40f)
         val runtime =

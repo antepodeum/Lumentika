@@ -86,7 +86,7 @@ public class UiRoot(
     public val services: PlatformServices,
     private val backend: RenderBackend,
 ) : AutoCloseable {
-    public val element = Element("ui-root")
+    public val element = Element()
     public val environment = UiEnvironmentState(initialEnvironment)
     public val styles = StyleRuntime()
     public val events = EventDispatcher(element)

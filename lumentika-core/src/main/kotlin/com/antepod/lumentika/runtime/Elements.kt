@@ -244,7 +244,7 @@ public data class ImageContent(val source: ImageSource, val intrinsicSize: Size?
 }
 
 /** Persistent node in the retained logical UI tree. */
-public open class Element(public val kind: String = "element") : AutoCloseable {
+public open class Element : AutoCloseable {
     public val id: Long = nextId.incrementAndGet()
     public var parent: Element? = null
         private set
@@ -364,10 +364,13 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
 }
 
 /** Boxless structural element used to group child declarations. */
-public class Fragment : Element("fragment")
+public class Fragment : Element()
 
 /** Identity-based typed key for element-local runtime attachments. */
 public class AttachmentKey<T : Any>
+
+/** Marks a structural container whose children represent collection items. */
+internal val CollectionItemContainerAttachment: AttachmentKey<Unit> = AttachmentKey()
 
 /** Services and root callbacks inherited by nested [UiScope] instances. */
 public data class UiContext(
@@ -401,12 +404,8 @@ public data class UiContext(
 /** DSL receiver that mounts elements beneath [parent]. */
 public open class UiScope(public val parent: Element, public val context: UiContext = UiContext()) {
     /** Creates and appends an element with optional content and child declarations. */
-    public fun element(
-        kind: String = "element",
-        content: Content? = null,
-        block: UiScope.() -> Unit = {},
-    ): Element {
-        val element = Element(kind)
+    public fun element(content: Content? = null, block: UiScope.() -> Unit = {}): Element {
+        val element = Element()
         element.content = content
         parent.append(element)
         nested(element).block()

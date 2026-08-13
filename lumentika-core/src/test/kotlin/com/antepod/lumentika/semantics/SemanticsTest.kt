@@ -8,7 +8,7 @@ import kotlin.test.*
 class SemanticsTest {
     @Test
     fun `live regions announce changed content and explicit messages`() {
-        val root = Element("root").apply { geometry = Rect(0f, 0f, 10f, 10f) }
+        val root = Element().apply { geometry = Rect(0f, 0f, 10f, 10f) }
         val announcements = mutableListOf<Pair<String, LiveRegion>>()
         val runtime =
             SemanticsRuntime(root) { message, priority ->
@@ -39,7 +39,7 @@ class SemanticsTest {
 
     @Test
     fun `semantic action focus and geometry use committed transform chain`() {
-        val root = Element("root").apply { geometry = Rect(0f, 0f, 10f, 10f) }
+        val root = Element().apply { geometry = Rect(0f, 0f, 10f, 10f) }
         var clicked = false
         root.attach(
             SemanticsAttachment,
@@ -76,10 +76,10 @@ class SemanticsTest {
 
     @Test
     fun `merge consumes descendant nodes and combines readable semantics`() {
-        val root = Element("root").apply { geometry = Rect(0f, 0f, 10f, 10f) }
+        val root = Element().apply { geometry = Rect(0f, 0f, 10f, 10f) }
         var clicked = false
         val child =
-            Element("child").also {
+            Element().also {
                 it.geometry = Rect(10f, 0f, 10f, 10f)
                 it.attach(
                     SemanticsAttachment,

@@ -104,7 +104,7 @@ public open class ScrollBuilder internal constructor(element: Element, context: 
 
 /** Mounts a scrollable container. */
 public fun UiScope.scroll(block: ScrollBuilder.() -> Unit = {}): Element {
-    val element = element("scroll")
+    val element = element()
     context.attachStyle(element, style { overflow = Overflow.SCROLL })
     return ScrollBuilder(element, context).apply(block).mount()
 }
@@ -115,7 +115,7 @@ public class ListBuilder internal constructor(element: Element, context: UiConte
 
 /** Mounts a scrollable container with list semantics. */
 public fun UiScope.list(block: ListBuilder.() -> Unit = {}): Element {
-    val element = element("list")
+    val element = element()
     context.attachStyle(
         element,
         style {
@@ -240,7 +240,7 @@ public class TextBuilder internal constructor(element: Element, context: UiConte
 
 /** Mounts text configured by [block], including shorthand blocks that return a string. */
 public fun UiScope.text(block: TextBuilder.() -> Any?): Element {
-    val element = element("text")
+    val element = element()
     TextBuilder(element, context).also {
         it.configure(block)
         it.mount()
@@ -306,7 +306,7 @@ public class ButtonBuilder internal constructor(element: Element, context: UiCon
 
 /** Mounts a button and returns its interaction handle. */
 public fun UiScope.button(block: ButtonBuilder.() -> Unit): ControlHandle {
-    val element = element("button")
+    val element = element()
     return ButtonBuilder(element, context).apply(block).mount()
 }
 
@@ -335,7 +335,7 @@ public class CheckboxBuilder internal constructor(element: Element, context: UiC
 
 /** Mounts a checkbox and returns its interaction handle. */
 public fun UiScope.checkbox(block: CheckboxBuilder.() -> Unit): ControlHandle {
-    val element = element("checkbox")
+    val element = element()
     return CheckboxBuilder(element, context).apply(block).mount()
 }
 
@@ -387,7 +387,7 @@ public class SliderBuilder internal constructor(element: Element, context: UiCon
 
 /** Mounts a slider and returns its interaction handle. */
 public fun UiScope.slider(block: SliderBuilder.() -> Unit): ControlHandle {
-    val element = element("slider")
+    val element = element()
     return SliderBuilder(element, context).apply(block).mount()
 }
 
@@ -513,7 +513,7 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
 
 /** Mounts an editable text field and returns its interaction handle. */
 public fun UiScope.textField(block: TextFieldBuilder.() -> Unit = {}): ControlHandle {
-    val element = element("textField")
+    val element = element()
     return TextFieldBuilder(element, context).apply(block).mount()
 }
 
@@ -566,7 +566,7 @@ public class ImageBuilder internal constructor(element: Element, context: UiCont
 
 /** Mounts an image configured by [block]. */
 public fun UiScope.image(block: ImageBuilder.() -> Unit): Element {
-    val element = element("image")
+    val element = element()
     ImageBuilder(element, context).apply(block).mount()
     return element
 }
@@ -597,6 +597,6 @@ public class TooltipBuilder internal constructor(element: Element, context: UiCo
 
 /** Mounts a tooltip anchor and its popup content. */
 public fun UiScope.tooltip(block: TooltipBuilder.() -> Unit): Element {
-    val element = element("tooltip")
+    val element = element()
     return TooltipBuilder(element, context).apply(block).mount()
 }

@@ -31,7 +31,7 @@ class LumentikaProcessorTest {
                         val changed = event<Boolean>()
                         val content = slot()
                         val trailing = slotList()
-                        override fun view(): Element = ui.element("proof")
+                        override fun view(): Element = ui.element()
                     }
                     """
                         .trimIndent(),

@@ -202,7 +202,7 @@ fun runCoreShowcase(): CoreShowcaseProof {
                         recorder.record(PaintCommand.FillPath(triangle, rgb(210, 80, 90)))
                     }
                 }
-            retained = element("retained-showcase", retainedContent)
+            retained = element(retainedContent)
             scroll {
                 style {
                     width = 120.px

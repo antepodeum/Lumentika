@@ -59,7 +59,7 @@ class IntegrationProofTest {
 
         val root = headlessRoot(100f, 100f)
         val content = RetainedContent(com.antepod.lumentika.geometry.Size(20f, 10f))
-        val element = root.scope.element("retained", content)
+        val element = root.scope.element(content)
         root.requestFrame()
         root.frame(1)
         val initialElement = element
@@ -96,7 +96,7 @@ class IntegrationProofTest {
     @Test
     fun `paint radius and clip changes do not recompute Taffy`() {
         val root = headlessRoot(100f, 100f)
-        val element = root.scope.element("paint-only")
+        val element = root.scope.element()
         val source =
             state(
                 style {

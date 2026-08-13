@@ -119,7 +119,7 @@ class ComponentsTest {
 
     @Test
     fun `controls attach default semantics and actions`() {
-        val root = Element("root")
+        val root = Element()
         val ui = UiScope(root)
         var clicks = 0
         val button = ui.button {
@@ -152,7 +152,7 @@ class ComponentsTest {
 
     @Test
     fun `universal components expose readable content semantics and typed theme parts`() {
-        val root = Element("root")
+        val root = Element()
         val ui = UiScope(root)
         val text = ui.text("hello")
         val image = ui.image(ImageSource.Uri("asset"))
@@ -176,7 +176,7 @@ class ComponentsTest {
 
     @Test
     fun `interactive controls use shared gesture recognizers`() {
-        val root = Element("root")
+        val root = Element()
         val ui = UiScope(root)
         var clicks = 0
         val button = ui.button {
@@ -205,7 +205,7 @@ class ComponentsTest {
 
     @Test
     fun `nested mounted scroll chains unconsumed drag to parent`() {
-        val root = Element("root")
+        val root = Element()
         val outerState = com.antepod.lumentika.gesture.ScrollState()
         val innerState = com.antepod.lumentika.gesture.ScrollState()
         lateinit var inner: Element
@@ -230,7 +230,7 @@ class ComponentsTest {
 
     @Test
     fun `stateful control semantics follow bound values`() {
-        val root = Element("root")
+        val root = Element()
         val ui = UiScope(root)
         val checked = state(false)
         val sliderValue = state(0.25f)
@@ -269,7 +269,7 @@ class ComponentsTest {
 
     @Test
     fun `text has one compact form and one configured form`() {
-        val root = Element("root")
+        val root = Element()
         val ui = UiScope(root)
         val direct = ui.text("direct")
         val readableValue = state("readable-1")
@@ -300,7 +300,7 @@ class ComponentsTest {
 
     @Test
     fun `uniform control builders preserve reactive values and two way bindings`() {
-        val root = Element("root")
+        val root = Element()
         val ui = UiScope(root)
         val buttonLabel = state("before")
         var clicks = 0
@@ -350,7 +350,7 @@ class ComponentsTest {
 
     @Test
     fun `secure text field masks paint content and redacts semantics`() {
-        val root = Element("root")
+        val root = Element()
         val field =
             UiScope(root).textField {
                 value = "s😀"
@@ -365,7 +365,7 @@ class ComponentsTest {
 
     @Test
     fun `image and tooltip builders update reactive primary values`() {
-        val root = Element("root")
+        val root = Element()
         val clock = UiAnimationClock()
         val renderProperties = mutableMapOf<Element, RenderProperties>()
         val context =
@@ -409,7 +409,7 @@ class ComponentsTest {
 
     @Test
     fun `list composes scrolling keyed items and collection semantics`() {
-        val root = Element("root")
+        val root = Element()
         val items = state(listOf(1, 2, 3))
         val list =
             UiScope(root).list {
@@ -419,7 +419,8 @@ class ComponentsTest {
         runtime.updateLayout()
 
         assertEquals(3, list.attachment(SemanticsAttachment)!!.collection!!.rows)
-        val keyedContainer = list.children.single { it.kind == "for-each" }
+        val keyedContainer =
+            list.children.single { it.attachment(CollectionItemContainerAttachment) != null }
         val keyedItems = keyedContainer.children
         assertEquals(
             listOf(0, 1, 2),
@@ -436,7 +437,7 @@ class ComponentsTest {
 
     @Test
     fun `all universal components mount expected behavior and semantics`() {
-        val root = Element("root")
+        val root = Element()
         val ui = UiScope(root)
         val elements =
             listOf(
@@ -456,26 +457,7 @@ class ComponentsTest {
                 ui.textField().element,
                 ui.tooltip { value = "tip" },
             )
-        assertEquals(
-            listOf(
-                "block",
-                "flex",
-                "row",
-                "column",
-                "grid",
-                "stack",
-                "scroll",
-                "list",
-                "text",
-                "image",
-                "button",
-                "checkbox",
-                "slider",
-                "textField",
-                "tooltip",
-            ),
-            elements.map(Element::kind),
-        )
+        assertEquals(15, elements.size)
         assertTrue(elements[6].attachment(GestureAttachment) != null)
         assertEquals(
             listOf(

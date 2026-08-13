@@ -28,21 +28,21 @@ import kotlin.test.assertTrue
 class RenderTest {
     @Test
     fun `rounded nested and transformed path clips share exact hit geometry`() {
-        val root = Element("root").apply { geometry = Rect(0f, 0f, 100f, 100f) }
+        val root = Element().apply { geometry = Rect(0f, 0f, 100f, 100f) }
         val rounded =
-            Element("rounded").also {
+            Element().also {
                 it.geometry = Rect(0f, 0f, 20f, 20f)
                 it.content = TextContent("rounded")
                 root.append(it)
             }
         val nested =
-            Element("nested").also {
+            Element().also {
                 it.geometry = Rect(0f, 0f, 20f, 20f)
                 it.content = TextContent("nested")
                 rounded.append(it)
             }
         val transformed =
-            Element("transformed").also {
+            Element().also {
                 it.geometry = Rect(0f, 30f, 20f, 20f)
                 it.content = TextContent("path")
                 root.append(it)
@@ -99,7 +99,7 @@ class RenderTest {
         val border = rgb(4, 5, 6)
         val shadow = BoxShadow(Point(2f, 3f), 4f, 1f, rgb(7, 8, 9))
         val root =
-            Element("shape").apply {
+            Element().apply {
                 geometry = Rect(0f, 0f, 40f, 30f)
                 content =
                     object : com.antepod.lumentika.runtime.Content {
@@ -138,9 +138,9 @@ class RenderTest {
 
     @Test
     fun `resolved background and inherited text paint are replayable commands`() {
-        val root = Element("root")
+        val root = Element()
         val text =
-            Element("text").also {
+            Element().also {
                 it.content = TextContent("styled")
                 it.geometry = Rect(0f, 0f, 60f, 20f)
                 root.append(it)
@@ -169,9 +169,9 @@ class RenderTest {
 
     @Test
     fun `paint hit and transform share committed property chain`() {
-        val root = Element("root").apply { geometry = Rect(0f, 0f, 100f, 100f) }
+        val root = Element().apply { geometry = Rect(0f, 0f, 100f, 100f) }
         val child =
-            Element("child").apply {
+            Element().apply {
                 geometry = Rect(10f, 10f, 20f, 20f)
                 content = TextContent("x")
             }
@@ -189,9 +189,9 @@ class RenderTest {
 
     @Test
     fun `motion properties compose with retained render properties`() {
-        val root = Element("root").apply { geometry = Rect(0f, 0f, 100f, 100f) }
+        val root = Element().apply { geometry = Rect(0f, 0f, 100f, 100f) }
         val child =
-            Element("child").apply {
+            Element().apply {
                 geometry = Rect(10f, 10f, 20f, 20f)
                 content = TextContent("x")
             }
@@ -222,9 +222,9 @@ class RenderTest {
 
     @Test
     fun `motion clip blur and draw reach immutable property trees`() {
-        val root = Element("root").apply { geometry = Rect(0f, 0f, 100f, 100f) }
+        val root = Element().apply { geometry = Rect(0f, 0f, 100f, 100f) }
         val child =
-            Element("path").apply {
+            Element().apply {
                 geometry = Rect(10f, 10f, 20f, 20f)
                 content = TextContent("x")
             }
@@ -258,7 +258,7 @@ class RenderTest {
     @Test
     fun `custom scene hit region overrides rectangular hit`() {
         val root =
-            Element("root").apply {
+            Element().apply {
                 geometry = Rect(0f, 0f, 20f, 20f)
                 content =
                     object : com.antepod.lumentika.runtime.Content, HitRegionSource {
@@ -282,7 +282,7 @@ class RenderTest {
         val sceneObject = Any()
         var raycastPoint: Point? = null
         val root =
-            Element("scene").apply {
+            Element().apply {
                 geometry = Rect(10f, 5f, 20f, 20f)
                 content =
                     object : SceneContent {
@@ -311,7 +311,7 @@ class RenderTest {
     @Test
     fun `property update reuses retained paint record`() {
         val root =
-            Element("root").apply {
+            Element().apply {
                 geometry = Rect(0f, 0f, 10f, 10f)
                 content = TextContent("x")
             }
@@ -328,7 +328,7 @@ class RenderTest {
     fun `paint property and order invalidations remain independent`() {
         var records = 0
         val root =
-            Element("root").apply {
+            Element().apply {
                 geometry = Rect(0f, 0f, 10f, 10f)
                 content =
                     object : com.antepod.lumentika.runtime.Content {
@@ -366,11 +366,11 @@ class RenderTest {
     @Test
     fun `top layer escapes ordinary ancestor clipping for paint and hit testing`() {
         val root =
-            Element("root").apply {
+            Element().apply {
                 geometry = Rect(0f, 0f, 10f, 10f)
             }
         val popup =
-            Element("popup").also {
+            Element().also {
                 it.geometry = Rect(20f, 0f, 10f, 10f)
                 it.content = TextContent("popup")
                 root.append(it)

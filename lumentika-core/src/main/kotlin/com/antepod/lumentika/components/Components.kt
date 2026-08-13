@@ -196,16 +196,15 @@ private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey(
 
 /** Mounts a block-layout container. */
 public fun UiScope.block(content: ContainerBuilder.() -> Unit = {}): Element =
-    container("block", style {}, content)
+    container(style {}, content)
 
 /** Mounts a generic flex-layout container. */
 public fun UiScope.flex(content: ContainerBuilder.() -> Unit = {}): Element =
-    container("flex", style { display = Display.FLEX }, content)
+    container(style { display = Display.FLEX }, content)
 
 /** Mounts a horizontal flex container. */
 public fun UiScope.row(content: ContainerBuilder.() -> Unit = {}): Element =
     container(
-        "row",
         style {
             display = Display.FLEX
             flexDirection = FlexDirection.ROW
@@ -216,7 +215,6 @@ public fun UiScope.row(content: ContainerBuilder.() -> Unit = {}): Element =
 /** Mounts a vertical flex container. */
 public fun UiScope.column(content: ContainerBuilder.() -> Unit = {}): Element =
     container(
-        "column",
         style {
             display = Display.FLEX
             flexDirection = FlexDirection.COLUMN
@@ -226,11 +224,11 @@ public fun UiScope.column(content: ContainerBuilder.() -> Unit = {}): Element =
 
 /** Mounts a grid-layout container. */
 public fun UiScope.grid(content: ContainerBuilder.() -> Unit = {}): Element =
-    container("grid", style { display = Display.GRID }, content)
+    container(style { display = Display.GRID }, content)
 
 /** Mounts an overlay stack container. */
 public fun UiScope.stack(content: ContainerBuilder.() -> Unit = {}): Element =
-    container("stack", style { display = Display.GRID }, content)
+    container(style { display = Display.GRID }, content)
 
 internal fun UiScope.mountScroll(
     element: Element,
@@ -394,7 +392,9 @@ internal constructor(
         )
         horizontal.updateExtents(viewportWidth, contentWidth)
         vertical.updateExtents(viewportHeight, contentHeight)
-        if (element.kind == "list") updateListSemantics()
+        if (element.attachment(SemanticsAttachment)?.role == SemanticRole.LIST) {
+            updateListSemantics()
+        }
     }
 
     private fun updateListSemantics() {
@@ -403,8 +403,11 @@ internal constructor(
             element.children
                 .filter { it.isMounted && it !in visualParts }
                 .flatMap { child ->
-                    if (child.kind == "for-each") child.children.filter { it.isMounted }
-                    else listOf(child)
+                    if (child.attachment(CollectionItemContainerAttachment) != null) {
+                        child.children.filter { it.isMounted }
+                    } else {
+                        listOf(child)
+                    }
                 }
         val rootSemantics = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
         element.attach(
@@ -434,7 +437,7 @@ internal constructor(
 
 /** Mounts static text. */
 public fun UiScope.text(value: String): Element =
-    element("text", TextContent(value, context.textLayout)).also {
+    element(TextContent(value, context.textLayout)).also {
         it.attach(
             SemanticsAttachment,
             SemanticsConfiguration(role = SemanticRole.TEXT, label = value),
@@ -449,7 +452,7 @@ public fun UiScope.image(
     source: ImageSource,
     size: com.antepod.lumentika.geometry.Size? = null,
 ): Element =
-    element("image", ImageContent(source, size ?: context.images?.intrinsicSize(source))).also {
+    element(ImageContent(source, size ?: context.images?.intrinsicSize(source))).also {
         it.attach(SemanticsAttachment, SemanticsConfiguration(role = SemanticRole.IMAGE))
     }
 
@@ -532,7 +535,7 @@ internal constructor(
     public fun showNow() {
         if (closed || popup != null) return
         val popup =
-            Element("tooltip-popup").also {
+            Element().also {
                 it.content = TextContent(text.value, context.textLayout)
                 it.attach(
                     SemanticsAttachment,
@@ -667,7 +670,7 @@ private fun UiScope.installParts(
         val target =
             if (definitions.first().first === token) owner
             else
-                Element("${owner.kind}-part").also {
+                Element().also {
                     owner.append(it)
                     context.attachStyle(
                         it,
@@ -1220,11 +1223,10 @@ private fun handleEditorKey(
 }
 
 private fun UiScope.container(
-    kind: String,
     defaultStyle: Style,
     content: ContainerBuilder.() -> Unit,
 ): Element {
-    val element = element(kind)
+    val element = element()
     context.attachStyle(element, defaultStyle)
     ContainerBuilder(element, context).content()
     return element

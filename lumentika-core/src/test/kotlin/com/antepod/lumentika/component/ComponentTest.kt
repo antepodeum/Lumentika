@@ -12,6 +12,7 @@ import com.antepod.lumentika.headlessRoot
 import com.antepod.lumentika.platform.UiLifecycleState
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.Element
+import com.antepod.lumentika.runtime.TextContent
 import com.antepod.lumentika.runtime.UiScope
 import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.style
@@ -26,12 +27,12 @@ class ComponentTest {
         val label = prop("Count")
         val count = binding(0)
 
-        override fun view(): Element = ui.element("counter")
+        override fun view(): Element = ui.element()
     }
 
     @Test
     fun `view executes once and binding is two way`() {
-        val root = Element("root")
+        val root = Element()
         val external = state(2)
         val counter = Counter()
         counter.count.bind(external, counter.componentScope)
@@ -61,12 +62,12 @@ class ComponentTest {
 
     @Test
     fun `show and keyed forEach preserve local identity`() {
-        val root = Element("root")
+        val root = Element()
         val visible = state(true)
         val items = state(listOf(1, 2))
         val scope = UiScope(root)
-        val shown = scope.show(visible) { element("child") }
-        val repeated = scope.forEach(items, key = { it }) { element("item-$it") }
+        val shown = scope.show(visible) { element() }
+        val repeated = scope.forEach(items, key = { it }) { element(TextContent("item-$it")) }
         val two = repeated.children[1]
         visible.value = false
         items.value = listOf(2, 3)
@@ -74,21 +75,21 @@ class ComponentTest {
         assertSame(two, repeated.children[0])
         assertEquals(
             listOf("item-2", "item-3"),
-            repeated.children.map { it.children.single().kind },
+            repeated.children.map { (it.children.single().content as TextContent).text },
         )
     }
 
     @Test
     fun `duplicate keys fail`() {
-        val root = Element("root")
+        val root = Element()
         val items = state(listOf(1))
-        UiScope(root).forEach(items, key = { it }) { element("item") }
+        UiScope(root).forEach(items, key = { it }) { element() }
         assertFailsWith<IllegalArgumentException> { items.value = listOf(1, 1) }
     }
 
     @Test
     fun `unmount disposes component scope and detaches binding`() {
-        val root = Element("root")
+        val root = Element()
         val external = state(1)
         val counter = Counter()
         counter.count.bind(external, counter.componentScope)
@@ -117,7 +118,7 @@ class ComponentTest {
                     onCancel = { trace += it.type },
                 ),
             ) {
-                element("child")
+                element()
             }
         root.frame(1)
         root.frame(50_000_001)
@@ -153,7 +154,7 @@ class ComponentTest {
                     exit = fade(durationMillis = 40),
                 ),
             ) {
-                element("child")
+                element()
             }
         root.frame(1)
         root.frame(20_000_001)
@@ -172,18 +173,19 @@ class ComponentTest {
     fun `outro group retains every child until the slowest transition ends`() {
         val root = headlessRoot(100f, 100f)
         val visible = state(true)
+        lateinit var slow: Element
         val variableExit =
             com.antepod.lumentika.animation.ElementTransition { context ->
                 com.antepod.lumentika.animation.ElementTransitionConfig(
-                    durationMillis = if (context.element.kind == "slow") 100 else 40
+                    durationMillis = if (context.element === slow) 100 else 40
                 ) { t, _ ->
                     com.antepod.lumentika.animation.TransitionFrame(opacity = t)
                 }
             }
         val shown =
             root.scope.show(visible, inOut(exit = variableExit)) {
-                element("fast")
-                element("slow")
+                element()
+                slow = element()
             }
         root.frame(1)
 
@@ -221,7 +223,7 @@ class ComponentTest {
                         onEnd = { ends++ },
                     ),
             ) {
-                element("item-$it")
+                element()
             }
         repeated.children.forEach { wrapper ->
             root.styles.attach(
@@ -267,7 +269,7 @@ class ComponentTest {
         val visible = state(true)
         val shown =
             root.scope.show(visible, transition(fade(durationMillis = 100))) {
-                element("child")
+                element()
             }
         root.frame(1)
         root.publishEnvironment(root.environment.value.copy(lifecycle = UiLifecycleState.SUSPENDED))

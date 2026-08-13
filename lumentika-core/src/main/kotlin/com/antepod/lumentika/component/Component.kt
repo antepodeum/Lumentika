@@ -15,6 +15,7 @@ import com.antepod.lumentika.reactive.derived
 import com.antepod.lumentika.reactive.effect
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.reactive.withComponentScope
+import com.antepod.lumentika.runtime.CollectionItemContainerAttachment
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.Fragment
 import com.antepod.lumentika.runtime.UiScope
@@ -272,7 +273,7 @@ public fun <T> contextKey(): ContextKey<T> = ContextKey()
 
 /** Mounts [content] below an element that provides [value] for [key]. */
 public fun <T> UiScope.provide(key: ContextKey<T>, value: T, content: UiScope.() -> Unit): Element {
-    val provider = element("context-provider")
+    val provider = element()
     provider.attach(contextAttachment, mutableMapOf(key to value))
     nested(provider).content()
     return provider
@@ -299,7 +300,7 @@ public fun UiScope.show(
     events: TransitionEvents = TransitionEvents(),
     content: UiScope.() -> Unit,
 ): Element {
-    val anchor = element("show")
+    val anchor = element()
     val controller =
         ShowTransitionController(
             anchor,
@@ -447,7 +448,8 @@ public fun <T, K> UiScope.forEach(
     animationEvents: LayoutAnimationEvents = LayoutAnimationEvents(),
     content: UiScope.(T) -> Unit,
 ): Element {
-    val anchor = element("for-each")
+    val anchor = element()
+    anchor.attach(CollectionItemContainerAttachment, Unit)
     val keyed = LinkedHashMap<K, Element>()
     withComponentScope(anchor.scope) {
         effect {
@@ -464,7 +466,7 @@ public fun <T, K> UiScope.forEach(
                 val itemKey = key(item)
                 val child =
                     keyed.remove(itemKey)
-                        ?: Element("keyed-item").also {
+                        ?: Element().also {
                             anchor.append(it)
                             nested(it).content(item)
                         }

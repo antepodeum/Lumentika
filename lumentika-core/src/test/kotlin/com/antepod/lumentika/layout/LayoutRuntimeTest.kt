@@ -44,9 +44,9 @@ import kotlin.test.assertTrue
 class LayoutRuntimeTest {
     @Test
     fun `padding margin and gap are projected into real Taffy geometry`() {
-        val root = Element("root")
-        val first = Element("first").also(root::append)
-        val second = Element("second").also(root::append)
+        val root = Element()
+        val first = Element().also(root::append)
+        val second = Element().also(root::append)
         val styles = StyleRuntime()
         styles.attach(
             root,
@@ -84,11 +84,11 @@ class LayoutRuntimeTest {
 
     @Test
     fun `real Taffy projects stable tree and computes at most once per frame`() {
-        val root = Element("root")
+        val root = Element()
         val scope = UiScope(root)
         scope.fragment {
-            element("first")
-            element("text", TextContent("hello"))
+            element()
+            element(TextContent("hello"))
         }
         val styles = StyleRuntime()
         styles.attach(
@@ -130,8 +130,8 @@ class LayoutRuntimeTest {
 
     @Test
     fun `intrinsic content keeps a stable cached handle and coalesces mark dirty`() {
-        val root = Element("root")
-        val text = UiScope(root).element("text", TextContent("first"))
+        val root = Element()
+        val text = UiScope(root).element(TextContent("first"))
         val styles = StyleRuntime()
         styles.attach(root, state(style {}))
         val runtime = LayoutRuntime(root, LogicalUnitResolver, { styles.resolve(it).first }, false)
@@ -168,7 +168,7 @@ class LayoutRuntimeTest {
 
     @Test
     fun `every Taffy style field is projected without exposing Taffy in public API`() {
-        val root = Element("root")
+        val root = Element()
         val styles = StyleRuntime()
         val areas = GridTemplateAreas(listOf(GridTemplateArea("main", 0, 1, 0, 1)), 1, 1)
         styles.attach(

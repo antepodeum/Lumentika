@@ -26,7 +26,7 @@ class ExternalPaintTest {
     @Test
     fun `external paint resolves records and replays backend command`() {
         val paint = ExternalPaint("external")
-        val root = Element("external").apply { geometry = Rect(0f, 0f, 20f, 10f) }
+        val root = Element().apply { geometry = Rect(0f, 0f, 20f, 10f) }
         val styles = StyleRuntime()
         styles.attach(root, state(style { background = paint }))
         assertSame(paint, styles.resolve(root).first[Properties.Background])
