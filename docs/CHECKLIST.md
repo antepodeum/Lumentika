@@ -355,6 +355,7 @@ The evidence matrix at the end maps each checklist section to its acceptance tes
 - [x] release version derived and validated from `v<semver>` tags
 - [x] `lumentika-core` binary, sources, and Dokka API JAR publication
 - [x] `lumentika-ksp` binary, sources, and Dokka API JAR publication
+- [x] protected `maven-central` environment owns publication and signing secrets
 - [x] signed Maven Central Portal publication with complete POM metadata
 - [x] GitHub Packages publication using the workflow token
 - [x] GitHub Release contains directly downloadable JAR artifacts

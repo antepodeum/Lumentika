@@ -17,6 +17,7 @@ jobs:
   publish:
     name: Verify and publish artifacts
     runs-on: ubuntu-latest
+    environment: maven-central
     timeout-minutes: 30
 
     steps:
@@ -53,7 +54,7 @@ jobs:
         run: |
           for name in MAVEN_CENTRAL_USERNAME MAVEN_CENTRAL_PASSWORD SIGNING_KEY SIGNING_PASSWORD; do
             if [[ -z "${!name}" ]]; then
-              echo "Required repository secret $name is missing" >&2
+              echo "Required maven-central environment secret $name is missing" >&2
               exit 1
             fi
           done
