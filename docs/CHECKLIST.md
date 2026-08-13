@@ -121,49 +121,49 @@
 
 ## Semantics/accessibility
 
-- [ ] `SemanticsRuntime`
-- [ ] stable `SemanticsNodeId`
-- [ ] typed roles
-- [ ] typed actions
-- [ ] label/value/stateDescription/hint
-- [ ] enabled/selected/checked/expanded/readOnly/password
-- [ ] range semantics
+- [x] `SemanticsRuntime`
+- [x] stable `SemanticsNodeId`
+- [x] typed roles
+- [x] typed actions
+- [x] label/value/stateDescription/hint
+- [x] enabled/selected/checked/expanded/readOnly/password
+- [x] range semantics
 - [ ] text selection semantics
-- [ ] collection/item metadata
-- [ ] merge descendants
-- [ ] clear descendants
-- [ ] hidden semantics
+- [x] collection/item metadata
+- [x] merge descendants
+- [x] clear descendants
+- [x] hidden semantics
 - [ ] semantic bounds use committed transforms/clips
-- [ ] accessibility focus separate from input focus
-- [ ] live regions/announcements
-- [ ] semantic dirty tracking
-- [ ] platform adapter action routing
+- [x] accessibility focus separate from input focus
+- [x] live regions/announcements
+- [x] semantic dirty tracking
+- [x] platform adapter action routing
 - [ ] button/checkbox/slider/textField default semantics
 
 ## Text layout/editing
 
-- [ ] UTF-16 offset model
-- [ ] grapheme-aware navigation/deletion
-- [ ] bidi-aware caret affinity
-- [ ] `TextEditingValue`
-- [ ] selection
-- [ ] independent composition range
-- [ ] `TextEditingController`
-- [ ] typed `TextEditCommand`
-- [ ] commit text
-- [ ] composing text/region
-- [ ] finish composition
-- [ ] delete surrounding text/codepoints
+- [x] UTF-16 offset model
+- [x] grapheme-aware navigation/deletion
+- [x] bidi-aware caret affinity
+- [x] `TextEditingValue`
+- [x] selection
+- [x] independent composition range
+- [x] `TextEditingController`
+- [x] typed `TextEditCommand`
+- [x] commit text
+- [x] composing text/region
+- [x] finish composition
+- [x] delete surrounding text/codepoints
 - [ ] batch edits
 - [ ] external value reconciliation
-- [ ] `TextInputService`
+- [x] `TextInputService`
 - [ ] one active session per focused editor
 - [ ] session closes on focus loss/unmount
-- [ ] `TextLayoutService`
-- [ ] line/baseline metrics
-- [ ] point→offset
-- [ ] offset→caret rect
-- [ ] selection rectangles
+- [x] `TextLayoutService`
+- [x] line/baseline metrics
+- [x] point→offset
+- [x] offset→caret rect
+- [x] selection rectangles
 - [ ] cursor geometry publication
 - [ ] text measurement/render layout identity
 - [ ] caret auto-scroll
@@ -171,9 +171,9 @@
 
 ## Clipboard/content/autofill
 
-- [ ] copy/cut/paste default actions
-- [ ] rich receive-content model
-- [ ] platform drag/drop normalization
+- [x] copy/cut/paste default actions
+- [x] rich receive-content model
+- [x] platform drag/drop normalization
 - [ ] unconsumed content propagation
 - [ ] autofill metadata/hints
 - [ ] stable autofill node identity
