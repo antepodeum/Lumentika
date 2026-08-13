@@ -359,6 +359,7 @@ public object ExponentialFling : FlingBehavior {
 }
 
 public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
+    private val listeners = linkedSetOf<(ScrollState) -> Unit>()
     public var x = initialX
         private set
 
@@ -389,7 +390,15 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
         overscroll = remain
         val post =
             bounded(connection?.postScroll(used, remain, source) ?: ScrollDelta(0f, 0f), remain)
+        if (used != ScrollDelta(0f, 0f) || overscroll != ScrollDelta(0f, 0f)) {
+            listeners.toList().forEach { it(this) }
+        }
         return pre + used + post
+    }
+
+    public fun onChanged(listener: (ScrollState) -> Unit): AutoCloseable {
+        listeners += listener
+        return AutoCloseable { listeners -= listener }
     }
 
     public fun fling(

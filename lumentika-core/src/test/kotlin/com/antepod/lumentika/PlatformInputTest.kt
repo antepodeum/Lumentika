@@ -3,11 +3,13 @@ package com.antepod.lumentika
 import com.antepod.lumentika.components.button
 import com.antepod.lumentika.components.column
 import com.antepod.lumentika.components.image
+import com.antepod.lumentika.components.scroll
 import com.antepod.lumentika.components.text
 import com.antepod.lumentika.components.textField
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
+import com.antepod.lumentika.gesture.ScrollState
 import com.antepod.lumentika.input.EventType
 import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.input.PointerType
@@ -179,6 +181,40 @@ class PlatformInputTest {
         assertEquals("a", inputService.lastValue?.text)
         root.close()
         assertEquals(1, inputService.closes)
+    }
+
+    @Test
+    fun `wheel scroll updates descendant transform without layout or paint recording`() {
+        val root = headlessRoot(100f, 100f)
+        val state = ScrollState().also { it.maxY = 200f }
+        lateinit var child: com.antepod.lumentika.runtime.Element
+        val scroll = root.scope.scroll(state) { child = text("content") }
+        root.styles.attach(
+            scroll,
+            com.antepod.lumentika.reactive.state(
+                style {
+                    width = 100.px
+                    height = 100.px
+                }
+            ),
+        )
+        root.requestFrame()
+        root.frame(1)
+        val layouts = root.layoutComputeCount
+        val records = root.renderRecordCount
+        val before =
+            root.committedRender.hitTest.entries.single { it.element === child }.rootTransform
+
+        assertTrue(root.dispatchWheel(Point(5f, 5f), 0f, 20f, 2))
+        root.frame(3)
+
+        val after =
+            root.committedRender.hitTest.entries.single { it.element === child }.rootTransform
+        assertEquals(20f, state.y)
+        assertEquals(layouts, root.layoutComputeCount)
+        assertEquals(records, root.renderRecordCount)
+        assertEquals(before.transform(Point(0f, 0f)).y - 20f, after.transform(Point(0f, 0f)).y)
+        root.close()
     }
 
     private class RecordingLayoutService : TextLayoutService {

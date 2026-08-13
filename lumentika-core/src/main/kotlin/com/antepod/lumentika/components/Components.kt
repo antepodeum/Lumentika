@@ -19,6 +19,7 @@ import com.antepod.lumentika.platform.GestureConfiguration
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.effect
 import com.antepod.lumentika.reactive.withComponentScope
+import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
 import com.antepod.lumentika.text.TextEditCommand
@@ -66,6 +67,8 @@ public class ControlGestureHandle(public val recognizer: GestureRecognizer) : Au
 public val GestureAttachment: AttachmentKey<ControlGestureHandle> = AttachmentKey()
 public val TextEditorAttachment: AttachmentKey<TextEditorRuntime> = AttachmentKey()
 private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
+private val ScrollIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
+private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 
 public fun UiScope.block(content: UiScope.() -> Unit = {}): Element =
     element("block", block = content)
@@ -104,6 +107,25 @@ public fun UiScope.scroll(
                 )
             )
         element.attach(GestureAttachment, handle)
+        val updateRender = {
+            context.configureRender(
+                element,
+                RenderProperties(scrollOffset = Point(state.x, state.y)),
+            )
+        }
+        element.attach(ScrollIntegrationAttachment, state.onChanged { updateRender() })
+        context.events?.let { events ->
+            element.attach(
+                ScrollWheelAttachment,
+                events.on(element, EventType.WHEEL) { event ->
+                    if (!event.defaultPrevented) {
+                        event as com.antepod.lumentika.input.WheelEvent
+                        state.scroll(ScrollDelta(event.deltaX, event.deltaY), ScrollSource.WHEEL)
+                    }
+                },
+            )
+        }
+        updateRender()
     }
 
 public fun UiScope.list(content: UiScope.() -> Unit = {}): Element =

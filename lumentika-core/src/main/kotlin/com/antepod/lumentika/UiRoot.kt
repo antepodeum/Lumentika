@@ -87,6 +87,7 @@ public class UiRoot(
                 focus,
                 events,
                 ::requestFrame,
+                ::configureRender,
             ),
         )
     public val styleAnimations =

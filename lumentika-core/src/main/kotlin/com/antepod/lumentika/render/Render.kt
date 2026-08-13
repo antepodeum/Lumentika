@@ -225,8 +225,8 @@ public class RenderRuntime(
         val config = properties[element] ?: RenderProperties()
         val translation =
             Matrix3.translation(
-                element.geometry.x - (element.parent?.geometry?.x ?: 0f) - config.scrollOffset.x,
-                element.geometry.y - (element.parent?.geometry?.y ?: 0f) - config.scrollOffset.y,
+                element.geometry.x - (element.parent?.geometry?.x ?: 0f),
+                element.geometry.y - (element.parent?.geometry?.y ?: 0f),
             )
         val transform = parent.transform * translation * config.transform
         val rootBounds =
@@ -285,8 +285,19 @@ public class RenderRuntime(
                     element.content as? HitRegionSource,
                     element.content as? SceneContent,
                 )
+        val childTransform =
+            transform * Matrix3.translation(-config.scrollOffset.x, -config.scrollOffset.y)
         val childState =
-            ParentState(transform, clip, transformId, clipId, effectId, scrollId, stackId, topLayer)
+            ParentState(
+                childTransform,
+                clip,
+                transformId,
+                clipId,
+                effectId,
+                scrollId,
+                stackId,
+                topLayer,
+            )
         element.children
             .sortedBy { resolveStyle(it)[Properties.ZIndex] }
             .forEach { walk(it, childState, builder) }
