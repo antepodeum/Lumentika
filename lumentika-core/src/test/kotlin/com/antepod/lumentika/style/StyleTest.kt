@@ -101,4 +101,74 @@ class StyleTest {
             )
         }
     }
+
+    @Test
+    fun `complete Taffy style surface compiles and resolves as typed values`() {
+        val template =
+            GridTemplateComponent.Repeat(
+                GridRepetition.Count(2),
+                listOf(GridTrackSizing.flex(1)),
+                listOf(listOf("start"), listOf("end")),
+            )
+        val areas = GridTemplateAreas(listOf(GridTemplateArea("main", 0, 1, 0, 1)), 1, 1)
+        val source =
+            state(
+                style {
+                    itemIsTable = true
+                    itemIsReplaced = true
+                    boxSizing = BoxSizing.CONTENT_BOX
+                    direction = Direction.RTL
+                    overflowX = Overflow.CLIP
+                    overflowY = Overflow.SCROLL
+                    scrollbarWidth = 8.dp
+                    floatValue = FloatLayout.LEFT
+                    clear = Clear.BOTH
+                    position = Position.ABSOLUTE
+                    inset = edges(Auto, 10.dp, Auto, 5.percent)
+                    aspectRatio = 16f / 9f
+                    border = edges(1.dp)
+                    alignItems = AlignItems.SAFE_CENTER
+                    alignSelf = AlignItems.BASELINE
+                    justifyItems = AlignItems.CENTER
+                    justifySelf = AlignItems.END
+                    alignContent = AlignContent.SPACE_AROUND
+                    justifyContent = AlignContent.SPACE_BETWEEN
+                    columnGap = 3.dp
+                    rowGap = 4.dp
+                    textAlign = TextAlign.LEGACY_CENTER
+                    flexWrap = FlexWrap.WRAP_REVERSE
+                    flexBasis = 20.percent
+                    gridTemplateRows = listOf(template)
+                    gridTemplateColumns =
+                        listOf(GridTemplateComponent.Single(GridTrackSizing.fixed(20.dp)))
+                    gridAutoRows = listOf(GridTrackSizing.MinContent)
+                    gridAutoColumns = listOf(GridTrackSizing.fitContent(50.percent))
+                    gridAutoFlow = GridAutoFlow.COLUMN_DENSE
+                    gridTemplateAreas = areas
+                    gridTemplateColumnNames = listOf(listOf("left"), listOf("right"))
+                    gridTemplateRowNames = listOf(listOf("top"), listOf("bottom"))
+                    gridRow = GridLine(GridPlacement.Line(1), GridPlacement.Span(2))
+                    gridColumn =
+                        GridLine(GridPlacement.Line(1, "left"), GridPlacement.Span(1, "cell"))
+                }
+            )
+        val element = Element()
+        val runtime = StyleRuntime()
+        runtime.attach(element, source)
+
+        val resolved = runtime.resolve(element).first
+
+        assertEquals(BoxSizing.CONTENT_BOX, resolved[Properties.BoxSizing])
+        assertEquals(Overflow.CLIP, resolved[Properties.OverflowX])
+        assertEquals(Overflow.SCROLL, resolved[Properties.OverflowY])
+        assertEquals(template, resolved[Properties.GridTemplateRows].single())
+        assertEquals(areas, resolved[Properties.GridTemplateAreas])
+        assertEquals(GridAutoFlow.COLUMN_DENSE, resolved[Properties.GridAutoFlow])
+        assertTrue(
+            Properties.GridTemplateColumns in
+                source.value.program.environmentDependencies.getValue(
+                    EnvironmentDependency.DP_UNITS
+                )
+        )
+    }
 }

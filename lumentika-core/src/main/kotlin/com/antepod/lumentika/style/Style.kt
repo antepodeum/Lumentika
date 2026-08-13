@@ -336,6 +336,178 @@ public object Properties {
             true,
             StyleImpact.PAINT + StyleImpact.INHERITANCE,
         )
+    public val ItemIsTable =
+        layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_TABLE, "itemIsTable", false)
+    public val ItemIsReplaced =
+        layoutProperty(GeneratedStylePropertyCatalog.ITEM_IS_REPLACED, "itemIsReplaced", false)
+    public val BoxSizing =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.BOX_SIZING,
+            "boxSizing",
+            com.antepod.lumentika.style.BoxSizing.BORDER_BOX,
+        )
+    public val Direction =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.DIRECTION,
+            "direction",
+            com.antepod.lumentika.style.Direction.LTR,
+        )
+    public val OverflowX =
+        layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_X, "overflowX", null)
+    public val OverflowY =
+        layoutProperty<Overflow?>(GeneratedStylePropertyCatalog.OVERFLOW_Y, "overflowY", null)
+    public val ScrollbarWidth =
+        layoutProperty<AbsoluteLengthValue>(
+            GeneratedStylePropertyCatalog.SCROLLBAR_WIDTH,
+            "scrollbarWidth",
+            0.px,
+        )
+    public val FloatValue =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.FLOAT_VALUE,
+            "floatValue",
+            FloatLayout.NONE,
+        )
+    public val Clear =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.CLEAR,
+            "clear",
+            com.antepod.lumentika.style.Clear.NONE,
+        )
+    public val Position =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.POSITION,
+            "position",
+            com.antepod.lumentika.style.Position.RELATIVE,
+        )
+    public val Inset =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.INSET,
+            "inset",
+            edges<LengthPercentageAutoValue>(Auto),
+        )
+    public val AspectRatio =
+        layoutProperty<Float?>(GeneratedStylePropertyCatalog.ASPECT_RATIO, "aspectRatio", null)
+    public val Border =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.BORDER,
+            "border",
+            edges<LengthPercentageValue>(0.px),
+        )
+    public val AlignItems =
+        layoutProperty<com.antepod.lumentika.style.AlignItems?>(
+            GeneratedStylePropertyCatalog.ALIGN_ITEMS,
+            "alignItems",
+            null,
+        )
+    public val AlignSelf =
+        layoutProperty<com.antepod.lumentika.style.AlignItems?>(
+            GeneratedStylePropertyCatalog.ALIGN_SELF,
+            "alignSelf",
+            null,
+        )
+    public val JustifyItems =
+        layoutProperty<com.antepod.lumentika.style.AlignItems?>(
+            GeneratedStylePropertyCatalog.JUSTIFY_ITEMS,
+            "justifyItems",
+            null,
+        )
+    public val JustifySelf =
+        layoutProperty<com.antepod.lumentika.style.AlignItems?>(
+            GeneratedStylePropertyCatalog.JUSTIFY_SELF,
+            "justifySelf",
+            null,
+        )
+    public val AlignContent =
+        layoutProperty<com.antepod.lumentika.style.AlignContent?>(
+            GeneratedStylePropertyCatalog.ALIGN_CONTENT,
+            "alignContent",
+            null,
+        )
+    public val JustifyContent =
+        layoutProperty<com.antepod.lumentika.style.AlignContent?>(
+            GeneratedStylePropertyCatalog.JUSTIFY_CONTENT,
+            "justifyContent",
+            null,
+        )
+    public val ColumnGap =
+        layoutProperty<DimensionValue?>(
+            GeneratedStylePropertyCatalog.COLUMN_GAP,
+            "columnGap",
+            null,
+        )
+    public val RowGap =
+        layoutProperty<DimensionValue?>(GeneratedStylePropertyCatalog.ROW_GAP, "rowGap", null)
+    public val TextAlign =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.TEXT_ALIGN,
+            "textAlign",
+            com.antepod.lumentika.style.TextAlign.AUTO,
+        )
+    public val FlexWrap =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.FLEX_WRAP,
+            "flexWrap",
+            com.antepod.lumentika.style.FlexWrap.NO_WRAP,
+        )
+    public val FlexBasis =
+        layoutProperty<DimensionValue>(
+            GeneratedStylePropertyCatalog.FLEX_BASIS,
+            "flexBasis",
+            Auto,
+        )
+    public val GridTemplateRows =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_ROWS,
+            "gridTemplateRows",
+            emptyList<GridTemplateComponent>(),
+        )
+    public val GridTemplateColumns =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_COLUMNS,
+            "gridTemplateColumns",
+            emptyList<GridTemplateComponent>(),
+        )
+    public val GridAutoRows =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.GRID_AUTO_ROWS,
+            "gridAutoRows",
+            emptyList<GridTrackSizing>(),
+        )
+    public val GridAutoColumns =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.GRID_AUTO_COLUMNS,
+            "gridAutoColumns",
+            emptyList<GridTrackSizing>(),
+        )
+    public val GridAutoFlow =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.GRID_AUTO_FLOW,
+            "gridAutoFlow",
+            com.antepod.lumentika.style.GridAutoFlow.ROW,
+        )
+    public val GridTemplateAreas =
+        layoutProperty<com.antepod.lumentika.style.GridTemplateAreas?>(
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_AREAS,
+            "gridTemplateAreas",
+            null,
+        )
+    public val GridTemplateColumnNames =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_COLUMN_NAMES,
+            "gridTemplateColumnNames",
+            emptyList<List<String>>(),
+        )
+    public val GridTemplateRowNames =
+        layoutProperty(
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_ROW_NAMES,
+            "gridTemplateRowNames",
+            emptyList<List<String>>(),
+        )
+    public val GridRow =
+        layoutProperty(GeneratedStylePropertyCatalog.GRID_ROW, "gridRow", GridLine())
+    public val GridColumn =
+        layoutProperty(GeneratedStylePropertyCatalog.GRID_COLUMN, "gridColumn", GridLine())
     public val all: List<StyleProperty<*>> =
         listOf(
             Display,
@@ -359,7 +531,44 @@ public object Properties {
             PointerEvents,
             FontSize,
             Color,
+            ItemIsTable,
+            ItemIsReplaced,
+            BoxSizing,
+            Direction,
+            OverflowX,
+            OverflowY,
+            ScrollbarWidth,
+            FloatValue,
+            Clear,
+            Position,
+            Inset,
+            AspectRatio,
+            Border,
+            AlignItems,
+            AlignSelf,
+            JustifyItems,
+            JustifySelf,
+            AlignContent,
+            JustifyContent,
+            ColumnGap,
+            RowGap,
+            TextAlign,
+            FlexWrap,
+            FlexBasis,
+            GridTemplateRows,
+            GridTemplateColumns,
+            GridAutoRows,
+            GridAutoColumns,
+            GridAutoFlow,
+            GridTemplateAreas,
+            GridTemplateColumnNames,
+            GridTemplateRowNames,
+            GridRow,
+            GridColumn,
         )
+
+    private fun <T> layoutProperty(id: Int, name: String, initialValue: T): StyleProperty<T> =
+        StyleProperty(id, name, initialValue, impact = StyleImpact.LAYOUT)
 }
 
 public interface StyleState
@@ -561,6 +770,145 @@ public class StyleBuilder internal constructor(private val condition: StyleCondi
         get() = error("write-only")
         set(value) = set(Properties.Overflow, value)
 
+    public var itemIsTable: Boolean
+        get() = error("write-only")
+        set(value) = set(Properties.ItemIsTable, value)
+
+    public var itemIsReplaced: Boolean
+        get() = error("write-only")
+        set(value) = set(Properties.ItemIsReplaced, value)
+
+    public var boxSizing: BoxSizing
+        get() = error("write-only")
+        set(value) = set(Properties.BoxSizing, value)
+
+    public var direction: Direction
+        get() = error("write-only")
+        set(value) = set(Properties.Direction, value)
+
+    public var overflowX: Overflow
+        get() = error("write-only")
+        set(value) = set(Properties.OverflowX, value)
+
+    public var overflowY: Overflow
+        get() = error("write-only")
+        set(value) = set(Properties.OverflowY, value)
+
+    public var scrollbarWidth: AbsoluteLengthValue
+        get() = error("write-only")
+        set(value) = set(Properties.ScrollbarWidth, value)
+
+    public var floatValue: FloatLayout
+        get() = error("write-only")
+        set(value) = set(Properties.FloatValue, value)
+
+    public var clear: Clear
+        get() = error("write-only")
+        set(value) = set(Properties.Clear, value)
+
+    public var position: Position
+        get() = error("write-only")
+        set(value) = set(Properties.Position, value)
+
+    public var inset: Edges<LengthPercentageAutoValue>
+        get() = error("write-only")
+        set(value) = set(Properties.Inset, value)
+
+    public var aspectRatio: Float?
+        get() = error("write-only")
+        set(value) {
+            require(value == null || value > 0f) { "Aspect ratio must be positive" }
+            set(Properties.AspectRatio, value)
+        }
+
+    public var border: Edges<LengthPercentageValue>
+        get() = error("write-only")
+        set(value) = set(Properties.Border, value)
+
+    public var alignItems: AlignItems?
+        get() = error("write-only")
+        set(value) = set(Properties.AlignItems, value)
+
+    public var alignSelf: AlignItems?
+        get() = error("write-only")
+        set(value) = set(Properties.AlignSelf, value)
+
+    public var justifyItems: AlignItems?
+        get() = error("write-only")
+        set(value) = set(Properties.JustifyItems, value)
+
+    public var justifySelf: AlignItems?
+        get() = error("write-only")
+        set(value) = set(Properties.JustifySelf, value)
+
+    public var alignContent: AlignContent?
+        get() = error("write-only")
+        set(value) = set(Properties.AlignContent, value)
+
+    public var justifyContent: AlignContent?
+        get() = error("write-only")
+        set(value) = set(Properties.JustifyContent, value)
+
+    public var columnGap: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.ColumnGap, value)
+
+    public var rowGap: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.RowGap, value)
+
+    public var textAlign: TextAlign
+        get() = error("write-only")
+        set(value) = set(Properties.TextAlign, value)
+
+    public var flexWrap: FlexWrap
+        get() = error("write-only")
+        set(value) = set(Properties.FlexWrap, value)
+
+    public var flexBasis: DimensionValue
+        get() = error("write-only")
+        set(value) = set(Properties.FlexBasis, value)
+
+    public var gridTemplateRows: List<GridTemplateComponent>
+        get() = error("write-only")
+        set(value) = set(Properties.GridTemplateRows, value.toList())
+
+    public var gridTemplateColumns: List<GridTemplateComponent>
+        get() = error("write-only")
+        set(value) = set(Properties.GridTemplateColumns, value.toList())
+
+    public var gridAutoRows: List<GridTrackSizing>
+        get() = error("write-only")
+        set(value) = set(Properties.GridAutoRows, value.toList())
+
+    public var gridAutoColumns: List<GridTrackSizing>
+        get() = error("write-only")
+        set(value) = set(Properties.GridAutoColumns, value.toList())
+
+    public var gridAutoFlow: GridAutoFlow
+        get() = error("write-only")
+        set(value) = set(Properties.GridAutoFlow, value)
+
+    public var gridTemplateAreas: GridTemplateAreas?
+        get() = error("write-only")
+        set(value) = set(Properties.GridTemplateAreas, value)
+
+    public var gridTemplateColumnNames: List<List<String>>
+        get() = error("write-only")
+        set(value) = set(Properties.GridTemplateColumnNames, value.map(List<String>::toList))
+
+    public var gridTemplateRowNames: List<List<String>>
+        get() = error("write-only")
+        set(value) = set(Properties.GridTemplateRowNames, value.map(List<String>::toList))
+
+    public var gridRow: GridLine
+        get() = error("write-only")
+        set(value) = set(Properties.GridRow, value)
+
+    public var gridColumn: GridLine
+        get() = error("write-only")
+        set(value) = set(Properties.GridColumn, value)
+
     public var background: Paint?
         get() = error("write-only")
         set(value) = set(Properties.Background, value)
@@ -649,6 +997,43 @@ public data class FlexGridValues(
     val shrink: Float,
 )
 
+public data class TaffyLayoutValues(
+    val itemIsTable: Boolean,
+    val itemIsReplaced: Boolean,
+    val boxSizing: BoxSizing,
+    val direction: Direction,
+    val overflowX: Overflow?,
+    val overflowY: Overflow?,
+    val scrollbarWidth: AbsoluteLengthValue,
+    val floatValue: FloatLayout,
+    val clear: Clear,
+    val position: Position,
+    val inset: Edges<LengthPercentageAutoValue>,
+    val aspectRatio: Float?,
+    val border: Edges<LengthPercentageValue>,
+    val alignItems: AlignItems?,
+    val alignSelf: AlignItems?,
+    val justifyItems: AlignItems?,
+    val justifySelf: AlignItems?,
+    val alignContent: AlignContent?,
+    val justifyContent: AlignContent?,
+    val columnGap: DimensionValue?,
+    val rowGap: DimensionValue?,
+    val textAlign: TextAlign,
+    val flexWrap: FlexWrap,
+    val flexBasis: DimensionValue,
+    val gridTemplateRows: List<GridTemplateComponent>,
+    val gridTemplateColumns: List<GridTemplateComponent>,
+    val gridAutoRows: List<GridTrackSizing>,
+    val gridAutoColumns: List<GridTrackSizing>,
+    val gridAutoFlow: GridAutoFlow,
+    val gridTemplateAreas: GridTemplateAreas?,
+    val gridTemplateColumnNames: List<List<String>>,
+    val gridTemplateRowNames: List<List<String>>,
+    val gridRow: GridLine,
+    val gridColumn: GridLine,
+)
+
 public data class PaintValues(val background: Paint?)
 
 public data class RenderValues(val opacity: Float, val zIndex: Int)
@@ -660,6 +1045,7 @@ internal constructor(
     public val inherited: InheritedValues,
     public val boxLayout: BoxLayoutValues,
     public val flexGrid: FlexGridValues,
+    public val taffyLayout: TaffyLayoutValues,
     public val paint: PaintValues,
     public val render: RenderValues,
     public val interaction: InteractionValues,
@@ -688,6 +1074,42 @@ internal constructor(
             GeneratedStylePropertyCatalog.POINTER_EVENTS -> interaction.pointerEvents
             GeneratedStylePropertyCatalog.FONT_SIZE -> inherited.fontSize
             GeneratedStylePropertyCatalog.COLOR -> inherited.color
+            GeneratedStylePropertyCatalog.ITEM_IS_TABLE -> taffyLayout.itemIsTable
+            GeneratedStylePropertyCatalog.ITEM_IS_REPLACED -> taffyLayout.itemIsReplaced
+            GeneratedStylePropertyCatalog.BOX_SIZING -> taffyLayout.boxSizing
+            GeneratedStylePropertyCatalog.DIRECTION -> taffyLayout.direction
+            GeneratedStylePropertyCatalog.OVERFLOW_X -> taffyLayout.overflowX
+            GeneratedStylePropertyCatalog.OVERFLOW_Y -> taffyLayout.overflowY
+            GeneratedStylePropertyCatalog.SCROLLBAR_WIDTH -> taffyLayout.scrollbarWidth
+            GeneratedStylePropertyCatalog.FLOAT_VALUE -> taffyLayout.floatValue
+            GeneratedStylePropertyCatalog.CLEAR -> taffyLayout.clear
+            GeneratedStylePropertyCatalog.POSITION -> taffyLayout.position
+            GeneratedStylePropertyCatalog.INSET -> taffyLayout.inset
+            GeneratedStylePropertyCatalog.ASPECT_RATIO -> taffyLayout.aspectRatio
+            GeneratedStylePropertyCatalog.BORDER -> taffyLayout.border
+            GeneratedStylePropertyCatalog.ALIGN_ITEMS -> taffyLayout.alignItems
+            GeneratedStylePropertyCatalog.ALIGN_SELF -> taffyLayout.alignSelf
+            GeneratedStylePropertyCatalog.JUSTIFY_ITEMS -> taffyLayout.justifyItems
+            GeneratedStylePropertyCatalog.JUSTIFY_SELF -> taffyLayout.justifySelf
+            GeneratedStylePropertyCatalog.ALIGN_CONTENT -> taffyLayout.alignContent
+            GeneratedStylePropertyCatalog.JUSTIFY_CONTENT -> taffyLayout.justifyContent
+            GeneratedStylePropertyCatalog.COLUMN_GAP -> taffyLayout.columnGap
+            GeneratedStylePropertyCatalog.ROW_GAP -> taffyLayout.rowGap
+            GeneratedStylePropertyCatalog.TEXT_ALIGN -> taffyLayout.textAlign
+            GeneratedStylePropertyCatalog.FLEX_WRAP -> taffyLayout.flexWrap
+            GeneratedStylePropertyCatalog.FLEX_BASIS -> taffyLayout.flexBasis
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_ROWS -> taffyLayout.gridTemplateRows
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_COLUMNS -> taffyLayout.gridTemplateColumns
+            GeneratedStylePropertyCatalog.GRID_AUTO_ROWS -> taffyLayout.gridAutoRows
+            GeneratedStylePropertyCatalog.GRID_AUTO_COLUMNS -> taffyLayout.gridAutoColumns
+            GeneratedStylePropertyCatalog.GRID_AUTO_FLOW -> taffyLayout.gridAutoFlow
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_AREAS -> taffyLayout.gridTemplateAreas
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_COLUMN_NAMES ->
+                taffyLayout.gridTemplateColumnNames
+            GeneratedStylePropertyCatalog.GRID_TEMPLATE_ROW_NAMES ->
+                taffyLayout.gridTemplateRowNames
+            GeneratedStylePropertyCatalog.GRID_ROW -> taffyLayout.gridRow
+            GeneratedStylePropertyCatalog.GRID_COLUMN -> taffyLayout.gridColumn
             else -> error("Unknown style property ${property.name}")
         }
             as T
@@ -751,6 +1173,46 @@ internal constructor(
                         value(Properties.FlexShrink),
                     ),
                 )
+            val taffy =
+                share(
+                    previous?.taffyLayout,
+                    TaffyLayoutValues(
+                        value(Properties.ItemIsTable),
+                        value(Properties.ItemIsReplaced),
+                        value(Properties.BoxSizing),
+                        value(Properties.Direction),
+                        value(Properties.OverflowX),
+                        value(Properties.OverflowY),
+                        value(Properties.ScrollbarWidth),
+                        value(Properties.FloatValue),
+                        value(Properties.Clear),
+                        value(Properties.Position),
+                        value(Properties.Inset),
+                        value(Properties.AspectRatio),
+                        value(Properties.Border),
+                        value(Properties.AlignItems),
+                        value(Properties.AlignSelf),
+                        value(Properties.JustifyItems),
+                        value(Properties.JustifySelf),
+                        value(Properties.AlignContent),
+                        value(Properties.JustifyContent),
+                        value(Properties.ColumnGap),
+                        value(Properties.RowGap),
+                        value(Properties.TextAlign),
+                        value(Properties.FlexWrap),
+                        value(Properties.FlexBasis),
+                        value(Properties.GridTemplateRows),
+                        value(Properties.GridTemplateColumns),
+                        value(Properties.GridAutoRows),
+                        value(Properties.GridAutoColumns),
+                        value(Properties.GridAutoFlow),
+                        value(Properties.GridTemplateAreas),
+                        value(Properties.GridTemplateColumnNames),
+                        value(Properties.GridTemplateRowNames),
+                        value(Properties.GridRow),
+                        value(Properties.GridColumn),
+                    ),
+                )
             val paint = share(previous?.paint, PaintValues(value(Properties.Background)))
             val render =
                 share(
@@ -762,7 +1224,7 @@ internal constructor(
                     previous?.interaction,
                     InteractionValues(value(Properties.PointerEvents)),
                 )
-            return ResolvedStyle(inherited, box, flex, paint, render, interaction)
+            return ResolvedStyle(inherited, box, flex, taffy, paint, render, interaction)
         }
     }
 }
@@ -842,6 +1304,13 @@ private fun dependenciesOf(value: Any?): Set<EnvironmentDependency> =
             listOf(value.top, value.right, value.bottom, value.left).flatMapTo(linkedSetOf()) {
                 dependenciesOf(it)
             }
+        is GridMinTrackSizing.Fixed -> dependenciesOf(value.value)
+        is GridMaxTrackSizing.Fixed -> dependenciesOf(value.value)
+        is GridMaxTrackSizing.FitContent -> dependenciesOf(value.limit)
+        is GridTrackSizing -> dependenciesOf(value.min) + dependenciesOf(value.max)
+        is GridTemplateComponent.Single -> dependenciesOf(value.track)
+        is GridTemplateComponent.Repeat -> dependenciesOf(value.tracks)
+        is Iterable<*> -> value.flatMapTo(linkedSetOf(), ::dependenciesOf)
         else -> emptySet()
     }
 
