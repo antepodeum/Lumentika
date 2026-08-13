@@ -27,6 +27,7 @@ import com.antepod.lumentika.semantics.SemanticsConfiguration
 import com.antepod.lumentika.style.Overflow
 import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.style
+import com.antepod.lumentika.text.AutofillConfiguration
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextRange
@@ -314,6 +315,7 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
     public var multiline: Boolean = false
     public var secure: Boolean = false
     public var placeholder: String? = null
+    public var autofill: AutofillConfiguration? = null
     public var gestures: GestureConfiguration = GestureConfiguration()
 
     public var value: String
@@ -397,6 +399,7 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
                 multiline,
                 secure,
                 placeholder,
+                autofill,
             )
         applySemantics()
         return handle

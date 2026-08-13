@@ -11,8 +11,13 @@ import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.gesture.ScrollState
 import com.antepod.lumentika.input.EventType
+import com.antepod.lumentika.input.KeyModifiers
 import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.input.PointerType
+import com.antepod.lumentika.platform.ClipboardService
+import com.antepod.lumentika.platform.TransferContent
+import com.antepod.lumentika.platform.TransferItem
+import com.antepod.lumentika.platform.TransferSource
 import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.render.PaintArtifact
 import com.antepod.lumentika.render.RenderBackend
@@ -21,6 +26,11 @@ import com.antepod.lumentika.runtime.ImageSource
 import com.antepod.lumentika.runtime.PaintCommand
 import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.style
+import com.antepod.lumentika.text.AutofillArtifact
+import com.antepod.lumentika.text.AutofillChangeSet
+import com.antepod.lumentika.text.AutofillConfiguration
+import com.antepod.lumentika.text.AutofillHint
+import com.antepod.lumentika.text.AutofillService
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextInputClient
 import com.antepod.lumentika.text.TextInputConfiguration
@@ -38,6 +48,100 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class PlatformInputTest {
+    @Test
+    fun `text field integrates clipboard receive content and committed autofill geometry`() {
+        var clipboardText: String? = null
+        val clipboard =
+            object : ClipboardService {
+                override fun readText(): String? = clipboardText
+
+                override fun writeText(text: String) {
+                    clipboardText = text
+                }
+            }
+        var autofillArtifact: AutofillArtifact? = null
+        val autofill =
+            object : AutofillService {
+                override fun onArtifactCommitted(
+                    artifact: AutofillArtifact,
+                    changes: AutofillChangeSet,
+                ) {
+                    autofillArtifact = artifact
+                }
+
+                override fun requestAutofill(node: com.antepod.lumentika.text.AutofillNodeId) = Unit
+            }
+        val root =
+            UiRoot(
+                UiEnvironment(Size(200f, 100f)),
+                PlatformServices(
+                    HeadlessFrameScheduler(),
+                    clipboard = clipboard,
+                    autofill = autofill,
+                ),
+                HeadlessRenderBackend(),
+            )
+        val controller = TextEditingController()
+        val field =
+            root.scope.textField {
+                this.controller = controller
+                this.autofill = AutofillConfiguration(setOf(AutofillHint.USERNAME))
+            }
+        root.styles.attach(
+            field.element,
+            com.antepod.lumentika.reactive.state(
+                style {
+                    width = 120.px
+                    height = 24.px
+                }
+            ),
+        )
+        root.requestFrame()
+        root.frame(1)
+
+        val node = autofillArtifact!!.nodes.single()
+        assertEquals(field.element.geometry, node.bounds)
+        assertTrue(root.applyAutofill(node.id, "alice"))
+        assertEquals("alice", controller.value.text)
+
+        val remaining =
+            root.dispatchContent(
+                Point(2f, 2f),
+                TransferContent(
+                    listOf(
+                        TransferItem("text/plain", text = "!"),
+                        TransferItem("image/png", bytes = byteArrayOf(1)),
+                    ),
+                    TransferSource.DRAG_DROP,
+                ),
+            )
+        assertEquals("alice!", controller.value.text)
+        assertEquals(listOf("image/png"), remaining.items.map { it.mimeType })
+
+        root.dispatchPointer(
+            PointerInput(PointerInputPhase.DOWN, 1, PointerType.MOUSE, Point(2f, 2f), 2)
+        )
+        root.dispatchKey(
+            EventType.KEY_DOWN,
+            LogicalKey.CHARACTER,
+            "KeyA",
+            3,
+            text = "a",
+            modifiers = KeyModifiers(control = true),
+        )
+        root.dispatchKey(
+            EventType.KEY_DOWN,
+            LogicalKey.CHARACTER,
+            "KeyC",
+            4,
+            text = "c",
+            modifiers = KeyModifiers(control = true),
+        )
+        assertEquals("alice!", clipboardText)
+        root.close()
+        assertTrue(root.autofill.commit().first.nodes.isEmpty())
+    }
+
     @Test
     fun `committed hit test routes normalized pointer input into controls`() {
         var clicks = 0

@@ -10,12 +10,13 @@ import com.antepod.lumentika.gesture.ScrollSource
 import com.antepod.lumentika.gesture.ScrollState
 import com.antepod.lumentika.gesture.SelectionDragRecognizer
 import com.antepod.lumentika.gesture.TapRecognizer
+import com.antepod.lumentika.gesture.TextSelectionRecognizer
 import com.antepod.lumentika.input.EventType
 import com.antepod.lumentika.input.FocusCause
 import com.antepod.lumentika.input.FocusProperties
 import com.antepod.lumentika.input.KeyboardEvent
-import com.antepod.lumentika.input.LogicalKey
 import com.antepod.lumentika.platform.GestureConfiguration
+import com.antepod.lumentika.platform.TransferContent
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.reactive.effect
@@ -27,12 +28,11 @@ import com.antepod.lumentika.style.Display
 import com.antepod.lumentika.style.FlexDirection
 import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.style
-import com.antepod.lumentika.text.TextEditCommand
+import com.antepod.lumentika.text.AutofillConfiguration
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditorRuntime
 import com.antepod.lumentika.text.TextInputConfiguration
 import com.antepod.lumentika.text.TextLayoutRequest
-import com.antepod.lumentika.text.TextRange
 
 public class ControlHandle(
     public val element: Element,
@@ -62,6 +62,7 @@ public class ControlGestureHandle(public val recognizer: GestureRecognizer) : Au
     public fun advance(timeNanos: Long) {
         when (val value = recognizer) {
             is SelectionDragRecognizer -> value.advance(timeNanos)
+            is TextSelectionRecognizer -> value.advance(timeNanos)
             else -> Unit
         }
     }
@@ -71,6 +72,8 @@ public class ControlGestureHandle(public val recognizer: GestureRecognizer) : Au
 
 public val GestureAttachment: AttachmentKey<ControlGestureHandle> = AttachmentKey()
 public val TextEditorAttachment: AttachmentKey<TextEditorRuntime> = AttachmentKey()
+public val ReceiveContentAttachment: AttachmentKey<(TransferContent) -> TransferContent> =
+    AttachmentKey()
 private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
@@ -313,6 +316,7 @@ internal fun UiScope.textFieldControl(
     multiline: Boolean,
     secure: Boolean,
     placeholder: String?,
+    autofill: AutofillConfiguration?,
 ): ControlHandle {
     val editor =
         TextEditorRuntime(
@@ -320,18 +324,30 @@ internal fun UiScope.textFieldControl(
             context.textInput,
             context.textLayout,
             context.animationClock,
-            TextInputConfiguration(multiline = multiline, secure = secure),
+            TextInputConfiguration(
+                multiline = multiline,
+                secure = secure,
+                autofillHints = autofill?.hints?.mapTo(mutableSetOf()) { it.name }.orEmpty(),
+            ),
+            context.clipboard,
         )
     e.attach(TextEditorAttachment, editor)
+    e.attach(ReceiveContentAttachment, editor::receive)
+    autofill?.let { configured ->
+        val configuration = if (secure) configured.copy(sensitive = true) else configured
+        context.autofill?.register(e, controller, configuration) {
+            context.committedBounds(e) ?: e.geometry
+        }
+        e.scope.own { context.autofill?.unregister(e) }
+    }
     val gesture =
         ControlGestureHandle(
-            SelectionDragRecognizer(
+            TextSelectionRecognizer(
                 gestures,
-                onUpdate = { update ->
-                    val layout = context.textLayout.layout(TextLayoutRequest(controller.value.text))
-                    val offset = layout.offsetForPoint(update.position)
-                    editor.apply(TextEditCommand.SetSelection(TextRange(offset, offset)))
-                },
+                onCaret = { editor.placeCaret(it.relativeTo(e)) },
+                onWord = { editor.selectWord(it.relativeTo(e)) },
+                onSelectionStart = { editor.placeCaret(it.relativeTo(e)) },
+                onSelectionUpdate = { editor.extendSelection(it.relativeTo(e)) },
             )
         )
     val handle =
@@ -358,7 +374,7 @@ internal fun UiScope.textFieldControl(
             cleanups += events.on(e, EventType.BLUR) { editor.blur() }
             cleanups +=
                 events.defaultAction(e, EventType.KEY_DOWN) { event ->
-                    handleEditorKey(editor, event as KeyboardEvent, multiline)
+                    handleEditorKey(editor, event as KeyboardEvent)
                 }
         }
     }
@@ -369,11 +385,17 @@ internal fun UiScope.textFieldControl(
     withComponentScope(e.scope) {
         effect {
             val value = controller.value
-            val displayText = value.text.ifEmpty { placeholder.orEmpty() }
+            val displayText =
+                if (value.text.isEmpty()) placeholder.orEmpty()
+                else if (secure) "•".repeat(value.text.codePointCount(0, value.text.length))
+                else value.text
             e.content = TextContent(TextLayoutRequest(displayText), context.textLayout)
             e.attach(
                 SemanticsAttachment,
-                handle.semantics.copy(value = value.text, textSelection = value.selection),
+                handle.semantics.copy(
+                    value = value.text.takeUnless { secure },
+                    textSelection = value.selection,
+                ),
             )
             context.requestFrame(true)
         }
@@ -381,32 +403,14 @@ internal fun UiScope.textFieldControl(
     return handle
 }
 
+private fun Point.relativeTo(element: Element): Point =
+    Point(x - element.geometry.x, y - element.geometry.y)
+
 private fun handleEditorKey(
     editor: TextEditorRuntime,
     event: KeyboardEvent,
-    multiline: Boolean,
 ) {
-    val value = editor.controller.value
-    when (event.logicalKey) {
-        LogicalKey.BACKSPACE -> editor.deletePreviousGrapheme()
-        LogicalKey.DELETE -> editor.apply(TextEditCommand.DeleteSurroundingText(0, 1))
-        LogicalKey.ARROW_LEFT -> {
-            val offset = (value.selection.start - 1).coerceAtLeast(0)
-            editor.apply(TextEditCommand.SetSelection(TextRange(offset, offset)))
-        }
-        LogicalKey.ARROW_RIGHT -> {
-            val offset = (value.selection.end + 1).coerceAtMost(value.text.length)
-            editor.apply(TextEditCommand.SetSelection(TextRange(offset, offset)))
-        }
-        LogicalKey.HOME -> editor.apply(TextEditCommand.SetSelection(TextRange(0, 0)))
-        LogicalKey.END -> {
-            val end = value.text.length
-            editor.apply(TextEditCommand.SetSelection(TextRange(end, end)))
-        }
-        LogicalKey.CHARACTER -> event.text?.let { editor.apply(TextEditCommand.CommitText(it)) }
-        LogicalKey.ENTER -> if (multiline) editor.apply(TextEditCommand.CommitText("\n"))
-        else -> Unit
-    }
+    editor.handleKey(event.logicalKey, event.text, event.physicalKey, event.modifiers)
 }
 
 private fun UiScope.container(

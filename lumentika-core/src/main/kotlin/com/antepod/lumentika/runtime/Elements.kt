@@ -5,11 +5,13 @@ import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.input.EventDispatcher
 import com.antepod.lumentika.input.FocusManager
+import com.antepod.lumentika.platform.ClipboardService
 import com.antepod.lumentika.reactive.ComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.style.Paint
 import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.rgb
+import com.antepod.lumentika.text.AutofillRuntime
 import com.antepod.lumentika.text.HeadlessTextLayoutService
 import com.antepod.lumentika.text.TextInputService
 import com.antepod.lumentika.text.TextLayoutService
@@ -259,6 +261,8 @@ public class AttachmentKey<T : Any>
 public data class UiContext(
     val textLayout: TextLayoutService = HeadlessTextLayoutService,
     val textInput: TextInputService? = null,
+    val clipboard: ClipboardService? = null,
+    val autofill: AutofillRuntime? = null,
     val images: ImageService? = null,
     val animationClock: UiAnimationClock = UiAnimationClock(),
     val focus: FocusManager? = null,
@@ -266,6 +270,7 @@ public data class UiContext(
     val requestFrame: (layoutDirty: Boolean) -> Unit = {},
     val configureRender: (Element, RenderProperties) -> Unit = { _, _ -> },
     val attachStyle: (Element, Style) -> Unit = { _, _ -> },
+    val committedBounds: (Element) -> Rect? = { null },
 )
 
 @UiDsl

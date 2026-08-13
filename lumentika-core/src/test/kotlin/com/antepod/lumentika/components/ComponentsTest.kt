@@ -99,7 +99,7 @@ class ComponentsTest {
         field.gestures!!.down(3, Point(0f, 0f), 0)
         field.gestures.advance(500_000_000)
         field.gestures.move(Point(16f, 0f), 510_000_000)
-        assertEquals(TextRange(2, 2), controller.value.selection)
+        assertEquals(TextRange(0, 2), controller.value.selection)
 
         root.close()
     }
@@ -217,6 +217,21 @@ class ComponentsTest {
         assertEquals(TextRange(1, 1), fieldController.value.selection)
         assertEquals("Name", (placeholderField.element.content as TextContent).text)
         assertEquals("", placeholderField.semantics.value)
+        root.close()
+    }
+
+    @Test
+    fun `secure text field masks paint content and redacts semantics`() {
+        val root = Element("root")
+        val field =
+            UiScope(root).textField {
+                value = "s😀"
+                secure = true
+            }
+
+        assertEquals("••", (field.element.content as TextContent).text)
+        assertNull(field.semantics.value)
+        assertTrue(field.semantics.password)
         root.close()
     }
 

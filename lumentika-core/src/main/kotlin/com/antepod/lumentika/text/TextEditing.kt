@@ -8,9 +8,11 @@ import com.antepod.lumentika.platform.ClipboardService
 import com.antepod.lumentika.platform.TransferContent
 import com.antepod.lumentika.reactive.Mutable
 import com.antepod.lumentika.reactive.State
+import com.antepod.lumentika.reactive.batch
 import com.antepod.lumentika.reactive.state
 import java.text.BreakIterator
 import java.util.Locale
+import java.util.regex.Pattern
 
 public data class TextRange(val start: Int, val end: Int) {
     init {
@@ -50,6 +52,8 @@ public sealed interface TextEditCommand {
     public data class SetSelection(val range: TextRange) : TextEditCommand
 
     public data class DeleteSurroundingText(val before: Int, val after: Int) : TextEditCommand
+
+    public data class DeleteSurroundingCodePoints(val before: Int, val after: Int) : TextEditCommand
 }
 
 public class TextEditingController(initial: TextEditingValue = TextEditingValue()) :
@@ -70,8 +74,27 @@ public class TextEditingController(initial: TextEditingValue = TextEditingValue(
                 TextEditCommand.FinishComposition -> value.copy(composition = null)
                 is TextEditCommand.SetSelection -> value.copy(selection = command.range)
                 is TextEditCommand.DeleteSurroundingText -> {
+                    require(command.before >= 0 && command.after >= 0)
                     val s = (value.selection.start - command.before).coerceAtLeast(0)
                     val e = (value.selection.end + command.after).coerceAtMost(value.text.length)
+                    value.copy(
+                        text = value.text.removeRange(s, e),
+                        selection = TextRange(s, s),
+                        composition = null,
+                    )
+                }
+                is TextEditCommand.DeleteSurroundingCodePoints -> {
+                    require(command.before >= 0 && command.after >= 0)
+                    val s =
+                        value.text.offsetByCodePointsSafely(
+                            value.selection.start,
+                            -command.before,
+                        )
+                    val e =
+                        value.text.offsetByCodePointsSafely(
+                            value.selection.end,
+                            command.after,
+                        )
                     value.copy(
                         text = value.text.removeRange(s, e),
                         selection = TextRange(s, s),
@@ -83,11 +106,13 @@ public class TextEditingController(initial: TextEditingValue = TextEditingValue(
 
     public fun applyBatch(commands: List<TextEditCommand>) {
         val before = value
-        try {
-            commands.forEach(::apply)
-        } catch (failure: Throwable) {
-            value = before
-            throw failure
+        batch {
+            try {
+                commands.forEach(::apply)
+            } catch (failure: Throwable) {
+                value = before
+                throw failure
+            }
         }
     }
 
@@ -98,15 +123,33 @@ public class TextEditingController(initial: TextEditingValue = TextEditingValue(
     }
 
     public fun deletePreviousGrapheme() {
+        if (!value.selection.collapsed) {
+            replaceSelection("")
+            return
+        }
         val cursor = value.selection.start
         if (cursor == 0) return
-        val it = BreakIterator.getCharacterInstance(Locale.ROOT)
-        it.setText(value.text)
-        val start = it.preceding(cursor)
+        val start = TextBoundaries.previousGrapheme(value.text, cursor)
         value =
             value.copy(
                 text = value.text.removeRange(start, cursor),
                 selection = TextRange(start, start),
+                composition = null,
+            )
+    }
+
+    public fun deleteNextGrapheme() {
+        if (!value.selection.collapsed) {
+            replaceSelection("")
+            return
+        }
+        val cursor = value.selection.end
+        if (cursor == value.text.length) return
+        val end = TextBoundaries.nextGrapheme(value.text, cursor)
+        value =
+            value.copy(
+                text = value.text.removeRange(cursor, end),
+                selection = TextRange(cursor, cursor),
                 composition = null,
             )
     }
@@ -133,6 +176,59 @@ public class TextEditingController(initial: TextEditingValue = TextEditingValue(
             TextRange(end, end),
             if (composing) TextRange(range.start, end) else null,
         )
+    }
+
+    private fun replaceSelection(text: String) {
+        value = value.copy(composition = null)
+        value = replace(text, composing = false)
+    }
+}
+
+private object TextBoundaries {
+    private val grapheme = Pattern.compile("\\X")
+
+    fun previousGrapheme(text: String, offset: Int): Int {
+        require(offset in 0..text.length)
+        var previous = 0
+        val matcher = grapheme.matcher(text)
+        while (matcher.find()) {
+            if (matcher.end() >= offset) return matcher.start()
+            previous = matcher.end()
+        }
+        return previous
+    }
+
+    fun nextGrapheme(text: String, offset: Int): Int {
+        require(offset in 0..text.length)
+        val matcher = grapheme.matcher(text)
+        while (matcher.find()) if (matcher.end() > offset) return matcher.end()
+        return text.length
+    }
+
+    fun previousWord(text: String, offset: Int): Int {
+        val iterator = BreakIterator.getWordInstance(Locale.ROOT).apply { setText(text) }
+        var boundary = iterator.preceding(offset)
+        while (boundary > 0 && text[boundary].isWhitespace()) boundary =
+            iterator.preceding(boundary)
+        return boundary.coerceAtLeast(0)
+    }
+
+    fun nextWord(text: String, offset: Int): Int {
+        val iterator = BreakIterator.getWordInstance(Locale.ROOT).apply { setText(text) }
+        var boundary = iterator.following(offset)
+        while (boundary in 1 until text.length && text[boundary - 1].isWhitespace()) {
+            boundary = iterator.following(boundary)
+        }
+        return if (boundary == BreakIterator.DONE) text.length else boundary
+    }
+}
+
+private fun String.offsetByCodePointsSafely(index: Int, delta: Int): Int {
+    require(index in indices || index == length)
+    return if (delta < 0) {
+        offsetByCodePoints(index, -codePointCount(0, index).coerceAtMost(-delta))
+    } else {
+        offsetByCodePoints(index, codePointCount(index, length).coerceAtMost(delta))
     }
 }
 
@@ -172,7 +268,16 @@ public interface TextLayoutResult {
 
     public fun caretRect(offset: Int): Rect
 
+    public fun caretRect(offset: Int, affinity: CaretAffinity): Rect = caretRect(offset)
+
     public fun selectionRects(range: TextRange): List<Rect>
+
+    public fun moveCaret(value: TextEditingValue, forward: Boolean): Pair<Int, CaretAffinity> =
+        if (forward) {
+            TextBoundaries.nextGrapheme(text, value.selection.end) to CaretAffinity.DOWNSTREAM
+        } else {
+            TextBoundaries.previousGrapheme(text, value.selection.start) to CaretAffinity.UPSTREAM
+        }
 }
 
 public data class BasicTextLayoutResult(
@@ -223,6 +328,7 @@ public class TextEditorRuntime(
     private val layoutService: TextLayoutService,
     private val clock: UiAnimationClock,
     public val configuration: TextInputConfiguration = TextInputConfiguration(),
+    private val clipboard: ClipboardService? = null,
 ) : TextInputClient, AutoCloseable {
     private var session: TextInputSession? = null
     private var focused = false
@@ -269,6 +375,160 @@ public class TextEditorRuntime(
         publishGeometry()
     }
 
+    public fun deleteNextGrapheme() {
+        controller.deleteNextGrapheme()
+        editingChanged()
+    }
+
+    public fun placeCaret(point: Point) {
+        val layout = layoutService.layout(TextLayoutRequest(controller.value.text))
+        val offset = layout.offsetForPoint(point)
+        controller.value =
+            controller.value.copy(
+                selection = TextRange(offset, offset),
+                composition = null,
+                affinity = CaretAffinity.DOWNSTREAM,
+            )
+        editingChanged()
+    }
+
+    public fun selectWord(point: Point) {
+        val layout = layoutService.layout(TextLayoutRequest(controller.value.text))
+        val offset = layout.offsetForPoint(point)
+        val start = TextBoundaries.previousWord(controller.value.text, offset)
+        val end = TextBoundaries.nextWord(controller.value.text, start)
+        controller.value =
+            controller.value.copy(
+                selection = TextRange(start, end),
+                composition = null,
+                affinity = CaretAffinity.DOWNSTREAM,
+            )
+        editingChanged()
+    }
+
+    public fun extendSelection(point: Point) {
+        val layout = layoutService.layout(TextLayoutRequest(controller.value.text))
+        val target = layout.offsetForPoint(point)
+        moveSelection(target, extend = true, affinity = CaretAffinity.DOWNSTREAM)
+        editingChanged()
+    }
+
+    public fun handleKey(
+        logicalKey: com.antepod.lumentika.input.LogicalKey,
+        text: String?,
+        physicalKey: String,
+        modifiers: com.antepod.lumentika.input.KeyModifiers,
+    ): Boolean {
+        val shortcut = modifiers.control || modifiers.meta
+        val character = (text ?: physicalKey).lowercase(Locale.ROOT)
+        if (shortcut) {
+            when (character) {
+                "a",
+                "keya" -> setSelection(TextRange(0, controller.value.text.length))
+                "c",
+                "keyc" -> if (!configuration.secure) clipboard?.let(controller::copy)
+                "x",
+                "keyx" -> if (!configuration.secure) clipboard?.let(controller::cut)
+                "v",
+                "keyv" -> clipboard?.let(controller::paste)
+                else -> return handleNavigation(logicalKey, modifiers, byWord = true)
+            }
+            editingChanged()
+            return true
+        }
+        if (handleNavigation(logicalKey, modifiers, byWord = false)) return true
+        when (logicalKey) {
+            com.antepod.lumentika.input.LogicalKey.BACKSPACE -> deletePreviousGrapheme()
+            com.antepod.lumentika.input.LogicalKey.DELETE -> deleteNextGrapheme()
+            com.antepod.lumentika.input.LogicalKey.CHARACTER -> {
+                if (modifiers.alt) return false
+                text?.let { apply(TextEditCommand.CommitText(it)) } ?: return false
+            }
+            com.antepod.lumentika.input.LogicalKey.ENTER -> {
+                if (!configuration.multiline) return false
+                apply(TextEditCommand.CommitText("\n"))
+            }
+            else -> return false
+        }
+        return true
+    }
+
+    private fun handleNavigation(
+        key: com.antepod.lumentika.input.LogicalKey,
+        modifiers: com.antepod.lumentika.input.KeyModifiers,
+        byWord: Boolean,
+    ): Boolean {
+        val current = controller.value
+        val layout = layoutService.layout(TextLayoutRequest(current.text))
+        val forward = key == com.antepod.lumentika.input.LogicalKey.ARROW_RIGHT
+        val backward = key == com.antepod.lumentika.input.LogicalKey.ARROW_LEFT
+        val target =
+            when {
+                forward && byWord -> TextBoundaries.nextWord(current.text, activeOffset(current))
+                backward && byWord ->
+                    TextBoundaries.previousWord(current.text, activeOffset(current))
+                forward || backward -> layout.moveCaret(current, forward).first
+                key == com.antepod.lumentika.input.LogicalKey.HOME ->
+                    lineFor(layout, activeOffset(current)).range.start
+                key == com.antepod.lumentika.input.LogicalKey.END ->
+                    lineFor(layout, activeOffset(current)).range.end
+                key == com.antepod.lumentika.input.LogicalKey.ARROW_UP ||
+                    key == com.antepod.lumentika.input.LogicalKey.ARROW_DOWN -> {
+                    val caret = layout.caretRect(activeOffset(current), current.affinity)
+                    val lineHeight =
+                        lineFor(layout, activeOffset(current)).bounds.height.coerceAtLeast(1f)
+                    val direction =
+                        if (key == com.antepod.lumentika.input.LogicalKey.ARROW_UP) -1f else 1f
+                    layout.offsetForPoint(Point(caret.x, caret.y + direction * lineHeight))
+                }
+                else -> return false
+            }
+        moveSelection(
+            target,
+            modifiers.shift,
+            if (forward) CaretAffinity.DOWNSTREAM else CaretAffinity.UPSTREAM,
+        )
+        editingChanged()
+        return true
+    }
+
+    private fun activeOffset(value: TextEditingValue): Int =
+        if (value.selection.collapsed || value.affinity == CaretAffinity.DOWNSTREAM) {
+            value.selection.end
+        } else {
+            value.selection.start
+        }
+
+    private fun moveSelection(target: Int, extend: Boolean, affinity: CaretAffinity) {
+        val current = controller.value
+        val anchor =
+            if (!extend) target
+            else if (current.selection.collapsed) activeOffset(current)
+            else if (current.affinity == CaretAffinity.DOWNSTREAM) current.selection.start
+            else current.selection.end
+        controller.value =
+            current.copy(
+                selection = TextRange(minOf(anchor, target), maxOf(anchor, target)),
+                composition = null,
+                affinity = if (target < anchor) CaretAffinity.UPSTREAM else affinity,
+            )
+    }
+
+    private fun setSelection(range: TextRange) {
+        controller.value = controller.value.copy(selection = range, composition = null)
+    }
+
+    private fun lineFor(layout: TextLayoutResult, offset: Int): TextLine =
+        layout.lines.firstOrNull { offset in it.range.start..it.range.end }
+            ?: layout.lines.lastOrNull()
+            ?: TextLine(TextRange(0, layout.text.length), 0f, Rect(0f, 0f, 0f, 0f))
+
+    private fun editingChanged() {
+        session?.update(controller.value)
+        blinkEpoch = clock.frameTimeNanos
+        publishGeometry()
+    }
+
     public fun receive(content: TransferContent): TransferContent {
         val unconsumed = mutableListOf<com.antepod.lumentika.platform.TransferItem>()
         content.items.forEach { item ->
@@ -288,7 +548,7 @@ public class TextEditorRuntime(
 
     private fun publishGeometry(visible: Boolean = focused) {
         val layout = layoutService.layout(TextLayoutRequest(controller.value.text))
-        val caret = layout.caretRect(controller.value.selection.end)
+        val caret = layout.caretRect(controller.value.selection.end, controller.value.affinity)
         val selections = layout.selectionRects(controller.value.selection)
         scrollX = maxOf(0f, caret.right - (layout.size.width.coerceAtLeast(1f)))
         cursorGeometry = TextCursorGeometry(caret, selections, visible)
@@ -343,7 +603,7 @@ public class AutofillRuntime {
         val id: AutofillNodeId,
         val controller: TextEditingController,
         val config: AutofillConfiguration,
-        var bounds: Rect,
+        var bounds: () -> Rect,
     )
 
     private val entries = linkedMapOf<Any, Entry>()
@@ -355,6 +615,13 @@ public class AutofillRuntime {
         controller: TextEditingController,
         config: AutofillConfiguration,
         bounds: Rect,
+    ): AutofillNodeId = register(identity, controller, config) { bounds }
+
+    public fun register(
+        identity: Any,
+        controller: TextEditingController,
+        config: AutofillConfiguration,
+        bounds: () -> Rect,
     ): AutofillNodeId =
         entries
             .getOrPut(identity) { Entry(AutofillNodeId(nextId++), controller, config, bounds) }
@@ -367,7 +634,7 @@ public class AutofillRuntime {
 
     public fun apply(id: AutofillNodeId, text: String): Boolean {
         val entry = entries.values.firstOrNull { it.id == id } ?: return false
-        entry.controller.reconcileExternal(text)
+        entry.controller.value = TextEditingValue(text, TextRange(text.length, text.length))
         return true
     }
 
@@ -378,7 +645,7 @@ public class AutofillRuntime {
                 .map {
                     AutofillNode(
                         it.id,
-                        it.bounds,
+                        it.bounds(),
                         it.config,
                         if (it.config.sensitive) null else it.controller.value.text,
                     )

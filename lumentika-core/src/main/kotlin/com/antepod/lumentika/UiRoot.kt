@@ -4,6 +4,7 @@ import com.antepod.lumentika.animation.StyleAnimationRuntime
 import com.antepod.lumentika.animation.UiAnimationClock
 import com.antepod.lumentika.components.ControlGestureHandle
 import com.antepod.lumentika.components.GestureAttachment
+import com.antepod.lumentika.components.ReceiveContentAttachment
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.gesture.GestureArena
@@ -24,6 +25,8 @@ import com.antepod.lumentika.semantics.SemanticsRuntime
 import com.antepod.lumentika.style.StyleImpact
 import com.antepod.lumentika.style.StyleRuntime
 import com.antepod.lumentika.style.style
+import com.antepod.lumentika.text.AutofillNodeId
+import com.antepod.lumentika.text.AutofillRuntime
 
 public data class PlatformServices(
     val frameScheduler: FrameScheduler,
@@ -73,6 +76,7 @@ public class UiRoot(
     public val events = EventDispatcher(element)
     public val focus = FocusManager(element, events)
     public val semantics = SemanticsRuntime(element)
+    public val autofill = AutofillRuntime()
     public val animations = UiAnimationClock()
     private val defaultStyle = state(style {})
     private val frame = CoalescingFrameScheduler(services.frameScheduler)
@@ -80,15 +84,18 @@ public class UiRoot(
         UiScope(
             element,
             UiContext(
-                services.textLayout,
-                services.textInput,
-                services.images,
-                animations,
-                focus,
-                events,
-                ::requestFrame,
-                ::configureRender,
-                { target, source -> styles.attach(target, state(source)) },
+                textLayout = services.textLayout,
+                textInput = services.textInput,
+                clipboard = services.clipboard,
+                autofill = autofill,
+                images = services.images,
+                animationClock = animations,
+                focus = focus,
+                events = events,
+                requestFrame = ::requestFrame,
+                configureRender = ::configureRender,
+                attachStyle = { target, source -> styles.attach(target, state(source)) },
+                committedBounds = ::committedBounds,
             ),
         )
     public val styleAnimations =
@@ -230,7 +237,21 @@ public class UiRoot(
         val commit = render.commit()
         val changes = semantics.commit(commit.hitTest)
         services.accessibility?.onArtifactCommitted(semantics.artifact, changes)
+        val (autofillArtifact, autofillChanges) = autofill.commit()
+        services.autofill?.onArtifactCommitted(autofillArtifact, autofillChanges)
         render.replay(backend)
+    }
+
+    public fun applyAutofill(id: AutofillNodeId, text: String): Boolean = autofill.apply(id, text)
+
+    public fun dispatchContent(position: Point, content: TransferContent): TransferContent {
+        var remaining = content
+        var target = hitTest(position)
+        while (target != null && remaining.items.isNotEmpty()) {
+            target.attachment(ReceiveContentAttachment)?.let { remaining = it(remaining) }
+            target = target.parent
+        }
+        return remaining
     }
 
     override fun close() {
@@ -270,6 +291,27 @@ public class UiRoot(
 
     private fun cancelPointerGestures(pointerId: Int) {
         pointerGestures.remove(pointerId)?.arena?.cancel(pointerId)
+    }
+
+    private fun committedBounds(target: Element): com.antepod.lumentika.geometry.Rect? {
+        val entry =
+            render.committed.hitTest.entries.firstOrNull { it.element === target } ?: return null
+        val corners =
+            listOf(
+                    Point(entry.localBounds.x, entry.localBounds.y),
+                    Point(entry.localBounds.right, entry.localBounds.y),
+                    Point(entry.localBounds.right, entry.localBounds.bottom),
+                    Point(entry.localBounds.x, entry.localBounds.bottom),
+                )
+                .map(entry.rootTransform::transform)
+        val transformed =
+            com.antepod.lumentika.geometry.Rect(
+                corners.minOf(Point::x),
+                corners.minOf(Point::y),
+                corners.maxOf(Point::x) - corners.minOf(Point::x),
+                corners.maxOf(Point::y) - corners.minOf(Point::y),
+            )
+        return transformed.intersect(entry.clip)
     }
 
     private data class PointerGestureSession(

@@ -145,6 +145,29 @@ class GesturesTest {
     }
 
     @Test
+    fun `text selection supports caret double tap word and long press drag`() {
+        val trace = mutableListOf<String>()
+        val recognizer =
+            TextSelectionRecognizer(
+                config,
+                onCaret = { trace += "caret" },
+                onWord = { trace += "word" },
+                onSelectionStart = { trace += "start" },
+                onSelectionUpdate = { trace += "update" },
+            )
+
+        recognizer.down(Point(1f, 1f), 0)
+        recognizer.up(Point(1f, 1f), 10_000_000)
+        recognizer.down(Point(1f, 1f), 100_000_000)
+        recognizer.up(Point(1f, 1f), 110_000_000)
+        recognizer.down(Point(2f, 2f), 1_000_000_000)
+        recognizer.advance(1_400_000_000)
+        recognizer.move(Point(3f, 3f), 1_410_000_000)
+
+        assertEquals(listOf("caret", "word", "start", "update"), trace)
+    }
+
+    @Test
     fun `nested scroll conserves deltas and fling shares root clock`() {
         val trace = mutableListOf<String>()
         val connection =

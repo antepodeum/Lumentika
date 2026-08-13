@@ -279,6 +279,68 @@ public class SelectionDragRecognizer(
     }
 }
 
+public class TextSelectionRecognizer(
+    private val config: GestureConfiguration,
+    private val onCaret: (Point) -> Unit,
+    private val onWord: (Point) -> Unit,
+    private val onSelectionStart: (Point) -> Unit,
+    private val onSelectionUpdate: (Point) -> Unit,
+    team: Any? = null,
+) : SinglePointerRecognizer(team) {
+    private var selecting = false
+    private var previousUp = Long.MIN_VALUE
+    private var previousPoint: Point? = null
+
+    override fun down(point: Point, timeNanos: Long) {
+        super.down(point, timeNanos)
+        selecting = false
+    }
+
+    public fun advance(timeNanos: Long) {
+        if (
+            !selecting &&
+                !rejected &&
+                timeNanos - startTime >= config.longPressTimeoutMillis * 1_000_000
+        ) {
+            selecting = true
+            accept()
+            if (accepted) onSelectionStart(start)
+        }
+    }
+
+    override fun move(point: Point, timeNanos: Long) {
+        advance(timeNanos)
+        if (!selecting && distance(start, point) > config.touchSlop) rejected = true
+        last = point
+        if (selecting && accepted && !rejected) onSelectionUpdate(point)
+    }
+
+    override fun up(point: Point, timeNanos: Long) {
+        advance(timeNanos)
+        if (selecting) {
+            if (accepted && !rejected) onSelectionUpdate(point)
+            return
+        }
+        if (rejected) return
+        accept()
+        if (!accepted) return
+        val prior = previousPoint
+        if (
+            prior != null &&
+                timeNanos - previousUp <= config.doubleTapTimeoutMillis * 1_000_000 &&
+                distance(prior, point) <= config.touchSlop * 2
+        ) {
+            onWord(point)
+            previousPoint = null
+            previousUp = Long.MIN_VALUE
+        } else {
+            onCaret(point)
+            previousPoint = point
+            previousUp = timeNanos
+        }
+    }
+}
+
 public data class ScaleGestureUpdate(
     val centroid: Point,
     val scaleDelta: Float,
