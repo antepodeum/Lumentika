@@ -231,7 +231,7 @@
 
 - [x] immutable Style
 - [x] `style {}` / `on(condition) {}`
-- [ ] generated property IDs/masks
+- [x] generated property IDs/masks
 - [x] compiled StyleProgram
 - [x] grouped ResolvedStyle
 - [x] structural sharing

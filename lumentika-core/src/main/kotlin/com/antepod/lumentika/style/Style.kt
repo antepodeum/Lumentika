@@ -164,7 +164,7 @@ public class StyleProperty<T>(
     public val inherited: Boolean = false,
     public val impact: StyleImpact,
 ) {
-    public val mask: PropertyMask = PropertyMask(1L shl id)
+    public val mask: PropertyMask = PropertyMask(GeneratedStylePropertyCatalog.maskBits[id])
 }
 
 @JvmInline
@@ -182,50 +182,126 @@ public value class PropertyMask(public val bits: Long) {
 public object Properties {
     public val Display =
         StyleProperty(
-            0,
+            GeneratedStylePropertyCatalog.DISPLAY,
             "display",
             com.antepod.lumentika.style.Display.BLOCK,
             impact = StyleImpact.LAYOUT,
         )
-    public val Width = StyleProperty<DimensionValue>(1, "width", Auto, impact = StyleImpact.LAYOUT)
+    public val Width =
+        StyleProperty<DimensionValue>(
+            GeneratedStylePropertyCatalog.WIDTH,
+            "width",
+            Auto,
+            impact = StyleImpact.LAYOUT,
+        )
     public val Height =
-        StyleProperty<DimensionValue>(2, "height", Auto, impact = StyleImpact.LAYOUT)
+        StyleProperty<DimensionValue>(
+            GeneratedStylePropertyCatalog.HEIGHT,
+            "height",
+            Auto,
+            impact = StyleImpact.LAYOUT,
+        )
     public val MinWidth =
-        StyleProperty<DimensionValue>(3, "minWidth", Auto, impact = StyleImpact.LAYOUT)
+        StyleProperty<DimensionValue>(
+            GeneratedStylePropertyCatalog.MIN_WIDTH,
+            "minWidth",
+            Auto,
+            impact = StyleImpact.LAYOUT,
+        )
     public val MinHeight =
-        StyleProperty<DimensionValue>(4, "minHeight", Auto, impact = StyleImpact.LAYOUT)
+        StyleProperty<DimensionValue>(
+            GeneratedStylePropertyCatalog.MIN_HEIGHT,
+            "minHeight",
+            Auto,
+            impact = StyleImpact.LAYOUT,
+        )
     public val MaxWidth =
-        StyleProperty<DimensionValue>(5, "maxWidth", Auto, impact = StyleImpact.LAYOUT)
+        StyleProperty<DimensionValue>(
+            GeneratedStylePropertyCatalog.MAX_WIDTH,
+            "maxWidth",
+            Auto,
+            impact = StyleImpact.LAYOUT,
+        )
     public val MaxHeight =
-        StyleProperty<DimensionValue>(6, "maxHeight", Auto, impact = StyleImpact.LAYOUT)
+        StyleProperty<DimensionValue>(
+            GeneratedStylePropertyCatalog.MAX_HEIGHT,
+            "maxHeight",
+            Auto,
+            impact = StyleImpact.LAYOUT,
+        )
     public val Padding =
-        StyleProperty(7, "padding", edges<DimensionValue>(0.px), impact = StyleImpact.LAYOUT)
+        StyleProperty(
+            GeneratedStylePropertyCatalog.PADDING,
+            "padding",
+            edges<DimensionValue>(0.px),
+            impact = StyleImpact.LAYOUT,
+        )
     public val Margin =
-        StyleProperty(8, "margin", edges<DimensionValue>(0.px), impact = StyleImpact.LAYOUT)
-    public val Gap = StyleProperty<DimensionValue>(9, "gap", 0.px, impact = StyleImpact.LAYOUT)
+        StyleProperty(
+            GeneratedStylePropertyCatalog.MARGIN,
+            "margin",
+            edges<DimensionValue>(0.px),
+            impact = StyleImpact.LAYOUT,
+        )
+    public val Gap =
+        StyleProperty<DimensionValue>(
+            GeneratedStylePropertyCatalog.GAP,
+            "gap",
+            0.px,
+            impact = StyleImpact.LAYOUT,
+        )
     public val FlexDirection =
         StyleProperty(
-            10,
+            GeneratedStylePropertyCatalog.FLEX_DIRECTION,
             "flexDirection",
             com.antepod.lumentika.style.FlexDirection.ROW,
             impact = StyleImpact.LAYOUT,
         )
-    public val FlexGrow = StyleProperty(11, "flexGrow", 0f, impact = StyleImpact.LAYOUT)
-    public val FlexShrink = StyleProperty(12, "flexShrink", 1f, impact = StyleImpact.LAYOUT)
+    public val FlexGrow =
+        StyleProperty(
+            GeneratedStylePropertyCatalog.FLEX_GROW,
+            "flexGrow",
+            0f,
+            impact = StyleImpact.LAYOUT,
+        )
+    public val FlexShrink =
+        StyleProperty(
+            GeneratedStylePropertyCatalog.FLEX_SHRINK,
+            "flexShrink",
+            1f,
+            impact = StyleImpact.LAYOUT,
+        )
     public val Overflow =
         StyleProperty(
-            13,
+            GeneratedStylePropertyCatalog.OVERFLOW,
             "overflow",
             com.antepod.lumentika.style.Overflow.VISIBLE,
             impact = StyleImpact.LAYOUT + StyleImpact.CLIP + StyleImpact.SCROLL,
         )
     public val Background =
-        StyleProperty<Paint?>(14, "background", null, impact = StyleImpact.PAINT)
-    public val Opacity = StyleProperty(15, "opacity", 1f, impact = StyleImpact.EFFECT)
-    public val ZIndex = StyleProperty(16, "zIndex", 0, impact = StyleImpact.STACKING)
+        StyleProperty<Paint?>(
+            GeneratedStylePropertyCatalog.BACKGROUND,
+            "background",
+            null,
+            impact = StyleImpact.PAINT,
+        )
+    public val Opacity =
+        StyleProperty(
+            GeneratedStylePropertyCatalog.OPACITY,
+            "opacity",
+            1f,
+            impact = StyleImpact.EFFECT,
+        )
+    public val ZIndex =
+        StyleProperty(
+            GeneratedStylePropertyCatalog.Z_INDEX,
+            "zIndex",
+            0,
+            impact = StyleImpact.STACKING,
+        )
     public val Visibility =
         StyleProperty(
-            17,
+            GeneratedStylePropertyCatalog.VISIBILITY,
             "visibility",
             com.antepod.lumentika.style.Visibility.VISIBLE,
             true,
@@ -236,14 +312,14 @@ public object Properties {
         )
     public val PointerEvents =
         StyleProperty(
-            18,
+            GeneratedStylePropertyCatalog.POINTER_EVENTS,
             "pointerEvents",
             com.antepod.lumentika.style.PointerEvents.AUTO,
             impact = StyleImpact.INTERACTION,
         )
     public val FontSize =
         StyleProperty<DimensionValue>(
-            19,
+            GeneratedStylePropertyCatalog.FONT_SIZE,
             "fontSize",
             16.sp,
             true,
@@ -254,7 +330,7 @@ public object Properties {
         )
     public val Color =
         StyleProperty<Paint>(
-            20,
+            GeneratedStylePropertyCatalog.COLOR,
             "color",
             rgb(0, 0, 0),
             true,
@@ -575,27 +651,27 @@ internal constructor(
     public operator fun <T> get(property: StyleProperty<T>): T {
         @Suppress("UNCHECKED_CAST")
         return when (property.id) {
-            0 -> boxLayout.display
-            1 -> boxLayout.width
-            2 -> boxLayout.height
-            3 -> boxLayout.minWidth
-            4 -> boxLayout.minHeight
-            5 -> boxLayout.maxWidth
-            6 -> boxLayout.maxHeight
-            7 -> boxLayout.padding
-            8 -> boxLayout.margin
-            9 -> boxLayout.gap
-            10 -> flexGrid.direction
-            11 -> flexGrid.grow
-            12 -> flexGrid.shrink
-            13 -> boxLayout.overflow
-            14 -> paint.background
-            15 -> render.opacity
-            16 -> render.zIndex
-            17 -> inherited.visibility
-            18 -> interaction.pointerEvents
-            19 -> inherited.fontSize
-            20 -> inherited.color
+            GeneratedStylePropertyCatalog.DISPLAY -> boxLayout.display
+            GeneratedStylePropertyCatalog.WIDTH -> boxLayout.width
+            GeneratedStylePropertyCatalog.HEIGHT -> boxLayout.height
+            GeneratedStylePropertyCatalog.MIN_WIDTH -> boxLayout.minWidth
+            GeneratedStylePropertyCatalog.MIN_HEIGHT -> boxLayout.minHeight
+            GeneratedStylePropertyCatalog.MAX_WIDTH -> boxLayout.maxWidth
+            GeneratedStylePropertyCatalog.MAX_HEIGHT -> boxLayout.maxHeight
+            GeneratedStylePropertyCatalog.PADDING -> boxLayout.padding
+            GeneratedStylePropertyCatalog.MARGIN -> boxLayout.margin
+            GeneratedStylePropertyCatalog.GAP -> boxLayout.gap
+            GeneratedStylePropertyCatalog.FLEX_DIRECTION -> flexGrid.direction
+            GeneratedStylePropertyCatalog.FLEX_GROW -> flexGrid.grow
+            GeneratedStylePropertyCatalog.FLEX_SHRINK -> flexGrid.shrink
+            GeneratedStylePropertyCatalog.OVERFLOW -> boxLayout.overflow
+            GeneratedStylePropertyCatalog.BACKGROUND -> paint.background
+            GeneratedStylePropertyCatalog.OPACITY -> render.opacity
+            GeneratedStylePropertyCatalog.Z_INDEX -> render.zIndex
+            GeneratedStylePropertyCatalog.VISIBILITY -> inherited.visibility
+            GeneratedStylePropertyCatalog.POINTER_EVENTS -> interaction.pointerEvents
+            GeneratedStylePropertyCatalog.FONT_SIZE -> inherited.fontSize
+            GeneratedStylePropertyCatalog.COLOR -> inherited.color
             else -> error("Unknown style property ${property.name}")
         }
             as T

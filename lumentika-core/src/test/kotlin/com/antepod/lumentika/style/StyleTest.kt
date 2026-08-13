@@ -86,4 +86,19 @@ class StyleTest {
         assertSame(initial.inherited, hovered.inherited)
         assertEquals(0.5f, hovered.render.opacity)
     }
+
+    @Test
+    fun `generated property catalog has stable unique ids and masks`() {
+        assertEquals(Properties.all.indices.toList(), Properties.all.map { it.id })
+        assertEquals(
+            Properties.all.size,
+            Properties.all.map { it.mask }.toSet().size,
+        )
+        Properties.all.forEach { property ->
+            assertTrue(
+                property in
+                    PropertyMask(Properties.all.fold(0L) { bits, item -> bits or item.mask.bits })
+            )
+        }
+    }
 }
