@@ -118,8 +118,10 @@ public data class SemanticsChangeSet(
 
 /** Receives committed semantics and performs native announcements. */
 public interface AccessibilityAdapter {
+    /** Receives a coherent semantics artifact and its incremental changes. */
     public fun onArtifactCommitted(artifact: SemanticsArtifact, changes: SemanticsChangeSet)
 
+    /** Announces [message] with native live-region [priority]. */
     public fun announce(message: String, priority: LiveRegion)
 }
 
@@ -140,11 +142,13 @@ public class SemanticsRuntime(
     public var artifact = SemanticsArtifact(0, emptyList(), emptyMap(), null)
         private set
 
+    /** Attaches [config] to [element] and marks semantics dirty. */
     public fun configure(element: Element, config: SemanticsConfiguration) {
         configs[element] = config
         ids.getOrPut(element) { SemanticsNodeId(nextId.incrementAndGet()) }
     }
 
+    /** Commits semantics using geometry from the matching [hit] artifact. */
     public fun commit(hit: HitTestArtifact): SemanticsChangeSet {
         val previous = artifact.nodes
         val entries = hit.entries.associateBy { it.element }
@@ -267,18 +271,21 @@ public class SemanticsRuntime(
         return changes
     }
 
+    /** Performs [action] on [id], returning whether the node handled it. */
     public fun perform(
         id: SemanticsNodeId,
         action: SemanticAction,
         argument: Any? = null,
     ): Boolean = artifact.nodes[id]?.config?.actions?.get(action)?.invoke(argument) ?: false
 
+    /** Moves accessibility focus to [id] when the node exists. */
     public fun requestAccessibilityFocus(id: SemanticsNodeId): Boolean {
         if (id !in artifact.nodes) return false
         accessibilityFocus = id
         return true
     }
 
+    /** Emits a live-region announcement through the configured adapter callback. */
     public fun announce(message: String, priority: LiveRegion = LiveRegion.POLITE) {
         require(priority != LiveRegion.NONE)
         announcementSink(message, priority)

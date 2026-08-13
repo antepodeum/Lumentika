@@ -70,6 +70,7 @@ public class TextEditingController(initial: TextEditingValue = TextEditingValue(
             state.value = value
         }
 
+    /** Applies one atomic editing [command]. */
     public fun apply(command: TextEditCommand) {
         value =
             when (command) {
@@ -109,6 +110,7 @@ public class TextEditingController(initial: TextEditingValue = TextEditingValue(
             }
     }
 
+    /** Applies [commands] as one observable state update. */
     public fun applyBatch(commands: List<TextEditCommand>) {
         val before = value
         batch {
@@ -121,6 +123,7 @@ public class TextEditingController(initial: TextEditingValue = TextEditingValue(
         }
     }
 
+    /** Replaces text from an external binding while repairing ranges. */
     public fun reconcileExternal(text: String) {
         if (text == value.text) return
         val cursor = value.selection.end.coerceAtMost(text.length)
@@ -159,15 +162,18 @@ public class TextEditingController(initial: TextEditingValue = TextEditingValue(
             )
     }
 
+    /** Copies selected text to [clipboard]. */
     public fun copy(clipboard: ClipboardService) {
         clipboard.writeText(value.text.substring(value.selection.start, value.selection.end))
     }
 
+    /** Copies and removes selected text. */
     public fun cut(clipboard: ClipboardService) {
         copy(clipboard)
         apply(TextEditCommand.CommitText(""))
     }
 
+    /** Inserts current plain text from [clipboard]. */
     public fun paste(clipboard: ClipboardService) {
         clipboard.readText()?.let { apply(TextEditCommand.CommitText(it)) }
     }
@@ -246,20 +252,25 @@ public data class TextInputConfiguration(
 
 /** Receives commands from an active native text-input session. */
 public interface TextInputClient {
+    /** Applies an edit received from the native input session. */
     public fun apply(command: TextEditCommand)
 }
 
 /** Active connection to the native IME or text-input subsystem. */
 public interface TextInputSession : AutoCloseable {
+    /** Synchronizes the native session with [value]. */
     public fun update(value: TextEditingValue)
 
+    /** Requests visible native text-input UI. */
     public fun show()
 
+    /** Hides native text-input UI without closing the session. */
     public fun hide()
 }
 
 /** Opens native text-input sessions for focused editors. */
 public interface TextInputService {
+    /** Opens a session for [client] using [configuration]. */
     public fun start(
         configuration: TextInputConfiguration,
         client: TextInputClient,
@@ -316,6 +327,7 @@ public data class TextLayoutRequest(
 
 /** Shapes text and returns reusable layout geometry. */
 public interface TextLayoutService {
+    /** Shapes and measures [request]. */
     public fun layout(request: TextLayoutRequest): TextLayoutResult
 }
 
@@ -362,6 +374,7 @@ public class TextEditorRuntime(
     private var viewportWidth = Float.POSITIVE_INFINITY
     private var viewportHeight = Float.POSITIVE_INFINITY
 
+    /** Updates editor clipping and scroll constraints. */
     public fun updateViewport(width: Float, height: Float) {
         val nextWidth = width.coerceAtLeast(0f)
         val nextHeight = height.coerceAtLeast(0f)
@@ -371,6 +384,7 @@ public class TextEditorRuntime(
         publishGeometry()
     }
 
+    /** Opens and shows native input for this editor. */
     public fun focus() {
         if (focused) return
         focused = true
@@ -384,6 +398,7 @@ public class TextEditorRuntime(
         publishGeometry()
     }
 
+    /** Hides and closes native input for this editor. */
     public fun blur() {
         if (!focused) return
         focused = false
@@ -412,6 +427,7 @@ public class TextEditorRuntime(
         editingChanged()
     }
 
+    /** Places a collapsed selection at the shaped offset nearest [point]. */
     public fun placeCaret(point: Point) {
         val layout = layoutService.layout(TextLayoutRequest(controller.value.text))
         val offset = layout.offsetForPoint(point)
@@ -424,6 +440,7 @@ public class TextEditorRuntime(
         editingChanged()
     }
 
+    /** Selects the word nearest [point]. */
     public fun selectWord(point: Point) {
         val layout = layoutService.layout(TextLayoutRequest(controller.value.text))
         val offset = layout.offsetForPoint(point)
@@ -438,6 +455,7 @@ public class TextEditorRuntime(
         editingChanged()
     }
 
+    /** Extends selection to the shaped offset nearest [point]. */
     public fun extendSelection(point: Point) {
         val layout = layoutService.layout(TextLayoutRequest(controller.value.text))
         val target = layout.offsetForPoint(point)
@@ -561,6 +579,7 @@ public class TextEditorRuntime(
         publishGeometry()
     }
 
+    /** Inserts supported transferred content and returns unconsumed items. */
     public fun receive(content: TransferContent): TransferContent {
         val unconsumed = mutableListOf<com.antepod.lumentika.platform.TransferItem>()
         content.items.forEach { item ->
@@ -647,8 +666,10 @@ public data class AutofillChangeSet(
 
 /** Receives autofill artifacts and displays native autofill UI. */
 public interface AutofillService {
+    /** Receives committed fields and their incremental changes. */
     public fun onArtifactCommitted(artifact: AutofillArtifact, changes: AutofillChangeSet)
 
+    /** Displays native autofill UI for [node]. */
     public fun requestAutofill(node: AutofillNodeId)
 }
 
@@ -683,16 +704,19 @@ public class AutofillRuntime {
             .also { it.bounds = bounds }
             .id
 
+    /** Removes the field associated with [identity]. */
     public fun unregister(identity: Any) {
         entries.remove(identity)
     }
 
+    /** Applies [text] to [id], returning whether the field exists. */
     public fun apply(id: AutofillNodeId, text: String): Boolean {
         val entry = entries.values.firstOrNull { it.id == id } ?: return false
         entry.controller.value = TextEditingValue(text, TextRange(text.length, text.length))
         return true
     }
 
+    /** Commits an immutable artifact and changes since the previous commit. */
     public fun commit(): Pair<AutofillArtifact, AutofillChangeSet> {
         val nodes =
             entries.values

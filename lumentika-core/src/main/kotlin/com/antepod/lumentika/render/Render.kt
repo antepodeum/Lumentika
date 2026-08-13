@@ -97,6 +97,7 @@ public data class SceneRaycastHit(val element: Element, val sceneObject: Any)
 
 /** Immutable front-to-back hit-test projection for a committed frame. */
 public data class HitTestArtifact(val generation: Long, val entries: List<HitTestEntry>) {
+    /** Returns the frontmost hit-testable element at [point]. */
     public fun hitTest(point: Point): Element? =
         entries.asReversed().firstNotNullOfOrNull { entry ->
             if (!entry.clip.contains(point)) return@firstNotNullOfOrNull null
@@ -108,6 +109,7 @@ public data class HitTestArtifact(val generation: Long, val entries: List<HitTes
             }
         }
 
+    /** Returns the frontmost adapter scene object raycast at [point]. */
     public fun raycast(point: Point): SceneRaycastHit? =
         entries.asReversed().firstNotNullOfOrNull { entry ->
             if (!entry.clip.contains(point)) return@firstNotNullOfOrNull null
@@ -122,6 +124,7 @@ public data class HitTestArtifact(val generation: Long, val entries: List<HitTes
 
 /** Replays a committed [PaintArtifact] through a platform graphics API. */
 public fun interface RenderBackend {
+    /** Draws [artifact] through the native renderer. */
     public fun replay(artifact: PaintArtifact)
 }
 
@@ -185,6 +188,7 @@ public class RenderRuntime(
     public var committed: RenderCommit = emptyCommit()
         private set
 
+    /** Replaces persistent render properties for [element]. */
     public fun configure(element: Element, value: RenderProperties) {
         val previous = properties[element]
         properties[element] = value
@@ -201,6 +205,7 @@ public class RenderRuntime(
         }
     }
 
+    /** Sets or clears transient animation properties for [element]. */
     public fun configureMotion(element: Element, value: MotionRenderProperties?) {
         if (value == null || value == MotionRenderProperties()) motionProperties.remove(element)
         else motionProperties[element] = value
@@ -211,6 +216,7 @@ public class RenderRuntime(
         invalidations.getOrPut(element, ::mutableSetOf).addAll(classes)
     }
 
+    /** Produces a coherent retained paint and hit-test commit. */
     public fun commit(): RenderCommit {
         invalidations.forEach { (element, classes) ->
             if (RenderInvalidation.PROPERTY in classes) propertyInvalidationCount++
@@ -242,10 +248,12 @@ public class RenderRuntime(
         return committed
     }
 
+    /** Replays the latest committed paint artifact through [backend]. */
     public fun replay(backend: RenderBackend) {
         backend.replay(committed.paint)
     }
 
+    /** Converts a root-space point into [element] coordinates. */
     public fun rootToLocal(element: Element, point: Point): Point? =
         committed.hitTest.entries
             .firstOrNull { it.element === element }
@@ -253,6 +261,7 @@ public class RenderRuntime(
             ?.inverse()
             ?.transform(point)
 
+    /** Converts an [element]-local point into root coordinates. */
     public fun localToRoot(element: Element, point: Point): Point? =
         committed.hitTest.entries
             .firstOrNull { it.element === element }

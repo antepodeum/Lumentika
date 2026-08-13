@@ -44,11 +44,13 @@ public sealed interface MeasureSpace {
 
 /** Content that can report intrinsic dimensions to layout. */
 public interface IntrinsicMeasurable {
+    /** Measures content under [input] constraints. */
     public fun measure(input: IntrinsicMeasureInput): Size
 }
 
 /** Records immutable platform-neutral paint commands. */
 public interface PaintRecorder {
+    /** Appends [command] to the current retained paint recording. */
     public fun record(command: PaintCommand)
 }
 
@@ -78,6 +80,7 @@ public interface BackendPaintCommand
 
 /** Resolves intrinsic image dimensions for layout. */
 public fun interface ImageService {
+    /** Returns known dimensions for [source], or `null` while unavailable. */
     public fun intrinsicSize(source: ImageSource): Size?
 }
 
@@ -95,6 +98,7 @@ public sealed interface ImageSource {
 
 /** Terminal element content capable of recording paint commands. */
 public interface Content {
+    /** Records this content within local [bounds]. */
     public fun record(recorder: PaintRecorder, bounds: Rect)
 }
 
@@ -213,18 +217,21 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
         OwnershipCounters.mountElement()
     }
 
+    /** Moves [child] to the end of this element's child list. */
     public fun append(child: Element) {
         require(child.parent == null) { "Element ${child.id} already has a parent" }
         child.parent = this
         mutableChildren += child
     }
 
+    /** Moves [child] to [index] in this element's child list. */
     public fun insert(index: Int, child: Element) {
         require(child.parent == null) { "Element ${child.id} already has a parent" }
         child.parent = this
         mutableChildren.add(index, child)
     }
 
+    /** Detaches [child] and optionally disposes its owned subtree. */
     public fun remove(child: Element, dispose: Boolean = true): Boolean {
         if (child !in mutableChildren) return false
         try {
@@ -236,16 +243,19 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
         return true
     }
 
+    /** Reorders an existing direct [child] to [index]. */
     public fun move(child: Element, index: Int) {
         require(child.parent === this)
         mutableChildren.remove(child)
         mutableChildren.add(index.coerceIn(0, mutableChildren.size), child)
     }
 
+    /** Associates [value] with the identity-based attachment [key]. */
     public fun <T : Any> attach(key: AttachmentKey<T>, value: T) {
         attachments[key] = value
     }
 
+    /** Returns the value associated with [key], if present. */
     public fun <T : Any> attachment(key: AttachmentKey<T>): T? {
         @Suppress("UNCHECKED_CAST")
         return attachments[key] as T?
@@ -313,6 +323,7 @@ public data class UiContext(
 @UiDsl
 /** DSL receiver that mounts elements beneath [parent]. */
 public open class UiScope(public val parent: Element, public val context: UiContext = UiContext()) {
+    /** Creates and appends an element with optional content and child declarations. */
     public fun element(
         kind: String = "element",
         content: Content? = null,
@@ -325,6 +336,7 @@ public open class UiScope(public val parent: Element, public val context: UiCont
         return element
     }
 
+    /** Creates a boxless fragment and mounts [block] beneath it. */
     public fun fragment(block: UiScope.() -> Unit = {}): Fragment {
         val fragment = Fragment()
         parent.append(fragment)
@@ -332,5 +344,6 @@ public open class UiScope(public val parent: Element, public val context: UiCont
         return fragment
     }
 
+    /** Creates a child scope sharing this scope's runtime context. */
     public fun nested(parent: Element): UiScope = UiScope(parent, context)
 }

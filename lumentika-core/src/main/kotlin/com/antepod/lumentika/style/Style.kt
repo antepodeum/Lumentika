@@ -761,6 +761,7 @@ public class Style internal constructor(public val program: StyleProgram)
 public class StyleBuilder internal constructor(private val condition: StyleCondition? = null) {
     private val entries = mutableListOf<StyleEntry>()
 
+    /** Copies assignments from [style] into this builder. */
     public fun include(style: Style) {
         entries +=
             style.program.assignments.map {
@@ -768,12 +769,15 @@ public class StyleBuilder internal constructor(private val condition: StyleCondi
             }
     }
 
+    /** Assigns typed [value] to [property] under the current condition. */
     public fun <T> set(property: StyleProperty<T>, value: T) {
         entries += StyleEntry(property, value, condition)
     }
 
+    /** Adds assignments active while [state] matches. */
     public fun on(state: StyleState, block: StyleBuilder.() -> Unit) = on(condition(state), block)
 
+    /** Adds assignments active while [condition] matches. */
     public fun on(condition: StyleCondition, block: StyleBuilder.() -> Unit) {
         entries += StyleBuilder(condition).apply(block).entries
     }
@@ -1034,10 +1038,12 @@ public class ThemeBuilder {
     private val values = mutableMapOf<StyleVar<*>, Any?>()
     private val parts = mutableMapOf<StylePart<*>, Style>()
 
+    /** Overrides [variable] with [value]. */
     public fun <T> set(variable: StyleVar<T>, value: T) {
         values[variable] = value
     }
 
+    /** Assigns [style] to a stable component [part]. */
     public fun <T : Any> style(part: StylePart<T>, style: Style) {
         parts[part] = style
     }
@@ -1330,14 +1336,17 @@ private val styleStateKey = AttachmentKey<ElementStyleState>()
 
 /** Attaches reactive styles, maintains states, and resolves effective target values. */
 public class StyleRuntime {
+    /** Attaches a reactive style [source] to [element]. */
     public fun attach(element: Element, source: Readable<Style>) {
         state(element).sources += source
     }
 
+    /** Enables or disables [styleState] for [element]. */
     public fun setState(element: Element, styleState: StyleState, enabled: Boolean) {
         if (enabled) state(element).states += styleState else state(element).states -= styleState
     }
 
+    /** Resolves [element] and returns effective target values plus incremental changes. */
     public fun resolve(element: Element): Pair<ResolvedStyle, StyleChangeSet> {
         val state = state(element)
         val values = mutableMapOf<StyleProperty<*>, Any?>()

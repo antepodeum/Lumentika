@@ -34,10 +34,13 @@ public interface UIEvent {
     public val phase: EventPhase
     public val defaultPrevented: Boolean
 
+    /** Prevents propagation beyond the current element. */
     public fun stopPropagation()
 
+    /** Prevents remaining listeners and further propagation. */
     public fun stopImmediatePropagation()
 
+    /** Cancels the event's default action. */
     public fun preventDefault()
 }
 
@@ -153,6 +156,7 @@ public class EventDispatcher(private val root: Element) {
     private val pointerCapture = mutableMapOf<Int, Element>()
     private var hoverPath: List<Element> = emptyList()
 
+    /** Registers a listener for [type] and returns a disposable registration. */
     public fun on(
         element: Element,
         type: EventType,
@@ -165,6 +169,7 @@ public class EventDispatcher(private val root: Element) {
         return AutoCloseable { listeners[element]?.get(type)?.remove(entry) }
     }
 
+    /** Registers a default action invoked when the event is not prevented. */
     public fun defaultAction(
         element: Element,
         type: EventType,
@@ -179,11 +184,13 @@ public class EventDispatcher(private val root: Element) {
         }
     }
 
+    /** Routes subsequent events for [pointerId] to [element]. */
     public fun setPointerCapture(element: Element, pointerId: Int) {
         require(element.isMounted && isInRoot(element))
         pointerCapture[pointerId] = element
     }
 
+    /** Releases pointer capture when currently owned by [element]. */
     public fun releasePointerCapture(element: Element, pointerId: Int) {
         if (pointerCapture[pointerId] === element) pointerCapture.remove(pointerId)
     }
@@ -222,6 +229,7 @@ public class EventDispatcher(private val root: Element) {
         hoverPath = next
     }
 
+    /** Dispatches [event] and returns whether its default action remains allowed. */
     public fun dispatch(type: EventType, event: BaseEvent): Boolean {
         val target =
             if (event is PointerEvent) captured(event.pointerId) ?: event.target else event.target
@@ -356,6 +364,7 @@ public class FocusManager(
             return result
         }
 
+    /** Sets focus properties for [element]. */
     public fun configure(element: Element, value: FocusProperties) {
         properties[element] = value
     }
@@ -365,6 +374,7 @@ public class FocusManager(
         properties.remove(element)
     }
 
+    /** Moves input focus to [element] when it is eligible. */
     public fun focus(element: Element, cause: FocusCause = FocusCause.PROGRAMMATIC) {
         val config = properties[element] ?: FocusProperties()
         require(element.isMounted && config.focusable && !config.disabled) {
@@ -382,6 +392,7 @@ public class FocusManager(
         dispatcher.dispatch(EventType.FOCUS_IN, BaseEvent(element, cancelable = false))
     }
 
+    /** Clears focus when [element] currently owns it. */
     public fun blur(element: Element) {
         if (activeElement !== element) return
         dispatcher.dispatch(EventType.BLUR, BaseEvent(element, cancelable = false))
@@ -390,8 +401,10 @@ public class FocusManager(
         focusVisible = false
     }
 
+    /** Moves focus forward in traversal order. */
     public fun focusNext(): Element? = move(1)
 
+    /** Moves focus backward in traversal order. */
     public fun focusPrevious(): Element? = move(-1)
 
     public fun repairBeforeRemoval(subtree: Element) {

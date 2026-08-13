@@ -92,10 +92,12 @@ public class LayoutRuntime(
         if (rounding) tree.enableRounding() else tree.disableRounding()
     }
 
+    /** Marks layout dirty and requests a root frame once. */
     public fun requestLayout() {
         dirty = true
     }
 
+    /** Commits layout for [environment], reusing the previous snapshot when clean. */
     public fun frame(frameTimeNanos: Long, environment: UiEnvironment): LayoutSnapshot {
         if (!dirty || lastComputedFrame == frameTimeNanos) return snapshot
         lastComputedFrame = frameTimeNanos

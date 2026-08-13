@@ -106,10 +106,13 @@ public data class UiEnvironment(
 
 /** Converts platform-relative units into logical core pixels. */
 public interface UnitResolver {
+    /** Resolves density-independent [value] into logical pixels. */
     public fun resolveDp(value: Float, environment: UiEnvironment): Float
 
+    /** Resolves font-scaled [value] into logical pixels. */
     public fun resolveSp(value: Float, environment: UiEnvironment): Float
 
+    /** Resolves physical-pixel [value] into logical pixels. */
     public fun resolvePhysicalPx(value: Float, environment: UiEnvironment): Float
 }
 
@@ -127,6 +130,7 @@ public object LogicalUnitResolver : UnitResolver {
 
 /** Requests a future native frame callback for a UI root. */
 public interface FrameScheduler {
+    /** Requests delivery of a future native frame callback. */
     public fun requestFrame()
 }
 
@@ -148,6 +152,7 @@ public data class UiFeedbackRequest(val type: UiFeedbackType, val intensity: Flo
 
 /** Performs native feedback for semantic UI interactions. */
 public interface UiFeedbackService {
+    /** Performs [request] through native feedback facilities. */
     public fun perform(request: UiFeedbackRequest)
 }
 
@@ -166,6 +171,7 @@ public enum class PointerCursorRole {
 
 /** Updates the native pointer cursor. */
 public interface PointerCursorService {
+    /** Changes the native pointer cursor to [role]. */
     public fun set(role: PointerCursorRole)
 }
 
@@ -174,6 +180,7 @@ public data class UiUri(val value: String)
 
 /** Opens external URIs through the host platform. */
 public interface UriLauncher {
+    /** Opens [uri], returning whether the request was accepted. */
     public fun open(uri: UiUri): Boolean
 }
 
@@ -221,6 +228,7 @@ public interface DragSession : AutoCloseable
 
 /** Starts native drag-and-drop operations. */
 public interface ContentTransferService {
+    /** Begins [request], or returns `null` when it cannot be started. */
     public fun startDrag(request: DragRequest): DragSession?
 }
 
@@ -240,13 +248,16 @@ public data class BackEvent(
 
 /** Registers handlers with the host back-navigation dispatcher. */
 public interface BackDispatcher {
+    /** Registers a handler and returns a disposable registration. */
     public fun register(handler: (BackEvent) -> Boolean): AutoCloseable
 }
 
 /** Reads and writes plain text through the native clipboard. */
 public interface ClipboardService {
+    /** Returns current plain text, or `null` when no text is available. */
     public fun readText(): String?
 
+    /** Replaces clipboard content with plain [text]. */
     public fun writeText(text: String)
 }
 

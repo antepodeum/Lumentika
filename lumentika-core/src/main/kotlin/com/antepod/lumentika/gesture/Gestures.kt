@@ -17,14 +17,19 @@ public enum class GestureDisposition {
 public interface GestureRecognizer : AutoCloseable {
     public val team: Any?
 
+    /** Begins a pointer sequence. */
     public fun down(point: Point, timeNanos: Long)
 
+    /** Updates the active pointer sequence. */
     public fun move(point: Point, timeNanos: Long)
 
+    /** Ends the active pointer sequence normally. */
     public fun up(point: Point, timeNanos: Long)
 
+    /** Cancels the active pointer sequence. */
     public fun cancel()
 
+    /** Accepts or rejects this recognizer in its arena. */
     public fun resolve(disposition: GestureDisposition)
 }
 
@@ -459,6 +464,7 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
     public var isScrolling = false
         private set
 
+    /** Applies [delta], participates in nested scrolling, and returns consumed movement. */
     public fun scroll(
         delta: ScrollDelta,
         source: ScrollSource,
@@ -481,11 +487,13 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
         return pre + used + post
     }
 
+    /** Observes offset, range, and motion changes. */
     public fun onChanged(listener: (ScrollState) -> Unit): AutoCloseable {
         listeners += listener
         return AutoCloseable { listeners -= listener }
     }
 
+    /** Updates maximum offsets and clamps the current position. */
     public fun setRange(maxX: Float, maxY: Float) {
         require(maxX.isFinite() && maxX >= 0f && maxY.isFinite() && maxY >= 0f)
         this.maxX = maxX
@@ -499,11 +507,13 @@ public class ScrollState(initialX: Float = 0f, initialY: Float = 0f) {
         }
     }
 
+    /** Stops active inertial scrolling. */
     public fun stop() {
         flingGeneration++
         isScrolling = false
     }
 
+    /** Starts inertial scrolling with [velocity]. */
     public fun fling(
         velocity: ScrollDelta,
         config: GestureConfiguration,
@@ -619,12 +629,14 @@ public class ScrollbarController(
             return if (range == 0f) 0f else offset / range
         }
 
+    /** Updates viewport and content extents used to size the thumb. */
     public fun updateExtents(viewport: Float, content: Float) {
         require(viewport.isFinite() && viewport >= 0f && content.isFinite() && content >= 0f)
         viewportExtent = viewport
         contentExtent = content
     }
 
+    /** Converts thumb movement into scrolling and returns consumed track movement. */
     public fun dragThumb(delta: Float, trackExtent: Float): Float {
         val movableTrack = trackExtent * (1f - thumbFraction)
         if (movableTrack <= 0f) return 0f

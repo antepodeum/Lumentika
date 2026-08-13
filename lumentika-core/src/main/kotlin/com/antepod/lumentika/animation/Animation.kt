@@ -25,8 +25,10 @@ public data class SpringSpec(val stiffness: Float = 360f, val dampingRatio: Floa
 
 /** Interpolates values of [T] for property animation. */
 public interface AnimationAdapter<T> {
+    /** Returns whether [from] and [to] can be interpolated by this adapter. */
     public fun canInterpolate(from: T, to: T): Boolean = true
 
+    /** Samples between [from] and [to] at [fraction]. */
     public fun interpolate(from: T, to: T, fraction: Float): T
 }
 
@@ -74,6 +76,7 @@ public class AnimationTrack<T>(
     public var value: T = initial
         private set
 
+    /** Changes the target while preserving the currently sampled value. */
     public fun retarget(target: T, timeNanos: Long, spec: MotionSpec = this.spec) {
         from = value
         this.target = target
@@ -83,6 +86,7 @@ public class AnimationTrack<T>(
 
     public fun canRetarget(target: T): Boolean = adapter.canInterpolate(value, target)
 
+    /** Samples this track and returns whether another frame is required. */
     public fun frame(timeNanos: Long, motionScale: Float): Boolean {
         val f =
             when (val s = spec) {
@@ -116,6 +120,7 @@ public data class Transition<T>(val spec: MotionSpec, val adapter: AnimationAdap
 public class TransitionSet
 internal constructor(internal val values: Map<StyleProperty<*>, Transition<*>>) {
     @Suppress("UNCHECKED_CAST")
+    /** Returns the configured transition for [property]. */
     public operator fun <T> get(property: StyleProperty<T>): Transition<T>? =
         values[property] as Transition<T>?
 }
@@ -124,10 +129,12 @@ internal constructor(internal val values: Map<StyleProperty<*>, Transition<*>>) 
 public class TransitionBuilder {
     private val values = mutableMapOf<StyleProperty<*>, Transition<*>>()
 
+    /** Copies all entries from [other], replacing duplicates. */
     public fun include(other: TransitionSet) {
         values += other.values
     }
 
+    /** Associates [property] with [spec] and [adapter]. */
     public fun <T> set(
         property: StyleProperty<T>,
         spec: MotionSpec,
@@ -208,6 +215,7 @@ public class StyleAnimationRuntime(
     private var scheduled = false
     public var motionScale: Float = 1f
 
+    /** Starts or retargets animation of [property] for [element]. */
     public fun <T> transition(
         element: Element,
         property: StyleProperty<T>,
@@ -283,10 +291,12 @@ public class UiAnimationClock {
             field = value
         }
 
+    /** Registers a callback that remains active while it returns `true`. */
     public fun animate(callback: (Long) -> Boolean) {
         callbacks += callback
     }
 
+    /** Advances callbacks and returns whether animation remains active. */
     public fun frame(timeNanos: Long): Boolean {
         frameTimeNanos = timeNanos
         callbacks.removeIf { !it(timeNanos) }

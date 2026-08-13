@@ -51,6 +51,7 @@ public sealed class Declaration<T>(initial: Any?) {
         require(configured) { "Required declaration '$name' was not configured" }
     }
 
+    /** Replaces the declaration with a fixed one-way [value]. */
     public fun set(value: T) {
         requireExternalMode(ExternalMode.ONE_WAY)
         sourceHandle?.close()
@@ -59,6 +60,7 @@ public sealed class Declaration<T>(initial: Any?) {
         local.value = value
     }
 
+    /** Mirrors [source] until [scope] is disposed. */
     public fun source(source: Readable<T>, scope: ComponentScope) {
         requireExternalMode(ExternalMode.ONE_WAY)
         sourceHandle?.close()
@@ -66,6 +68,7 @@ public sealed class Declaration<T>(initial: Any?) {
         sourceHandle = withComponentScope(scope) { effect { local.value = source.value } }
     }
 
+    /** Computes the declaration reactively in [scope]. */
     public fun source(scope: ComponentScope, block: () -> T) =
         source(withComponentScope(scope) { derived(block = block) }, scope)
 
@@ -105,6 +108,7 @@ public class Binding<T> internal constructor(initial: Any?) : Declaration<T>(ini
             if (!syncing) bound?.value = value
         }
 
+    /** Establishes a two-way connection to [source] owned by [scope]. */
     public fun bind(source: Mutable<T>, scope: ComponentScope) {
         configureTwoWay()
         require(bound == null) { "Binding already has a two-way source" }
@@ -137,13 +141,16 @@ public class Event<E> internal constructor() {
     public var bubbles: Boolean = false
         private set
 
+    /** Marks this event as eligible for component-level bubbling. */
     public fun bubbles(): Event<E> = apply { bubbles = true }
 
+    /** Registers [listener] and returns a handle that removes it. */
     public fun listen(listener: (E) -> Unit): AutoCloseable {
         listeners += listener
         return AutoCloseable { listeners -= listener }
     }
 
+    /** Delivers [event] to a snapshot of current listeners. */
     public fun emit(event: E) {
         listeners.toList().forEach { it(event) }
     }
@@ -153,10 +160,12 @@ public class Event<E> internal constructor() {
 public open class Slot internal constructor() {
     internal var content: (UiScope.() -> Unit)? = null
 
+    /** Replaces the content mounted by this slot. */
     public fun configure(content: UiScope.() -> Unit) {
         this.content = content
     }
 
+    /** Mounts configured content as a fragment in [scope]. */
     public fun mount(scope: UiScope): Fragment = scope.fragment { content?.invoke(this) }
 }
 
@@ -194,6 +203,7 @@ public abstract class Component : AutoCloseable {
         return declaration
     }
 
+    /** Creates and owns the component view beneath [scope]. */
     public fun mount(scope: UiScope): Element {
         check(mounted == null) { "Component already mounted" }
         declarations.forEach { (name, declaration) -> declaration.ensureConfigured(name) }

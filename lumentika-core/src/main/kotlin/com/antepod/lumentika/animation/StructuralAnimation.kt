@@ -101,6 +101,7 @@ public data class ElementTransitionConfig(
 
 /** Creates a visual enter or exit transition for an element. */
 public fun interface ElementTransition {
+    /** Creates timing and sampling configuration for [context]. */
     public fun create(context: ElementTransitionContext): ElementTransitionConfig
 }
 
@@ -289,8 +290,10 @@ internal constructor(
     private val sends = mutableMapOf<Any, Candidate>()
     private val receives = mutableMapOf<Any, Candidate>()
 
+    /** Creates the outgoing side of a crossfade identified by [key]. */
     public fun send(key: Any): ElementTransition = CrossfadeTransition(key, Side.SEND)
 
+    /** Creates the incoming side of a crossfade identified by [key]. */
     public fun receive(key: Any): ElementTransition = CrossfadeTransition(key, Side.RECEIVE)
 
     private inner class CrossfadeTransition(
@@ -372,6 +375,7 @@ public data class LayoutAnimationConfig(
 
 /** Creates motion between an element's previous and current committed bounds. */
 public fun interface LayoutAnimation {
+    /** Creates timing and sampling configuration for [context]. */
     public fun create(context: LayoutAnimationContext): LayoutAnimationConfig
 }
 
@@ -507,6 +511,7 @@ public class ElementAnimationRuntime(
         return key in pending || key in tracks
     }
 
+    /** Starts a transition in [channel], replacing incompatible motion for the same element. */
     public fun start(
         element: Element,
         channel: Any,
@@ -537,6 +542,7 @@ public class ElementAnimationRuntime(
         return handle(key)
     }
 
+    /** Cancels active motion for [element] in [channel]. */
     public fun cancel(element: Element, channel: Any): Boolean {
         val key = Key(element, channel)
         val pendingTrack = pending.remove(key)
@@ -547,6 +553,7 @@ public class ElementAnimationRuntime(
         return pendingTrack != null || runningTrack != null
     }
 
+    /** Captures committed bounds for later FLIP comparison. */
     public fun captureFlip(elements: Collection<Element>): FlipSnapshot {
         val snapshot =
             elements.filter(Element::isMounted).associateWith { committedBounds(it) ?: it.geometry }
@@ -554,6 +561,7 @@ public class ElementAnimationRuntime(
         return FlipSnapshot(snapshot)
     }
 
+    /** Queues layout animation after the next committed bounds become available. */
     public fun queueFlip(
         snapshot: FlipSnapshot,
         retained: Collection<Element>,

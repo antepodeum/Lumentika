@@ -43,16 +43,19 @@ internal constructor(
     internal var hasConfiguration: Boolean = false
         private set
 
+    /** Attaches [value] as this element's style source. */
     public fun style(value: Style) {
         hasConfiguration = true
         context.attachStyle(element, value)
         context.requestFrame(true)
     }
 
+    /** Builds and attaches a style. */
     public fun style(block: com.antepod.lumentika.style.StyleBuilder.() -> Unit) {
         style(com.antepod.lumentika.style.style(block))
     }
 
+    /** Updates this element's accessibility semantics. */
     public fun semantics(block: SemanticsBuilder.() -> Unit) {
         hasConfiguration = true
         semanticUpdates += block
@@ -273,6 +276,7 @@ public class ButtonBuilder internal constructor(element: Element, context: UiCon
     public var enabled: Boolean = true
     private var click: () -> Unit = {}
 
+    /** Registers the semantic activation callback. */
     public fun onClick(listener: () -> Unit) {
         click = listener
     }
@@ -298,8 +302,10 @@ public class CheckboxBuilder internal constructor(element: Element, context: UiC
     public var enabled: Boolean = true
     private var changed: (Boolean) -> Unit = {}
 
+    /** Binds the checked value bidirectionally to [source]. */
     public fun bindValue(source: Mutable<Boolean>) = bind(source)
 
+    /** Registers a callback for committed checked-value changes. */
     public fun onChange(listener: (Boolean) -> Unit) {
         changed = listener
     }
@@ -328,12 +334,15 @@ public class SliderBuilder internal constructor(element: Element, context: UiCon
     private var input: (Float) -> Unit = {}
     private var changed: (Float) -> Unit = {}
 
+    /** Binds the slider value bidirectionally to [source]. */
     public fun bindValue(source: Mutable<Float>) = bind(source)
 
+    /** Registers a callback for committed slider changes. */
     public fun onChange(listener: (Float) -> Unit) {
         changed = listener
     }
 
+    /** Registers a callback for intermediate slider input. */
     public fun onInput(listener: (Float) -> Unit) {
         input = listener
     }
@@ -408,6 +417,7 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
         source = block
     }
 
+    /** Binds editable text bidirectionally to [source]. */
     public fun bindValue(source: Mutable<String>) {
         check(!inputConfigured) { "text field input already configured" }
         inputConfigured = true
@@ -415,10 +425,12 @@ public class TextFieldBuilder internal constructor(element: Element, context: Ui
         this.source = { source.value }
     }
 
+    /** Registers a callback for text changes. */
     public fun onChange(listener: (String) -> Unit) {
         changed = listener
     }
 
+    /** Binds text selection bidirectionally to [source]. */
     public fun bindSelection(source: Mutable<TextRange>) {
         check(boundSelection == null) { "selection binding already configured" }
         boundSelection = source
