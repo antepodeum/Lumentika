@@ -3,70 +3,70 @@
 ## Core boundary
 
 - [ ] `com.antepod:lumentika-core` contains all universal UI mechanics
-- [ ] Taffy4J is included in core
+- [x] Taffy4J is included in core
 - [ ] Taffy4J is the sole layout implementation
-- [ ] core has no native platform or mod-loader dependency
+- [x] core has no native platform or mod-loader dependency
 - [ ] native platform types do not appear in universal component APIs
 - [ ] concrete platform libraries depend on core, never the reverse
 
 ## Kotlin/component runtime
 
-- [ ] Kotlin-first public API
+- [x] Kotlin-first public API
 - [ ] KSP generates Kotlin DSL
 - [ ] no positional component prop/content arguments
-- [ ] `Readable<T>.value`
-- [ ] `Mutable<T>.value`
-- [ ] dynamic derived dependencies
-- [ ] batching/untracked/effects
-- [ ] scope cleanup
-- [ ] async generation cancellation/stale suppression
-- [ ] `Prop<T>` one-way forms
+- [x] `Readable<T>.value`
+- [x] `Mutable<T>.value`
+- [x] dynamic derived dependencies
+- [x] batching/untracked/effects
+- [x] scope cleanup
+- [x] async generation cancellation/stale suppression
+- [x] `Prop<T>` one-way forms
 - [ ] `Binding<T>` two-way only through `bindX`
-- [ ] `Event<E>` typed events
-- [ ] `Slot` / `SlotList`
-- [ ] one-shot `view()`
-- [ ] structural `show`
-- [ ] keyed `forEach`
+- [x] `Event<E>` typed events
+- [x] `Slot` / `SlotList`
+- [x] one-shot `view()`
+- [x] structural `show`
+- [x] keyed `forEach`
 
 ## Platform environment
 
-- [ ] typed `UiEnvironment`
-- [ ] viewport publication
-- [ ] `UnitEnvironment` metadata
-- [ ] `UnitResolver`
+- [x] typed `UiEnvironment`
+- [x] viewport publication
+- [x] `UnitEnvironment` metadata
+- [x] `UnitResolver`
 - [ ] `fontScale` informational only
-- [ ] non-linear `sp` resolution supported
-- [ ] physical-pixel unit resolution
-- [ ] `px` / `dp` / `sp` / `physicalPx` resolution
-- [ ] layout direction
-- [ ] locales
-- [ ] color scheme
-- [ ] accessibility preferences
-- [ ] high-contrast text
-- [ ] font-weight adjustment
-- [ ] motion duration scale
-- [ ] system-bar insets
-- [ ] display-cutout insets
-- [ ] IME insets
-- [ ] system-gesture insets
-- [ ] safeDrawing/safeGestures/safeContent
-- [ ] lifecycle state
-- [ ] capability snapshot
+- [x] non-linear `sp` resolution supported
+- [x] physical-pixel unit resolution
+- [x] `px` / `dp` / `sp` / `physicalPx` resolution
+- [x] layout direction
+- [x] locales
+- [x] color scheme
+- [x] accessibility preferences
+- [x] high-contrast text
+- [x] font-weight adjustment
+- [x] motion duration scale
+- [x] system-bar insets
+- [x] display-cutout insets
+- [x] IME insets
+- [x] system-gesture insets
+- [x] safeDrawing/safeGestures/safeContent
+- [x] lifecycle state
+- [x] capability snapshot
 - [ ] environment updates do not remount root
 
 ## Frame/services
 
-- [ ] `FrameScheduler.requestFrame()`
+- [x] `FrameScheduler.requestFrame()`
 - [ ] one stable frame timestamp/root frame
-- [ ] frame requests coalesce
-- [ ] clipboard service
-- [ ] UI feedback service
-- [ ] pointer cursor service
+- [x] frame requests coalesce
+- [x] clipboard service
+- [x] UI feedback service
+- [x] pointer cursor service
 - [ ] accessibility adapter
-- [ ] content-transfer service
+- [x] content-transfer service
 - [ ] autofill service
-- [ ] URI launcher
-- [ ] normalized back dispatcher
+- [x] URI launcher
+- [x] normalized back dispatcher
 - [ ] missing optional capability has deterministic behavior
 
 ## Event/input/focus
@@ -182,13 +182,13 @@
 
 ## Primitive/content boundary
 
-- [ ] minimal persistent Element
-- [ ] Fragment boxless
-- [ ] Content retained recording
-- [ ] IntrinsicMeasurable
+- [x] minimal persistent Element
+- [x] Fragment boxless
+- [x] Content retained recording
+- [x] IntrinsicMeasurable
 - [ ] HitRegionSource
 - [ ] no visual/layout mega-bag on Element
-- [ ] platform-specific Content/Paint extension boundary
+- [x] platform-specific Content/Paint extension boundary
 - [ ] scene objects are not Elements
 
 ## Taffy layout
@@ -197,8 +197,8 @@
 - [ ] synthetic definite viewport root
 - [ ] stable projected node identity
 - [ ] Fragment flattening
-- [ ] public API contains no Taffy types
-- [ ] environment units resolved before Taffy
+- [x] public API contains no Taffy types
+- [x] environment units resolved before Taffy
 - [ ] text layout intrinsic bridge
 - [ ] stable measurement cache
 - [ ] markDirty on intrinsic changes
@@ -229,19 +229,19 @@
 
 ## Styles/themes
 
-- [ ] immutable Style
-- [ ] `style {}` / `on(condition) {}`
+- [x] immutable Style
+- [x] `style {}` / `on(condition) {}`
 - [ ] generated property IDs/masks
 - [ ] compiled StyleProgram
 - [ ] grouped ResolvedStyle
 - [ ] structural sharing
-- [ ] inheritance
-- [ ] StyleVar token identity
-- [ ] typed StylePart
-- [ ] theme part mappings
+- [x] inheritance
+- [x] StyleVar token identity
+- [x] typed StylePart
+- [x] theme part mappings
 - [ ] `DP_UNITS` / `SP_UNITS` / `PHYSICAL_PX_UNITS` dependency masks
-- [ ] orthogonal StyleImpact includes SEMANTICS
-- [ ] style resolution never calls renderer/layout directly
+- [x] orthogonal StyleImpact includes SEMANTICS
+- [x] style resolution never calls renderer/layout directly
 
 ## Animation
 
