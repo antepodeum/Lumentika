@@ -22,4 +22,14 @@ class ReactiveProofTest {
         assertEquals(1, proof.viewExecutions)
         assertTrue(proof.componentDisposed)
     }
+
+    @Test
+    fun `app proves complete Taffy style surface through real grid layout`() {
+        val proof = runTaffyLayoutProof()
+
+        assertEquals(240f, proof.grid.width)
+        assertEquals(120f, proof.grid.height)
+        assertTrue(proof.firstCell.width > 0f)
+        assertTrue(proof.secondCell.x > proof.firstCell.x)
+    }
 }

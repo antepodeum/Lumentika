@@ -6,6 +6,7 @@ import com.antepod.lumentika.UiRoot
 import com.antepod.lumentika.component.Component
 import com.antepod.lumentika.component.UIComponent
 import com.antepod.lumentika.components.*
+import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.reactive.derived
@@ -14,6 +15,7 @@ import com.antepod.lumentika.render.PaintArtifact
 import com.antepod.lumentika.render.RenderBackend
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.PaintCommand
+import com.antepod.lumentika.style.*
 
 @UIComponent
 class ProofComponent : Component() {
@@ -41,6 +43,115 @@ data class ReactiveProof(
     val viewExecutions: Int,
     val componentDisposed: Boolean,
 )
+
+data class TaffyLayoutProof(
+    val grid: Rect,
+    val firstCell: Rect,
+    val secondCell: Rect,
+)
+
+fun runTaffyLayoutProof(): TaffyLayoutProof {
+    val frames = HeadlessFrameScheduler()
+    val root =
+        UiRoot(
+            UiEnvironment(Size(320f, 200f)),
+            PlatformServices(frames),
+            object : RenderBackend {
+                override fun replay(artifact: PaintArtifact) = Unit
+            },
+        )
+    lateinit var first: Element
+    lateinit var second: Element
+    val grid =
+        root.scope.grid {
+            style {
+                display = Display.GRID
+                itemIsTable = false
+                itemIsReplaced = false
+                boxSizing = BoxSizing.BORDER_BOX
+                direction = Direction.LTR
+                overflowX = Overflow.CLIP
+                overflowY = Overflow.AUTO
+                scrollbarWidth = 6.px
+                floatValue = FloatLayout.NONE
+                clear = Clear.NONE
+                position = Position.RELATIVE
+                inset = edges(Auto)
+                width = 240.px
+                height = 120.px
+                minWidth = 160.px
+                minHeight = 80.px
+                maxWidth = 280.px
+                maxHeight = 160.px
+                aspectRatio = 2f
+                margin = edges(4.px)
+                padding = edges(6.px)
+                border = edges(1.px)
+                alignItems = AlignItems.STRETCH
+                alignSelf = AlignItems.START
+                justifyItems = AlignItems.STRETCH
+                justifySelf = AlignItems.START
+                alignContent = AlignContent.START
+                justifyContent = AlignContent.START
+                columnGap = 8.px
+                rowGap = 10.px
+                textAlign = TextAlign.AUTO
+                flexDirection = FlexDirection.ROW
+                flexWrap = FlexWrap.WRAP
+                flexBasis = Auto
+                flexGrow = 0f
+                flexShrink = 1f
+                gridTemplateColumns =
+                    listOf(
+                        GridTemplateComponent.Single(GridTrackSizing.fixed(80.px)),
+                        GridTemplateComponent.Single(GridTrackSizing.flex(1)),
+                    )
+                gridTemplateRows =
+                    listOf(
+                        GridTemplateComponent.Single(GridTrackSizing.fixed(40.px)),
+                        GridTemplateComponent.Single(GridTrackSizing.flex(1)),
+                    )
+                gridAutoColumns = listOf(GridTrackSizing.Auto)
+                gridAutoRows = listOf(GridTrackSizing.Auto)
+                gridAutoFlow = GridAutoFlow.ROW_DENSE
+                gridTemplateAreas = null
+                gridTemplateColumnNames = listOf(emptyList(), emptyList(), emptyList())
+                gridTemplateRowNames = listOf(emptyList(), emptyList(), emptyList())
+                gridRow = GridLine()
+                gridColumn = GridLine()
+                background = rgb(245, 245, 245)
+                opacity = 1f
+                zIndex = 1
+                visibility = Visibility.VISIBLE
+                pointerEvents = PointerEvents.AUTO
+                fontSize = 14.sp
+                color = rgb(20, 20, 20)
+            }
+            first = text {
+                value = "Grid A"
+                style {
+                    gridColumn = GridLine(GridPlacement.Line(1), GridPlacement.Line(2))
+                    gridRow = GridLine(GridPlacement.Line(1), GridPlacement.Line(2))
+                }
+            }
+            second = text {
+                value = "Grid B"
+                style {
+                    gridColumn = GridLine(GridPlacement.Line(2), GridPlacement.Line(3))
+                    gridRow = GridLine(GridPlacement.Line(1), GridPlacement.Span(2))
+                }
+            }
+        }
+    root.requestFrame()
+    root.frame(1_000_000L)
+    val proof = TaffyLayoutProof(grid.geometry, first.geometry, second.geometry)
+    check(proof.grid.width == 240f)
+    check(proof.grid.height == 120f)
+    check(proof.firstCell.width > 0f)
+    check(proof.secondCell.x > proof.firstCell.x)
+    root.close()
+    return proof
+}
 
 fun runReactiveProof(): ReactiveProof {
     val frames = HeadlessFrameScheduler()
@@ -138,10 +249,12 @@ fun runReactiveProof(): ReactiveProof {
 
 fun main() {
     val proof = runReactiveProof()
+    val layout = runTaffyLayoutProof()
     println(
         "Lumentika reactive proof passed: value=${proof.finalBindingValue}, " +
             "event=${proof.deliveredEvent}, derivedExecutions=${proof.derivedExecutions}, " +
-            "viewExecutions=${proof.viewExecutions}"
+            "viewExecutions=${proof.viewExecutions}; " +
+            "Taffy layout=${layout.grid.width}x${layout.grid.height}"
     )
 }
 
