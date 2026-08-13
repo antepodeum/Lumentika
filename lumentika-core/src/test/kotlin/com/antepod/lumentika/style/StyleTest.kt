@@ -35,7 +35,7 @@ class StyleTest {
     fun `environment units resolve before layout`() {
         val environment = UiEnvironment(Size(100f, 100f), units = com.antepod.lumentika.platform.UnitEnvironment(density = 2f, fontScale = 1.5f, physicalPixelScale = 0.5f))
         assertEquals(10f, resolveLength(5.dp, environment, LogicalUnitResolver))
-        assertEquals(15f, resolveLength(5.sp, environment, LogicalUnitResolver))
+        assertEquals(10f, resolveLength(5.sp, environment, LogicalUnitResolver))
         assertEquals(2.5f, resolveLength(5.physicalPx, environment, LogicalUnitResolver))
         assertEquals(25f, resolveLength(25.percent, environment, LogicalUnitResolver, 100f))
     }

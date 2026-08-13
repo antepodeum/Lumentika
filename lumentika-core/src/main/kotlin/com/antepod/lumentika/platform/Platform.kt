@@ -76,7 +76,7 @@ public interface UnitResolver {
 
 public object LogicalUnitResolver : UnitResolver {
     override fun resolveDp(value: Float, environment: UiEnvironment): Float = value * environment.units.density
-    override fun resolveSp(value: Float, environment: UiEnvironment): Float = value * environment.units.density * environment.units.fontScale
+    override fun resolveSp(value: Float, environment: UiEnvironment): Float = value * environment.units.density
     override fun resolvePhysicalPx(value: Float, environment: UiEnvironment): Float = value * environment.units.physicalPixelScale
 }
 

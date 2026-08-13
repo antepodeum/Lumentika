@@ -6,14 +6,14 @@
 - [x] Taffy4J is included in core
 - [x] Taffy4J is the sole layout implementation
 - [x] core has no native platform or mod-loader dependency
-- [ ] native platform types do not appear in universal component APIs
-- [ ] concrete platform libraries depend on core, never the reverse
+- [x] native platform types do not appear in universal component APIs
+- [x] concrete platform libraries depend on core, never the reverse
 
 ## Kotlin/component runtime
 
 - [x] Kotlin-first public API
-- [ ] KSP generates Kotlin DSL
-- [ ] no positional component prop/content arguments
+- [x] KSP generates Kotlin DSL
+- [x] no positional component prop/content arguments
 - [x] `Readable<T>.value`
 - [x] `Mutable<T>.value`
 - [x] dynamic derived dependencies
@@ -34,7 +34,7 @@
 - [x] viewport publication
 - [x] `UnitEnvironment` metadata
 - [x] `UnitResolver`
-- [ ] `fontScale` informational only
+- [x] `fontScale` informational only
 - [x] non-linear `sp` resolution supported
 - [x] physical-pixel unit resolution
 - [x] `px` / `dp` / `sp` / `physicalPx` resolution
@@ -62,12 +62,12 @@
 - [x] clipboard service
 - [x] UI feedback service
 - [x] pointer cursor service
-- [ ] accessibility adapter
+- [x] accessibility adapter
 - [x] content-transfer service
 - [ ] autofill service
 - [x] URI launcher
 - [x] normalized back dispatcher
-- [ ] missing optional capability has deterministic behavior
+- [x] missing optional capability has deterministic behavior
 
 ## Event/input/focus
 
