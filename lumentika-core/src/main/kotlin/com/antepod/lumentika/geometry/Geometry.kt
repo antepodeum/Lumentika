@@ -52,6 +52,19 @@ public data class Matrix3(public val values: List<Float>) {
         (0..2).sumOf { values[row * 3 + it].toDouble() * other.values[it * 3 + column] }.toFloat()
     })
 
+    public fun inverse(): Matrix3? {
+        val a = values[0]; val b = values[1]; val c = values[2]
+        val d = values[3]; val e = values[4]; val f = values[5]
+        val g = values[6]; val h = values[7]; val i = values[8]
+        val determinant = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+        if (kotlin.math.abs(determinant) < 1e-7f) return null
+        return Matrix3(listOf(
+            (e * i - f * h) / determinant, (c * h - b * i) / determinant, (b * f - c * e) / determinant,
+            (f * g - d * i) / determinant, (a * i - c * g) / determinant, (c * d - a * f) / determinant,
+            (d * h - e * g) / determinant, (b * g - a * h) / determinant, (a * e - b * d) / determinant,
+        ))
+    }
+
     public companion object {
         public val IDENTITY: Matrix3 = Matrix3(listOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f))
         public fun translation(x: Float, y: Float): Matrix3 = Matrix3(listOf(1f, 0f, x, 0f, 1f, y, 0f, 0f, 1f))

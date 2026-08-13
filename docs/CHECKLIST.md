@@ -210,22 +210,22 @@
 
 ## Render/hit testing
 
-- [ ] TransformTree
-- [ ] ClipTree
-- [ ] EffectTree
-- [ ] ScrollTree
-- [ ] StackingContextTree
-- [ ] retained PaintArtifact
-- [ ] retained HitTestArtifact
-- [ ] top layer
+- [x] TransformTree
+- [x] ClipTree
+- [x] EffectTree
+- [x] ScrollTree
+- [x] StackingContextTree
+- [x] retained PaintArtifact
+- [x] retained HitTestArtifact
+- [x] top layer
 - [ ] paint/property/order invalidation split
-- [ ] reverse paint-order hit testing
-- [ ] transform/clip parity with hit testing
-- [ ] property-only updates reuse paint
+- [x] reverse paint-order hit testing
+- [x] transform/clip parity with hit testing
+- [x] property-only updates reuse paint
 - [ ] transformed overflow can extend reachability only
 - [ ] custom scene local hit/raycast
 - [ ] semantic bounds use same coordinate chain
-- [ ] platform replay extension boundary
+- [x] platform replay extension boundary
 
 ## Styles/themes
 
