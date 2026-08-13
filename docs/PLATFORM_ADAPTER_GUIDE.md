@@ -24,7 +24,9 @@ optional. Missing services have deterministic no-op behavior.
 For each chunk:
 
 1. Resolve `PaintPropertyState` IDs in `artifact.trees`.
-2. Apply transform, clip, scroll, opacity, and stacking state.
+2. Apply transform, clip, scroll, opacity, blur, path-draw, and stacking state. `EffectNode`
+   exposes blur radius plus path length/progress; map draw state to the backend's stroke-dash
+   mechanism.
 3. Replay `PaintCommand.Fill`, `FillRect`, `DrawText`, `DrawImage`, or platform-defined
    `PaintCommand.Backend`.
 4. Restore native renderer state before the next chunk.
@@ -77,4 +79,5 @@ Before publishing a platform library, prove:
 - focused text fields open one IME session and close it before unmount;
 - accessibility receives stable IDs and committed bounds;
 - custom backend commands and scene raycasts remain platform-owned;
+- blur and path-draw effect fields replay without paint re-recording;
 - closing repeated roots returns ownership counters to baseline.

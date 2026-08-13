@@ -41,9 +41,30 @@ barrier. Re-entering before completion cancels the pending removal.
 callbacks. `ElementTransitionHandle.close()` explicitly cancels a track. Root or element disposal
 also cancels owned motion and clears its sparse render overlay.
 
-## Built-ins and custom transitions
+## Standard transitions
 
-Core includes `fade`, `fly`, `slide`, and `scale`. Each supports duration, delay, and easing.
+Core includes the complete standard set:
+
+- `blur` animates blur radius and opacity;
+- `draw` animates path visibility;
+- `fade` animates opacity;
+- `fly` animates translation and opacity;
+- `slide` reveals through an animated clip and opacity;
+- `scale` animates scale around a configurable origin and opacity;
+- `crossfade` pairs keyed send/receive geometry.
+
+Every transition supports delay, duration, and easing. Defaults are stable library API: `fade`,
+`fly`, `slide`, `scale`, and `blur` use 400 ms; `draw` uses 800 ms unless fixed duration, path
+length, or speed selects another duration. Default easing is linear for `fade`, cubic-out for
+`fly`, `slide`, `scale`, and `crossfade`, and cubic-in-out for `blur` and `draw`.
+
+`draw` requires the element's `Content` to implement the platform-neutral `PathMetrics` contract.
+`pathLength` is the measured centerline length and `strokeExtension` accounts for visible
+non-butt caps. A platform renderer reads `drawLength` and `drawProgress` from the effect tree and
+maps them to its native stroke-dash mechanism.
+
+## Custom transitions
+
 Transition progress uses `t = 1` for the natural state and `u = 1 - t` for its complement.
 
 A custom `ElementTransition` receives the element, committed bounds, and direction, then returns an
@@ -51,14 +72,24 @@ A custom `ElementTransition` receives the element, committed bounds, and directi
 
 ```kotlin
 val custom = ElementTransition { context ->
-    ElementTransitionConfig(durationMillis = 180) { t, u ->
-        TransitionFrame(
-            transform = Matrix3.translation(0f, 20f * u),
-            opacity = t,
-        )
-    }
+    ElementTransitionConfig(
+        durationMillis = 180,
+        tick = { t, u -> updateExternalState(t, u) },
+        sample = { t, u ->
+            TransitionFrame(
+                transform = Matrix3.translation(0f, 20f * u),
+                opacity = t,
+                blurRadius = 3f * u,
+            )
+        },
+    )
 }
 ```
+
+`sample(t, u)` is the typed render equivalent of generating dynamic visual declarations. It can
+return transform, opacity, local clip, blur radius, and path-draw state without exposing a native
+renderer. `tick(t, u)` is called at the initial value, each sampled frame, and the exact terminal
+value; it is intended for custom state that cannot be expressed by `TransitionFrame`.
 
 ## Keyed FLIP animation
 
@@ -75,8 +106,39 @@ animated; use enter/exit transitions for them. The runtime captures the old visu
 one normal Taffy layout, commits the new bounds, applies the inverse transform, and animates it to
 identity. Animation frames update property trees only, with no extra layout or paint recording.
 
-`FlipAnimation.durationMillis` may derive duration from travel distance. `LayoutAnimationEvents`
-reports start, end, and cancellation.
+The default duration is `sqrt(distance) * 120` ms with cubic-out easing.
+`FlipAnimation.durationMillis` may instead use a fixed or custom distance-derived duration.
+`LayoutAnimationEvents` reports start, end, and cancellation.
+
+## Custom keyed layout animations
+
+`forEach` accepts any `LayoutAnimation`, not only `flip`. The factory receives the retained element
+and its committed old and new bounds:
+
+```kotlin
+val customMove = LayoutAnimation { context ->
+    LayoutAnimationConfig(
+        durationMillis = 220,
+        tick = { t, u -> updateExternalState(t, u) },
+        sample = { _, u ->
+            TransitionFrame(
+                transform = Matrix3.translation(
+                    (context.from.x - context.to.x) * u,
+                    (context.from.y - context.to.y) * u,
+                )
+            )
+        },
+    )
+}
+
+forEach(items, key = { it.id }, animation = customMove) { item ->
+    text(item.name)
+}
+```
+
+`LayoutAnimationConfig` has the same delay, duration, easing, typed `sample(t, u)`, and
+`tick(t, u)` contract as transitions. Only retained keys with changed positive bounds start a
+layout animation.
 
 ## Crossfade
 
@@ -97,7 +159,8 @@ receive keys in one resolution batch fail deterministically.
 
 Structural motion is stored in a render-property overlay separate from ordinary transforms,
 scrolling, clipping, and top-layer configuration. Paint and hit testing consume the same composed
-transform. Semantic bounds therefore follow the committed animated coordinate chain.
+transform and clip. Blur and path-draw values are immutable `EffectNode` fields for platform replay.
+Semantic bounds therefore follow the committed animated coordinate chain.
 
 When lifecycle is `SUSPENDED` or `DISPOSED`, the logical animation clock does not advance. A motion
 scale of zero completes tracks immediately. Active tracks are cancelled during root disposal.

@@ -275,15 +275,22 @@ The evidence matrix at the end maps each checklist section to its acceptance tes
 - [x] intro/outro start/end and cancellation events
 - [x] explicit transition cancellation handle
 - [x] custom transition receives committed bounds and direction
+- [x] custom transition supports typed frame sampling and per-frame `tick(t, u)`
 - [x] transition delay/duration/easing
-- [x] `fade` / `fly` / `slide` / `scale` built-ins
+- [x] `blur` / `draw` / `fade` / `fly` / `slide` / `scale` built-ins
+- [x] draw duration supports fixed, path-length-derived, and speed-derived timing
+- [x] draw consumes platform-neutral path and stroke-cap metrics
 - [x] keyed `crossfade` send/receive pairing
 - [x] crossfade fallback for unmatched keys
 - [x] keyed `forEach` FLIP animation
+- [x] keyed `forEach` accepts custom layout animations
+- [x] custom layout animation receives element and committed `from` / `to` bounds
+- [x] custom layout animation supports delay/duration/easing, typed sampling, and `tick(t, u)`
 - [x] FLIP animates retained moved keys only
 - [x] distance-derived FLIP duration supported
 - [x] FLIP uses one layout then property-only frames
-- [x] animated paint and hit testing share the same transform
+- [x] animated transform/clip and hit testing share the same property chain
+- [x] animated blur and path-draw state reach immutable effect artifacts
 - [x] structural motion honors lifecycle suspension
 - [x] structural motion honors motion-duration scale
 - [x] active structural motion is cancelled on disposal
