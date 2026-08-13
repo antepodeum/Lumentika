@@ -195,7 +195,10 @@ mavenPublishing {
             developer {
                 id.set("antepodeum")
                 name.set("antepodeum")
+                email.set("antepodeum@users.noreply.github.com")
                 url.set("https://github.com/antepodeum")
+                organization.set("antepodeum")
+                organizationUrl.set("https://github.com/antepodeum")
             }
         }
         scm {
