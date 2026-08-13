@@ -1,8 +1,12 @@
 package com.antepod.lumentika.render
 
+import com.antepod.lumentika.geometry.CornerRadii
 import com.antepod.lumentika.geometry.Matrix3
+import com.antepod.lumentika.geometry.Path
+import com.antepod.lumentika.geometry.PathSegment
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
+import com.antepod.lumentika.geometry.RoundedRect
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.HitRegionSource
@@ -10,7 +14,10 @@ import com.antepod.lumentika.runtime.PaintCommand
 import com.antepod.lumentika.runtime.PaintRecorder
 import com.antepod.lumentika.runtime.SceneContent
 import com.antepod.lumentika.runtime.TextContent
+import com.antepod.lumentika.style.BoxShadow
 import com.antepod.lumentika.style.StyleRuntime
+import com.antepod.lumentika.style.edges
+import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.style.style
 import kotlin.test.Test
@@ -19,6 +26,116 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class RenderTest {
+    @Test
+    fun `rounded nested and transformed path clips share exact hit geometry`() {
+        val root = Element("root").apply { geometry = Rect(0f, 0f, 100f, 100f) }
+        val rounded =
+            Element("rounded").also {
+                it.geometry = Rect(0f, 0f, 20f, 20f)
+                it.content = TextContent("rounded")
+                root.append(it)
+            }
+        val nested =
+            Element("nested").also {
+                it.geometry = Rect(0f, 0f, 20f, 20f)
+                it.content = TextContent("nested")
+                rounded.append(it)
+            }
+        val transformed =
+            Element("transformed").also {
+                it.geometry = Rect(0f, 30f, 20f, 20f)
+                it.content = TextContent("path")
+                root.append(it)
+            }
+        val styles = StyleRuntime()
+        listOf(root, rounded, nested, transformed).forEach { styles.attach(it, state(style {})) }
+        val triangle =
+            Path(
+                listOf(
+                    PathSegment.MoveTo(Point(0f, 0f)),
+                    PathSegment.LineTo(Point(20f, 0f)),
+                    PathSegment.LineTo(Point(0f, 20f)),
+                    PathSegment.Close,
+                )
+            )
+        val render = RenderRuntime(root) { styles.resolve(it).first }
+        render.configure(
+            rounded,
+            RenderProperties(clip = RoundedRect(Rect(0f, 0f, 20f, 20f), CornerRadii(10f))),
+        )
+        render.configure(nested, RenderProperties(clip = Rect(0f, 0f, 8f, 20f)))
+        render.configure(
+            transformed,
+            RenderProperties(
+                transform = Matrix3.translation(10f, 0f),
+                clip = triangle,
+            ),
+        )
+        val hit = render.commit().hitTest
+
+        assertSame(root, hit.hitTest(Point(1f, 1f)))
+        assertSame(nested, hit.hitTest(Point(5f, 10f)))
+        assertSame(rounded, hit.hitTest(Point(10f, 10f)))
+        assertSame(transformed, hit.hitTest(Point(12f, 32f)))
+        assertSame(root, hit.hitTest(Point(28f, 48f)))
+        assertTrue(
+            hit.entries.single { it.element === transformed }.clips.any { it.shape === triangle }
+        )
+        root.close()
+    }
+
+    @Test
+    fun `radius border shadow and path emit generic paint commands`() {
+        val path =
+            Path(
+                listOf(
+                    PathSegment.MoveTo(Point(0f, 0f)),
+                    PathSegment.LineTo(Point(10f, 0f)),
+                    PathSegment.LineTo(Point(10f, 10f)),
+                    PathSegment.Close,
+                )
+            )
+        val fill = rgb(1, 2, 3)
+        val border = rgb(4, 5, 6)
+        val shadow = BoxShadow(Point(2f, 3f), 4f, 1f, rgb(7, 8, 9))
+        val root =
+            Element("shape").apply {
+                geometry = Rect(0f, 0f, 40f, 30f)
+                content =
+                    object : com.antepod.lumentika.runtime.Content {
+                        override fun record(recorder: PaintRecorder, bounds: Rect) {
+                            recorder.record(PaintCommand.FillPath(path, fill))
+                            recorder.record(PaintCommand.StrokePath(path, 2f, border))
+                        }
+                    }
+            }
+        val styles = StyleRuntime()
+        styles.attach(
+            root,
+            state(
+                style {
+                    background = fill
+                    borderRadius = CornerRadii(6f)
+                    this.border = edges(2.px)
+                    borderPaint = border
+                    boxShadows = listOf(shadow)
+                }
+            ),
+        )
+        val commands =
+            RenderRuntime(root) { styles.resolve(it).first }.commit().paint.chunks.single().commands
+
+        assertTrue(commands[0] is PaintCommand.DrawBoxShadow)
+        assertTrue(commands[1] is PaintCommand.FillRoundedRect)
+        assertTrue(commands.any { it is PaintCommand.FillPath && it.path === path })
+        assertTrue(commands.any { it is PaintCommand.StrokePath && it.path === path })
+        assertEquals(
+            edges(2f),
+            commands.filterIsInstance<PaintCommand.DrawBorder>().single().widths,
+        )
+        root.close()
+    }
+
     @Test
     fun `resolved background and inherited text paint are replayable commands`() {
         val root = Element("root")

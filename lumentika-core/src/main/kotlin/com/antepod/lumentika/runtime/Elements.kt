@@ -2,6 +2,8 @@ package com.antepod.lumentika.runtime
 
 import com.antepod.lumentika.animation.ElementAnimationRuntime
 import com.antepod.lumentika.animation.UiAnimationClock
+import com.antepod.lumentika.geometry.CornerRadii
+import com.antepod.lumentika.geometry.Path
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.input.EventDispatcher
@@ -71,6 +73,34 @@ public sealed interface PaintCommand {
     }
 
     public data class Fill(val rect: Rect, val paint: Paint) : PaintCommand
+
+    public data class FillRoundedRect(
+        val rect: Rect,
+        val radii: CornerRadii,
+        val paint: Paint,
+    ) : PaintCommand
+
+    public data class FillPath(val path: Path, val paint: Paint) : PaintCommand
+
+    public data class StrokePath(val path: Path, val width: Float, val paint: Paint) :
+        PaintCommand {
+        init {
+            require(width.isFinite() && width >= 0f)
+        }
+    }
+
+    public data class DrawBorder(
+        val rect: Rect,
+        val widths: com.antepod.lumentika.style.Edges<Float>,
+        val radii: CornerRadii,
+        val paint: Paint,
+    ) : PaintCommand
+
+    public data class DrawBoxShadow(
+        val rect: Rect,
+        val radii: CornerRadii,
+        val shadow: com.antepod.lumentika.style.BoxShadow,
+    ) : PaintCommand
 
     public data class DrawImage(val source: ImageSource, val rect: Rect) : PaintCommand
 

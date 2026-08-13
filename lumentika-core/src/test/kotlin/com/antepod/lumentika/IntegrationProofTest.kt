@@ -13,6 +13,7 @@ import com.antepod.lumentika.components.column
 import com.antepod.lumentika.components.slider
 import com.antepod.lumentika.components.text
 import com.antepod.lumentika.components.textField
+import com.antepod.lumentika.geometry.CornerRadii
 import com.antepod.lumentika.geometry.Insets
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.platform.AccessibilityPreferences
@@ -24,12 +25,53 @@ import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.OwnershipCounters
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.px
+import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.style.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class IntegrationProofTest {
+    @Test
+    fun `paint radius and clip changes do not recompute Taffy`() {
+        val root = headlessRoot(100f, 100f)
+        val element = root.scope.element("paint-only")
+        val source =
+            state(
+                style {
+                    width = 40.px
+                    height = 30.px
+                    background = rgb(1, 2, 3)
+                }
+            )
+        root.styles.attach(element, source)
+        root.requestFrame()
+        root.frame(1)
+        val computes = root.layoutComputeCount
+
+        source.value = style {
+            width = 40.px
+            height = 30.px
+            background = rgb(3, 2, 1)
+            borderRadius = CornerRadii(8f)
+            clipShape =
+                com.antepod.lumentika.geometry.RoundedRect(
+                    com.antepod.lumentika.geometry.Rect(0f, 0f, 40f, 30f),
+                    CornerRadii(8f),
+                )
+        }
+        root.requestFrame(layoutDirty = false)
+        root.frame(2)
+
+        assertEquals(computes, root.layoutComputeCount)
+        assertTrue(
+            root.committedRender.paint.chunks.single { it.element === element }.commands.single()
+                is com.antepod.lumentika.runtime.PaintCommand.FillRoundedRect
+        )
+        root.close()
+    }
+
     @Test
     fun `environment families update without remounting`() {
         val root = headlessRoot(100f, 100f)

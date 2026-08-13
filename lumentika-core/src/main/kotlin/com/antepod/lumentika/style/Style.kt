@@ -1,10 +1,14 @@
 package com.antepod.lumentika.style
 
+import com.antepod.lumentika.geometry.ClipShape
+import com.antepod.lumentika.geometry.CornerRadii
 import com.antepod.lumentika.geometry.Insets
+import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.platform.UnitResolver
 import com.antepod.lumentika.reactive.Readable
 import com.antepod.lumentika.runtime.AttachmentKey
+import com.antepod.lumentika.runtime.BackendPaintCommand
 import com.antepod.lumentika.runtime.Element
 
 /** Value accepted by a dimension style property. */
@@ -80,7 +84,11 @@ public fun <T> edges(top: T, right: T, bottom: T, left: T): Edges<T> =
     Edges(top, right, bottom, left)
 
 /** Paint used by backgrounds and text. External backends may provide immutable implementations. */
-public interface Paint
+public interface Paint {
+    /** Returns an optional backend-owned command for painting [bounds]. */
+    public fun backendCommand(bounds: com.antepod.lumentika.geometry.Rect): BackendPaintCommand? =
+        null
+}
 
 /** Solid ARGB color paint. */
 public data class SolidPaint(val argb: Int) : Paint
@@ -100,6 +108,20 @@ public data class ImagePaint(val source: String) : Paint
 
 /** Ordered composition of multiple paints. */
 public data class LayeredPaint(val layers: List<Paint>) : Paint
+
+/** Platform-neutral shadow drawn around an element's border box. */
+public data class BoxShadow(
+    val offset: Point = Point(0f, 0f),
+    val blurRadius: Float = 0f,
+    val spreadRadius: Float = 0f,
+    val paint: Paint,
+    val inset: Boolean = false,
+) {
+    init {
+        require(blurRadius.isFinite() && blurRadius >= 0f)
+        require(spreadRadius.isFinite())
+    }
+}
 
 /** Creates a solid paint from 8-bit red, green, blue, and alpha channels. */
 public fun rgb(red: Int, green: Int, blue: Int, alpha: Int = 255): SolidPaint =
@@ -325,6 +347,34 @@ public object Properties {
             "background",
             null,
             impact = StyleImpact.PAINT,
+        )
+    public val BorderRadius =
+        StyleProperty(
+            GeneratedStylePropertyCatalog.BORDER_RADIUS,
+            "borderRadius",
+            CornerRadii(),
+            impact = StyleImpact.PAINT + StyleImpact.CLIP,
+        )
+    public val BorderPaint =
+        StyleProperty<Paint?>(
+            GeneratedStylePropertyCatalog.BORDER_PAINT,
+            "borderPaint",
+            null,
+            impact = StyleImpact.PAINT,
+        )
+    public val BoxShadows =
+        StyleProperty(
+            GeneratedStylePropertyCatalog.BOX_SHADOWS,
+            "boxShadows",
+            emptyList<BoxShadow>(),
+            impact = StyleImpact.PAINT + StyleImpact.EFFECT,
+        )
+    public val ClipShape =
+        StyleProperty<com.antepod.lumentika.geometry.ClipShape?>(
+            GeneratedStylePropertyCatalog.CLIP_SHAPE,
+            "clipShape",
+            null,
+            impact = StyleImpact.CLIP,
         )
     public val Opacity =
         StyleProperty(
@@ -566,6 +616,10 @@ public object Properties {
             FlexShrink,
             Overflow,
             Background,
+            BorderRadius,
+            BorderPaint,
+            BoxShadows,
+            ClipShape,
             Opacity,
             ZIndex,
             Visibility,
@@ -981,6 +1035,22 @@ public class StyleBuilder internal constructor(private val condition: StyleCondi
         get() = error("write-only")
         set(value) = set(Properties.Background, value)
 
+    public var borderRadius: CornerRadii
+        get() = error("write-only")
+        set(value) = set(Properties.BorderRadius, value)
+
+    public var borderPaint: Paint?
+        get() = error("write-only")
+        set(value) = set(Properties.BorderPaint, value)
+
+    public var boxShadows: List<BoxShadow>
+        get() = error("write-only")
+        set(value) = set(Properties.BoxShadows, value.toList())
+
+    public var clipShape: ClipShape?
+        get() = error("write-only")
+        set(value) = set(Properties.ClipShape, value)
+
     public var opacity: Float
         get() = error("write-only")
         set(value) = set(Properties.Opacity, value.coerceIn(0f, 1f))
@@ -1122,7 +1192,13 @@ public data class TaffyLayoutValues(
 )
 
 /** Resolved paint values. */
-public data class PaintValues(val background: Paint?)
+public data class PaintValues(
+    val background: Paint?,
+    val borderRadius: CornerRadii,
+    val borderPaint: Paint?,
+    val boxShadows: List<BoxShadow>,
+    val clipShape: ClipShape?,
+)
 
 /** Resolved compositing and stacking values. */
 public data class RenderValues(val opacity: Float, val zIndex: Int)
@@ -1159,6 +1235,10 @@ internal constructor(
             GeneratedStylePropertyCatalog.FLEX_SHRINK -> flexGrid.shrink
             GeneratedStylePropertyCatalog.OVERFLOW -> boxLayout.overflow
             GeneratedStylePropertyCatalog.BACKGROUND -> paint.background
+            GeneratedStylePropertyCatalog.BORDER_RADIUS -> paint.borderRadius
+            GeneratedStylePropertyCatalog.BORDER_PAINT -> paint.borderPaint
+            GeneratedStylePropertyCatalog.BOX_SHADOWS -> paint.boxShadows
+            GeneratedStylePropertyCatalog.CLIP_SHAPE -> paint.clipShape
             GeneratedStylePropertyCatalog.OPACITY -> render.opacity
             GeneratedStylePropertyCatalog.Z_INDEX -> render.zIndex
             GeneratedStylePropertyCatalog.VISIBILITY -> inherited.visibility
@@ -1304,7 +1384,17 @@ internal constructor(
                         value(Properties.GridColumn),
                     ),
                 )
-            val paint = share(previous?.paint, PaintValues(value(Properties.Background)))
+            val paint =
+                share(
+                    previous?.paint,
+                    PaintValues(
+                        value(Properties.Background),
+                        value(Properties.BorderRadius),
+                        value(Properties.BorderPaint),
+                        value(Properties.BoxShadows),
+                        value(Properties.ClipShape),
+                    ),
+                )
             val render =
                 share(
                     previous?.render,

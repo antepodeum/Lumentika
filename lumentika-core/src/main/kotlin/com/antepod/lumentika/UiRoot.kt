@@ -152,7 +152,18 @@ public class UiRoot(
             onLayoutRequested = frame::requestFrame,
         )
     private val render by lazy {
-        RenderRuntime(element) { styleAnimations.effective(it, styles.resolve(it).first) }
+        RenderRuntime(
+            root = element,
+            resolveBorderLength = { value, basis ->
+                com.antepod.lumentika.style.resolveLength(
+                    value as com.antepod.lumentika.style.DimensionValue,
+                    environment.value,
+                    services.units,
+                    basis,
+                ) ?: 0f
+            },
+            resolveStyle = { styleAnimations.effective(it, styles.resolve(it).first) },
+        )
     }
     private val pointerGestures = mutableMapOf<Int, PointerGestureSession>()
     private var lastPlatformFrameNanos = 0L

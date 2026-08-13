@@ -1,16 +1,29 @@
 package com.antepod.lumentika.render
 
+import com.antepod.lumentika.geometry.ClipShape
+import com.antepod.lumentika.geometry.CornerRadii
 import com.antepod.lumentika.geometry.Matrix3
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
+import com.antepod.lumentika.geometry.RoundedRect
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.HitRegionSource
 import com.antepod.lumentika.runtime.PaintCommand
 import com.antepod.lumentika.runtime.PaintRecorder
 import com.antepod.lumentika.runtime.SceneContent
+import com.antepod.lumentika.style.Calc
+import com.antepod.lumentika.style.Dp
+import com.antepod.lumentika.style.Edges
+import com.antepod.lumentika.style.LengthPercentageValue
+import com.antepod.lumentika.style.Overflow
+import com.antepod.lumentika.style.Paint
+import com.antepod.lumentika.style.Percent
+import com.antepod.lumentika.style.PhysicalPx
 import com.antepod.lumentika.style.PointerEvents
 import com.antepod.lumentika.style.Properties
+import com.antepod.lumentika.style.Px
 import com.antepod.lumentika.style.ResolvedStyle
+import com.antepod.lumentika.style.Sp
 import com.antepod.lumentika.style.Visibility
 
 /** Stable index into one retained paint-property tree. */
@@ -24,7 +37,12 @@ public data class TransformNode(
 )
 
 /** Clip entry in a retained paint-property tree. */
-public data class ClipNode(val id: PropertyNodeId, val parent: PropertyNodeId?, val rect: Rect)
+public data class ClipNode(
+    val id: PropertyNodeId,
+    val parent: PropertyNodeId?,
+    val shape: ClipShape,
+    val rootTransform: Matrix3,
+)
 
 /** Opacity, blur, and path-draw entry in a retained property tree. */
 public data class EffectNode(
@@ -81,6 +99,12 @@ public data class PaintArtifact(
 )
 
 /** Committed geometry and transform data used for one hit-test candidate. */
+public data class CommittedClip(val shape: ClipShape, val rootTransform: Matrix3) {
+    public fun contains(rootPoint: Point): Boolean =
+        rootTransform.inverse()?.transform(rootPoint)?.let(shape::contains) == true
+}
+
+/** Committed geometry and transform data used for one hit-test candidate. */
 public data class HitTestEntry(
     val element: Element,
     val localBounds: Rect,
@@ -88,6 +112,7 @@ public data class HitTestEntry(
     val clip: Rect,
     val paintOrder: Int,
     val topLayer: Boolean,
+    val clips: List<CommittedClip> = emptyList(),
     val customRegion: HitRegionSource? = null,
     val scene: SceneContent? = null,
 )
@@ -100,7 +125,8 @@ public data class HitTestArtifact(val generation: Long, val entries: List<HitTes
     /** Returns the frontmost hit-testable element at [point]. */
     public fun hitTest(point: Point): Element? =
         entries.asReversed().firstNotNullOfOrNull { entry ->
-            if (!entry.clip.contains(point)) return@firstNotNullOfOrNull null
+            if (!entry.clip.contains(point) || entry.clips.any { !it.contains(point) })
+                return@firstNotNullOfOrNull null
             val local =
                 entry.rootTransform.inverse()?.transform(point) ?: return@firstNotNullOfOrNull null
             entry.element.takeIf {
@@ -112,7 +138,8 @@ public data class HitTestArtifact(val generation: Long, val entries: List<HitTes
     /** Returns the frontmost adapter scene object raycast at [point]. */
     public fun raycast(point: Point): SceneRaycastHit? =
         entries.asReversed().firstNotNullOfOrNull { entry ->
-            if (!entry.clip.contains(point)) return@firstNotNullOfOrNull null
+            if (!entry.clip.contains(point) || entry.clips.any { !it.contains(point) })
+                return@firstNotNullOfOrNull null
             val local =
                 entry.rootTransform.inverse()?.transform(point) ?: return@firstNotNullOfOrNull null
             if (!(entry.customRegion?.hitTest(local, entry.localBounds) ?: false)) {
@@ -131,7 +158,7 @@ public fun interface RenderBackend {
 /** Persistent render modifiers configured for an element. */
 public data class RenderProperties(
     val transform: Matrix3 = Matrix3.IDENTITY,
-    val clip: Rect? = null,
+    val clip: ClipShape? = null,
     val scrollOffset: Point = Point(0f, 0f),
     val topLayer: Boolean = false,
 )
@@ -166,6 +193,8 @@ public enum class RenderInvalidation {
 /** Builds, caches, commits, and replays retained render and hit-test artifacts. */
 public class RenderRuntime(
     private val root: Element,
+    private val resolveBorderLength: (LengthPercentageValue, Float) -> Float =
+        ::defaultResolveBorderLength,
     private val resolveStyle: (Element) -> ResolvedStyle,
 ) {
     private val properties = mutableMapOf<Element, RenderProperties>()
@@ -284,25 +313,33 @@ public class RenderRuntime(
                 element.geometry.y - (element.parent?.geometry?.y ?: 0f),
             )
         val transform = parent.transform * translation * config.transform * motion.transform
-        val rootBounds =
-            transformedBounds(
-                transform,
-                Rect(0f, 0f, element.geometry.width, element.geometry.height),
-            )
+        val bounds = Rect(0f, 0f, element.geometry.width, element.geometry.height)
         val entersTopLayer = config.topLayer && !parent.topLayer
-        val inheritedClip = if (entersTopLayer) ParentState.INFINITE_CLIP else parent.clip
-        val localClip =
-            when {
-                config.clip != null && motion.clip != null -> config.clip.intersect(motion.clip)
-                config.clip != null -> config.clip
-                else -> motion.clip
-            }
+        val inheritedClips = if (entersTopLayer) emptyList() else parent.clips
+        val styleClip = style[Properties.ClipShape]
+        val overflowClip =
+            style[Properties.Overflow] != Overflow.VISIBLE ||
+                style[Properties.OverflowX]?.let { it != Overflow.VISIBLE } == true ||
+                style[Properties.OverflowY]?.let { it != Overflow.VISIBLE } == true
+        val radii = style[Properties.BorderRadius]
+        val localClips = buildList {
+            config.clip?.let(::add)
+            motion.clip?.let(::add)
+            styleClip?.let(::add)
+            if (overflowClip) add(if (radii.isEmpty) bounds else RoundedRect(bounds, radii))
+        }
+        val clips = inheritedClips + localClips.map { CommittedClip(it, transform) }
         val clip =
-            (localClip?.let { transformedBounds(transform, it) } ?: inheritedClip).intersect(
-                inheritedClip
-            ) ?: Rect(0f, 0f, 0f, 0f)
+            clips.fold(ParentState.INFINITE_CLIP as Rect?) { current, committed ->
+                current?.intersect(
+                    transformedBounds(committed.rootTransform, committed.shape.bounds)
+                )
+            } ?: Rect(0f, 0f, 0f, 0f)
         val transformId = builder.transform(parent.transformId, transform)
-        val clipId = builder.clip(if (entersTopLayer) null else parent.clipId, clip)
+        var clipId = if (entersTopLayer) null else parent.clipId
+        localClips.forEach { shape -> clipId = builder.clip(clipId, shape, transform) }
+        val effectiveClipId =
+            clipId ?: builder.clip(null, ParentState.INFINITE_CLIP, Matrix3.IDENTITY)
         val effectId =
             builder.effect(
                 parent.effectId,
@@ -315,18 +352,36 @@ public class RenderRuntime(
         val stackId = builder.stack(parent.stackId, style[Properties.ZIndex])
         val order = builder.nextOrder++
         val topLayer = parent.topLayer || config.topLayer
-        val propertyState = PaintPropertyState(transformId, clipId, effectId, scrollId, stackId)
+        val propertyState =
+            PaintPropertyState(transformId, effectiveClipId, effectId, scrollId, stackId)
         val content = element.content
-        val paintStyle = PaintStyleKey(style.paint.background, style.inherited.color)
-        if (content != null || paintStyle.background != null) {
-            val key: Any? = content to paintStyle
+        val paintStyle =
+            PaintStyleKey(
+                style.paint.background,
+                style.inherited.color,
+                radii,
+                style.paint.borderPaint,
+                style.paint.boxShadows,
+                style[Properties.Border],
+            )
+        if (
+            content != null ||
+                paintStyle.background != null ||
+                paintStyle.borderPaint != null ||
+                paintStyle.shadows.isNotEmpty()
+        ) {
+            val key: Any? = Triple(content, paintStyle, bounds)
             val cached = paintCache[element]
             val commands =
                 if (cached?.first == key) cached!!.second
                 else
                     mutableListOf<PaintCommand>().also { list ->
-                        val bounds = Rect(0f, 0f, element.geometry.width, element.geometry.height)
-                        paintStyle.background?.let { list += PaintCommand.Fill(bounds, it) }
+                        paintStyle.shadows.forEach {
+                            list += PaintCommand.DrawBoxShadow(bounds, paintStyle.radii, it)
+                        }
+                        paintStyle.background?.let { paint ->
+                            recordFill(list, bounds, paintStyle.radii, paint)
+                        }
                         content?.record(
                             object : PaintRecorder {
                                 override fun record(command: PaintCommand) {
@@ -338,6 +393,28 @@ public class RenderRuntime(
                             },
                             bounds,
                         )
+                        paintStyle.borderPaint?.let { paint ->
+                            val widths =
+                                Edges(
+                                    resolveBorderLength(paintStyle.border.top, bounds.height),
+                                    resolveBorderLength(paintStyle.border.right, bounds.width),
+                                    resolveBorderLength(paintStyle.border.bottom, bounds.height),
+                                    resolveBorderLength(paintStyle.border.left, bounds.width),
+                                )
+                            if (
+                                listOf(widths.top, widths.right, widths.bottom, widths.left).any {
+                                    it > 0f
+                                }
+                            ) {
+                                list +=
+                                    PaintCommand.DrawBorder(
+                                        bounds,
+                                        widths,
+                                        paintStyle.radii,
+                                        paint,
+                                    )
+                            }
+                        }
                         paintCache[element] = key to list
                         recordCount++
                     }
@@ -346,23 +423,24 @@ public class RenderRuntime(
         if (style[Properties.PointerEvents] != PointerEvents.NONE)
             builder.hitEntries +=
                 HitTestEntry(
-                    element,
-                    Rect(0f, 0f, element.geometry.width, element.geometry.height),
-                    transform,
-                    clip,
-                    order,
-                    topLayer,
-                    element.content as? HitRegionSource,
-                    element.content as? SceneContent,
+                    element = element,
+                    localBounds = bounds,
+                    rootTransform = transform,
+                    clip = clip,
+                    paintOrder = order,
+                    topLayer = topLayer,
+                    clips = clips,
+                    customRegion = element.content as? HitRegionSource,
+                    scene = element.content as? SceneContent,
                 )
         val childTransform =
             transform * Matrix3.translation(-config.scrollOffset.x, -config.scrollOffset.y)
         val childState =
             ParentState(
                 childTransform,
-                clip,
+                clips,
                 transformId,
-                clipId,
+                effectiveClipId,
                 effectId,
                 scrollId,
                 stackId,
@@ -390,9 +468,24 @@ public class RenderRuntime(
         )
     }
 
+    private fun recordFill(
+        commands: MutableList<PaintCommand>,
+        bounds: Rect,
+        radii: CornerRadii,
+        paint: Paint,
+    ) {
+        val backend = paint.backendCommand(bounds)
+        commands +=
+            when {
+                backend != null -> PaintCommand.Backend(backend)
+                radii.isEmpty -> PaintCommand.Fill(bounds, paint)
+                else -> PaintCommand.FillRoundedRect(bounds, radii, paint)
+            }
+    }
+
     private data class ParentState(
         val transform: Matrix3 = Matrix3.IDENTITY,
-        val clip: Rect = INFINITE_CLIP,
+        val clips: List<CommittedClip> = emptyList(),
         val transformId: PropertyNodeId? = null,
         val clipId: PropertyNodeId? = null,
         val effectId: PropertyNodeId? = null,
@@ -412,8 +505,12 @@ public class RenderRuntime(
     }
 
     private data class PaintStyleKey(
-        val background: com.antepod.lumentika.style.Paint?,
-        val foreground: com.antepod.lumentika.style.Paint,
+        val background: Paint?,
+        val foreground: Paint,
+        val radii: CornerRadii,
+        val borderPaint: Paint?,
+        val shadows: List<com.antepod.lumentika.style.BoxShadow>,
+        val border: Edges<LengthPercentageValue>,
     )
 
     private class Builder {
@@ -429,8 +526,10 @@ public class RenderRuntime(
         fun transform(parent: PropertyNodeId?, value: Matrix3) =
             PropertyNodeId(transforms.size).also { transforms += TransformNode(it, parent, value) }
 
-        fun clip(parent: PropertyNodeId?, value: Rect) =
-            PropertyNodeId(clips.size).also { clips += ClipNode(it, parent, value) }
+        fun clip(parent: PropertyNodeId?, shape: ClipShape, rootTransform: Matrix3) =
+            PropertyNodeId(clips.size).also {
+                clips += ClipNode(it, parent, shape, rootTransform)
+            }
 
         fun effect(
             parent: PropertyNodeId?,
@@ -464,3 +563,19 @@ public class RenderRuntime(
             )
     }
 }
+
+private fun defaultResolveBorderLength(value: LengthPercentageValue, basis: Float): Float =
+    when (value) {
+        is Px -> value.value
+        is Dp -> value.value
+        is Sp -> value.value
+        is PhysicalPx -> value.value
+        is Percent -> value.fraction * basis
+        is Calc ->
+            value.terms
+                .sumOf { (factor, term) ->
+                    factor.toDouble() *
+                        defaultResolveBorderLength(term as LengthPercentageValue, basis)
+                }
+                .toFloat()
+    }
