@@ -274,7 +274,7 @@
 - [x] textField
 - [x] tooltip
 - [x] universal components have no native platform resource/render/service types
-- [ ] interactive controls use shared gesture runtime
+- [x] interactive controls use shared gesture runtime
 - [x] interactive controls install default semantics
 - [x] textField uses shared text-editing runtime
 

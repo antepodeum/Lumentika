@@ -188,6 +188,7 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
         mutableChildren.toList().asReversed().forEach { remove(it) }
         scope.close()
         contentListeners.clear()
+        attachments.values.filterIsInstance<AutoCloseable>().forEach(AutoCloseable::close)
         attachments.clear()
     }
 

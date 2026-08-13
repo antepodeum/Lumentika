@@ -1,8 +1,12 @@
 package com.antepod.lumentika.components
 
+import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
+import com.antepod.lumentika.text.TextEditingController
+import com.antepod.lumentika.text.TextEditingValue
+import com.antepod.lumentika.text.TextRange
 import kotlin.test.*
 
 class ComponentsTest {
@@ -34,5 +38,31 @@ class ComponentsTest {
         assertEquals(1, clicks)
         assertTrue(checked.value)
         assertEquals(.75f, sliderValue.value)
+    }
+
+    @Test
+    fun `interactive controls use shared gesture recognizers`() {
+        val root = Element("root")
+        val ui = UiScope(root)
+        var clicks = 0
+        val button = ui.button("Go") { clicks++ }
+        button.gestures!!.down(1, Point(0f, 0f), 0)
+        button.gestures.up(Point(0f, 0f), 1)
+        assertEquals(1, clicks)
+
+        val sliderValue = state(0f)
+        val slider = ui.slider(sliderValue)
+        slider.gestures!!.down(2, Point(0f, 0f), 0)
+        slider.gestures.move(Point(20f, 0f), 10_000_000)
+        assertEquals(0.2f, sliderValue.value)
+
+        val controller = TextEditingController(TextEditingValue("abcd", TextRange(0, 0)))
+        val field = ui.textField(controller)
+        field.gestures!!.down(3, Point(0f, 0f), 0)
+        field.gestures.advance(500_000_000)
+        field.gestures.move(Point(16f, 0f), 510_000_000)
+        assertEquals(TextRange(2, 2), controller.value.selection)
+
+        root.close()
     }
 }
