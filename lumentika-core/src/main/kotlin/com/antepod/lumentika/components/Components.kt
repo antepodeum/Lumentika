@@ -22,6 +22,11 @@ import com.antepod.lumentika.reactive.withComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
+import com.antepod.lumentika.style.Display
+import com.antepod.lumentika.style.FlexDirection
+import com.antepod.lumentika.style.Overflow
+import com.antepod.lumentika.style.Style
+import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.TextEditCommand
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditorRuntime
@@ -71,28 +76,42 @@ private val ScrollIntegrationAttachment: AttachmentKey<AutoCloseable> = Attachme
 private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 
 public fun UiScope.block(content: UiScope.() -> Unit = {}): Element =
-    element("block", block = content)
+    defaultStyle(element("block", block = content), style {})
 
 public fun UiScope.flex(content: UiScope.() -> Unit = {}): Element =
-    element("flex", block = content)
+    defaultStyle(element("flex", block = content), style { display = Display.FLEX })
 
-public fun UiScope.row(content: UiScope.() -> Unit = {}): Element = element("row", block = content)
+public fun UiScope.row(content: UiScope.() -> Unit = {}): Element =
+    defaultStyle(
+        element("row", block = content),
+        style {
+            display = Display.FLEX
+            flexDirection = FlexDirection.ROW
+        },
+    )
 
 public fun UiScope.column(content: UiScope.() -> Unit = {}): Element =
-    element("column", block = content)
+    defaultStyle(
+        element("column", block = content),
+        style {
+            display = Display.FLEX
+            flexDirection = FlexDirection.COLUMN
+        },
+    )
 
 public fun UiScope.grid(content: UiScope.() -> Unit = {}): Element =
-    element("grid", block = content)
+    defaultStyle(element("grid", block = content), style { display = Display.GRID })
 
 public fun UiScope.stack(content: UiScope.() -> Unit = {}): Element =
-    element("stack", block = content)
+    defaultStyle(element("stack", block = content), style { display = Display.GRID })
 
 public fun UiScope.scroll(
     state: ScrollState = ScrollState(),
     gestures: GestureConfiguration = GestureConfiguration(),
     content: UiScope.() -> Unit = {},
 ): Element =
-    element("scroll", block = content).also { element ->
+    defaultStyle(element("scroll", block = content), style { overflow = Overflow.SCROLL }).also {
+        element ->
         val handle =
             ControlGestureHandle(
                 DragRecognizer(
@@ -129,7 +148,13 @@ public fun UiScope.scroll(
     }
 
 public fun UiScope.list(content: UiScope.() -> Unit = {}): Element =
-    element("list", block = content)
+    defaultStyle(
+        element("list", block = content),
+        style {
+            display = Display.FLEX
+            flexDirection = FlexDirection.COLUMN
+        },
+    )
 
 public fun UiScope.text(value: String): Element =
     element("text", TextContent(value, context.textLayout))
@@ -363,4 +388,8 @@ private fun handleEditorKey(
         LogicalKey.ENTER -> if (multiline) editor.apply(TextEditCommand.CommitText("\n"))
         else -> Unit
     }
+}
+
+private fun UiScope.defaultStyle(element: Element, source: Style): Element = element.also {
+    context.attachStyle(it, source)
 }

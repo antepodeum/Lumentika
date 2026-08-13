@@ -1,15 +1,47 @@
 package com.antepod.lumentika.components
 
 import com.antepod.lumentika.geometry.Point
+import com.antepod.lumentika.headlessRoot
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
+import com.antepod.lumentika.style.px
+import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextRange
 import kotlin.test.*
 
 class ComponentsTest {
+    @Test
+    fun `layout primitives install real default Taffy display modes`() {
+        val root = headlessRoot(100f, 100f)
+        lateinit var first: Element
+        lateinit var second: Element
+        root.scope.row {
+            first = block()
+            second = block()
+        }
+        listOf(first, second).forEach {
+            root.styles.attach(
+                it,
+                state(
+                    style {
+                        width = 10.px
+                        height = 10.px
+                    }
+                ),
+            )
+        }
+        root.requestFrame()
+        root.frame(1)
+
+        assertEquals(0f, first.geometry.x)
+        assertEquals(10f, second.geometry.x)
+        assertEquals(first.geometry.y, second.geometry.y)
+        root.close()
+    }
+
     @Test
     fun `controls attach default semantics and actions`() {
         val root = Element("root")

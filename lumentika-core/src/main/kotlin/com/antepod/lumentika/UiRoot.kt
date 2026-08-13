@@ -88,6 +88,7 @@ public class UiRoot(
                 events,
                 ::requestFrame,
                 ::configureRender,
+                { target, source -> styles.attach(target, state(source)) },
             ),
         )
     public val styleAnimations =

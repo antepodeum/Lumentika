@@ -8,6 +8,7 @@ import com.antepod.lumentika.input.FocusManager
 import com.antepod.lumentika.reactive.ComponentScope
 import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.style.Paint
+import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.rgb
 import com.antepod.lumentika.text.HeadlessTextLayoutService
 import com.antepod.lumentika.text.TextInputService
@@ -264,6 +265,7 @@ public data class UiContext(
     val events: EventDispatcher? = null,
     val requestFrame: (layoutDirty: Boolean) -> Unit = {},
     val configureRender: (Element, RenderProperties) -> Unit = { _, _ -> },
+    val attachStyle: (Element, Style) -> Unit = { _, _ -> },
 )
 
 @UiDsl
