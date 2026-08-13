@@ -3,13 +3,17 @@ package com.antepod.lumentika.component
 import com.antepod.lumentika.animation.TransitionEventType
 import com.antepod.lumentika.animation.TransitionEvents
 import com.antepod.lumentika.animation.fade
+import com.antepod.lumentika.animation.flip
 import com.antepod.lumentika.animation.fly
 import com.antepod.lumentika.animation.inOut
 import com.antepod.lumentika.animation.transition
+import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.headlessRoot
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.UiScope
+import com.antepod.lumentika.style.px
+import com.antepod.lumentika.style.style
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -160,6 +164,60 @@ class ComponentTest {
         root.frame(100_000_001)
 
         assertTrue(shown.children.isEmpty())
+        root.close()
+    }
+
+    @Test
+    fun `keyed forEach FLIP preserves visual position then animates without layout`() {
+        val root = headlessRoot(100f, 100f)
+        val items = state(listOf(1, 2))
+        var starts = 0
+        var ends = 0
+        val repeated =
+            root.scope.forEach(
+                items,
+                key = { it },
+                animation = flip(durationMillis = 100),
+                animationEvents =
+                    com.antepod.lumentika.animation.LayoutAnimationEvents(
+                        onStart = { starts++ },
+                        onEnd = { ends++ },
+                    ),
+            ) {
+                element("item-$it")
+            }
+        repeated.children.forEach { wrapper ->
+            root.styles.attach(
+                wrapper,
+                state(
+                    style {
+                        width = 100.px
+                        height = 20.px
+                    }
+                ),
+            )
+        }
+        root.requestFrame()
+        root.frame(1)
+        val one = repeated.children[0]
+        val oldOne = root.committedRender.hitTest.entries.single { it.element === one }
+        val oldOrigin = oldOne.rootTransform.transform(Point(0f, 0f))
+
+        items.value = listOf(2, 1)
+        root.frame(2)
+        val animatedOne = root.committedRender.hitTest.entries.single { it.element === one }
+        val animatedOrigin = animatedOne.rootTransform.transform(Point(0f, 0f))
+        val layoutsAfterMove = root.layoutComputeCount
+
+        assertEquals(oldOrigin, animatedOrigin)
+        assertEquals(2, starts)
+        root.frame(50_000_002)
+        assertEquals(layoutsAfterMove, root.layoutComputeCount)
+        root.frame(100_000_002)
+        val finalOne = root.committedRender.hitTest.entries.single { it.element === one }
+        assertEquals(Point(0f, 20f), finalOne.rootTransform.transform(Point(0f, 0f)))
+        assertEquals(2, ends)
+        assertEquals(0, root.elementAnimations.activeCount)
         root.close()
     }
 }

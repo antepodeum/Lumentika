@@ -5,6 +5,7 @@ import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.render.MotionRenderProperties
 import com.antepod.lumentika.runtime.Element
 import kotlin.math.abs
+import kotlin.math.hypot
 
 public enum class TransitionDirection {
     IN,
@@ -174,6 +175,35 @@ public fun slide(
     }
 }
 
+public data class FlipAnimation(
+    val delayMillis: Long = 0,
+    val durationMillis: (distance: Float) -> Long = { 200L },
+    val easing: (Float) -> Float = { it },
+) {
+    init {
+        require(delayMillis >= 0)
+    }
+}
+
+public fun flip(
+    durationMillis: Long = 200,
+    delayMillis: Long = 0,
+    easing: (Float) -> Float = { it },
+): FlipAnimation {
+    require(durationMillis >= 0)
+    return FlipAnimation(delayMillis, { durationMillis }, easing)
+}
+
+public data class LayoutAnimationEvent(val element: Element)
+
+public data class LayoutAnimationEvents(
+    val onStart: (LayoutAnimationEvent) -> Unit = {},
+    val onEnd: (LayoutAnimationEvent) -> Unit = {},
+    val onCancel: (LayoutAnimationEvent) -> Unit = {},
+)
+
+public class FlipSnapshot internal constructor(internal val bounds: Map<Element, Rect>)
+
 public interface ElementTransitionHandle : AutoCloseable {
     public val isActive: Boolean
 }
@@ -190,30 +220,40 @@ public class ElementAnimationRuntime(
         val key: Key,
         val effect: ElementTransition,
         val direction: TransitionDirection,
-        val events: TransitionEvents,
         val fromOverride: Float?,
+        val onStart: () -> Unit,
+        val onEnd: () -> Unit,
+        val onCancel: () -> Unit,
         val onFinished: () -> Unit,
     )
 
     private data class Track(
         val key: Key,
         val config: ElementTransitionConfig,
-        val direction: TransitionDirection,
-        val events: TransitionEvents,
         val from: Float,
         val target: Float,
         val startNanos: Long,
         val durationMillis: Float,
+        val onEnd: () -> Unit,
+        val onCancel: () -> Unit,
         val onFinished: () -> Unit,
         var current: Float = from,
     )
 
+    private data class PendingFlip(
+        val element: Element,
+        val from: Rect,
+        val animation: FlipAnimation,
+        val events: LayoutAnimationEvents,
+    )
+
     private val pending = linkedMapOf<Key, Pending>()
+    private val pendingFlips = linkedMapOf<Element, PendingFlip>()
     private val tracks = linkedMapOf<Key, Track>()
     private var scheduled = false
 
     public val activeCount: Int
-        get() = pending.size + tracks.size
+        get() = pending.size + pendingFlips.size + tracks.size
 
     public fun isActive(element: Element, channel: Any): Boolean {
         val key = Key(element, channel)
@@ -235,7 +275,17 @@ public class ElementAnimationRuntime(
         val fromOverride = if (reverse) previous?.current else null
         previous?.cancel()
         previousPending?.cancel()
-        pending[key] = Pending(key, effect, direction, events, fromOverride, onFinished)
+        pending[key] =
+            Pending(
+                key,
+                effect,
+                direction,
+                fromOverride,
+                onStart = { events.start(element, direction) },
+                onEnd = { events.end(element, direction) },
+                onCancel = { events.cancel(element, direction) },
+                onFinished,
+            )
         requestFrame()
         return handle(key)
     }
@@ -250,11 +300,73 @@ public class ElementAnimationRuntime(
         return pendingTrack != null || runningTrack != null
     }
 
+    public fun captureFlip(elements: Collection<Element>): FlipSnapshot {
+        val snapshot =
+            elements.filter(Element::isMounted).associateWith { committedBounds(it) ?: it.geometry }
+        elements.forEach { cancel(it, FlipChannel) }
+        return FlipSnapshot(snapshot)
+    }
+
+    public fun queueFlip(
+        snapshot: FlipSnapshot,
+        retained: Collection<Element>,
+        animation: FlipAnimation,
+        events: LayoutAnimationEvents = LayoutAnimationEvents(),
+    ) {
+        retained.forEach { element ->
+            val from = snapshot.bounds[element] ?: return@forEach
+            pendingFlips.put(element, PendingFlip(element, from, animation, events))?.let {
+                it.events.onCancel(LayoutAnimationEvent(it.element))
+            }
+        }
+        if (pendingFlips.isNotEmpty()) requestFrame()
+    }
+
     /** Starts transitions after layout and committed geometry are available. */
     public fun afterCommit(): Boolean {
-        if (pending.isEmpty()) return false
-        val starts = pending.values.toList()
+        if (pending.isEmpty() && pendingFlips.isEmpty()) return false
+        val starts = pending.values.toMutableList()
         pending.clear()
+        val flips = pendingFlips.values.toList()
+        pendingFlips.clear()
+        flips.forEach { flip ->
+            val to = committedBounds(flip.element) ?: return@forEach
+            if (to == flip.from || to.width <= 0f || to.height <= 0f) return@forEach
+            val dx = flip.from.x - to.x
+            val dy = flip.from.y - to.y
+            val scaleX = flip.from.width / to.width
+            val scaleY = flip.from.height / to.height
+            val distance = hypot(dx, dy)
+            val duration = flip.animation.durationMillis(distance)
+            require(duration >= 0) { "FLIP duration must be non-negative" }
+            val event = LayoutAnimationEvent(flip.element)
+            starts +=
+                Pending(
+                    Key(flip.element, FlipChannel),
+                    ElementTransition {
+                        ElementTransitionConfig(
+                            flip.animation.delayMillis,
+                            duration,
+                            flip.animation.easing,
+                        ) { t, u ->
+                            TransitionFrame(
+                                transform =
+                                    Matrix3.translation(dx * u, dy * u) *
+                                        Matrix3.scale(
+                                            1f + (scaleX - 1f) * u,
+                                            1f + (scaleY - 1f) * u,
+                                        )
+                            )
+                        }
+                    },
+                    TransitionDirection.IN,
+                    fromOverride = null,
+                    onStart = { flip.events.onStart(event) },
+                    onEnd = { flip.events.onEnd(event) },
+                    onCancel = { flip.events.onCancel(event) },
+                    onFinished = {},
+                )
+        }
         starts.forEach { pendingTrack ->
             val element = pendingTrack.key.element
             if (!element.isMounted) {
@@ -272,22 +384,22 @@ public class ElementAnimationRuntime(
             val target = if (pendingTrack.direction == TransitionDirection.IN) 1f else 0f
             val defaultFrom = if (pendingTrack.direction == TransitionDirection.IN) 0f else 1f
             val from = pendingTrack.fromOverride ?: defaultFrom
-            pendingTrack.events.start(element, pendingTrack.direction)
+            pendingTrack.onStart()
             if (clock.motionScale == 0f || config.durationMillis == 0L) {
                 configureMotion(element, config.sample(target, 1f - target).toMotion())
-                pendingTrack.events.end(element, pendingTrack.direction)
+                pendingTrack.onEnd()
                 pendingTrack.onFinished()
             } else {
                 tracks[pendingTrack.key] =
                     Track(
                         pendingTrack.key,
                         config,
-                        pendingTrack.direction,
-                        pendingTrack.events,
                         from,
                         target,
                         clock.frameTimeNanos,
                         config.durationMillis * abs(target - from),
+                        pendingTrack.onEnd,
+                        pendingTrack.onCancel,
                         pendingTrack.onFinished,
                     )
             }
@@ -326,7 +438,7 @@ public class ElementAnimationRuntime(
         tracks.keys.map(Key::element).distinct().forEach(::apply)
         completed.forEach { track ->
             tracks.remove(track.key)
-            track.events.end(track.key.element, track.direction)
+            track.onEnd()
             track.onFinished()
             apply(track.key.element)
         }
@@ -370,11 +482,11 @@ public class ElementAnimationRuntime(
         }
 
     private fun Pending.cancel() {
-        events.cancel(key.element, direction)
+        onCancel()
     }
 
     private fun Track.cancel() {
-        events.cancel(key.element, direction)
+        onCancel()
     }
 
     override fun close() {
@@ -382,11 +494,17 @@ public class ElementAnimationRuntime(
         pending.values.forEach { it.cancel() }
         tracks.values.forEach { it.cancel() }
         pending.clear()
+        pendingFlips.values.forEach {
+            it.events.onCancel(LayoutAnimationEvent(it.element))
+        }
+        pendingFlips.clear()
         tracks.clear()
         elements.forEach { configureMotion(it, null) }
         scheduled = false
     }
 }
+
+private object FlipChannel
 
 private fun TransitionFrame.toMotion(): MotionRenderProperties =
     MotionRenderProperties(transform, opacity)

@@ -2,6 +2,8 @@ package com.antepod.lumentika.component
 
 import com.antepod.lumentika.animation.ElementAnimationRuntime
 import com.antepod.lumentika.animation.ElementTransition
+import com.antepod.lumentika.animation.FlipAnimation
+import com.antepod.lumentika.animation.LayoutAnimationEvents
 import com.antepod.lumentika.animation.StructuralTransition
 import com.antepod.lumentika.animation.TransitionDirection
 import com.antepod.lumentika.animation.TransitionEvents
@@ -410,6 +412,8 @@ private class ShowTransitionController(
 public fun <T, K> UiScope.forEach(
     items: Readable<List<T>>,
     key: (T) -> K,
+    animation: FlipAnimation? = null,
+    animationEvents: LayoutAnimationEvents = LayoutAnimationEvents(),
     content: UiScope.(T) -> Unit,
 ): Element {
     val anchor = element("for-each")
@@ -419,6 +423,11 @@ public fun <T, K> UiScope.forEach(
             val nextItems = items.value
             val keys = nextItems.map(key)
             require(keys.size == keys.toSet().size) { "Duplicate key in forEach: $keys" }
+            val animationRuntime = context.elementAnimations
+            val snapshot =
+                if (animation != null && animationRuntime != null) {
+                    animationRuntime.captureFlip(keyed.values)
+                } else null
             val next = LinkedHashMap<K, Element>()
             nextItems.forEachIndexed { index, item ->
                 val itemKey = key(item)
@@ -434,6 +443,10 @@ public fun <T, K> UiScope.forEach(
             keyed.values.forEach { anchor.remove(it) }
             keyed.clear()
             keyed.putAll(next)
+            if (snapshot != null && animation != null) {
+                animationRuntime?.queueFlip(snapshot, next.values, animation, animationEvents)
+            }
+            context.requestFrame(true)
         }
     }
     return anchor
