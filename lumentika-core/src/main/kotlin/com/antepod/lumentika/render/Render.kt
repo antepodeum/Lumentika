@@ -7,6 +7,7 @@ import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.HitRegionSource
 import com.antepod.lumentika.runtime.PaintCommand
 import com.antepod.lumentika.runtime.PaintRecorder
+import com.antepod.lumentika.runtime.SceneContent
 import com.antepod.lumentika.style.PointerEvents
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.ResolvedStyle
@@ -74,7 +75,10 @@ public data class HitTestEntry(
     val paintOrder: Int,
     val topLayer: Boolean,
     val customRegion: HitRegionSource? = null,
+    val scene: SceneContent? = null,
 )
+
+public data class SceneRaycastHit(val element: Element, val sceneObject: Any)
 
 public data class HitTestArtifact(val generation: Long, val entries: List<HitTestEntry>) {
     public fun hitTest(point: Point): Element? =
@@ -86,6 +90,17 @@ public data class HitTestArtifact(val generation: Long, val entries: List<HitTes
                 entry.customRegion?.hitTest(local, entry.localBounds)
                     ?: entry.localBounds.contains(local)
             }
+        }
+
+    public fun raycast(point: Point): SceneRaycastHit? =
+        entries.asReversed().firstNotNullOfOrNull { entry ->
+            if (!entry.clip.contains(point)) return@firstNotNullOfOrNull null
+            val local =
+                entry.rootTransform.inverse()?.transform(point) ?: return@firstNotNullOfOrNull null
+            if (!(entry.customRegion?.hitTest(local, entry.localBounds) ?: false)) {
+                return@firstNotNullOfOrNull null
+            }
+            entry.scene?.raycast(local)?.let { SceneRaycastHit(entry.element, it) }
         }
 }
 
@@ -102,24 +117,65 @@ public data class RenderProperties(
 
 public data class RenderCommit(val paint: PaintArtifact, val hitTest: HitTestArtifact)
 
+public enum class RenderInvalidation {
+    PROPERTY,
+    PAINT,
+    ORDER,
+}
+
 public class RenderRuntime(
     private val root: Element,
     private val resolveStyle: (Element) -> ResolvedStyle,
 ) {
     private val properties = mutableMapOf<Element, RenderProperties>()
     private val paintCache = mutableMapOf<Element, Pair<Any?, List<PaintCommand>>>()
+    private val invalidations = mutableMapOf<Element, MutableSet<RenderInvalidation>>()
     private var generation = 0L
     public var recordCount: Long = 0
+        private set
+
+    public var propertyInvalidationCount: Long = 0
+        private set
+
+    public var paintInvalidationCount: Long = 0
+        private set
+
+    public var orderInvalidationCount: Long = 0
         private set
 
     public var committed: RenderCommit = emptyCommit()
         private set
 
     public fun configure(element: Element, value: RenderProperties) {
+        val previous = properties[element]
         properties[element] = value
+        if (
+            previous == null ||
+                previous.transform != value.transform ||
+                previous.clip != value.clip ||
+                previous.scrollOffset != value.scrollOffset
+        ) {
+            invalidate(element, RenderInvalidation.PROPERTY)
+        }
+        if (previous?.topLayer != null && previous.topLayer != value.topLayer) {
+            invalidate(element, RenderInvalidation.ORDER)
+        }
+    }
+
+    public fun invalidate(element: Element, vararg classes: RenderInvalidation) {
+        invalidations.getOrPut(element, ::mutableSetOf).addAll(classes)
     }
 
     public fun commit(): RenderCommit {
+        invalidations.forEach { (element, classes) ->
+            if (RenderInvalidation.PROPERTY in classes) propertyInvalidationCount++
+            if (RenderInvalidation.PAINT in classes) {
+                paintInvalidationCount++
+                paintCache.remove(element)
+            }
+            if (RenderInvalidation.ORDER in classes) orderInvalidationCount++
+        }
+        invalidations.clear()
         val builder = Builder()
         walk(root, ParentState(), builder)
         generation++
@@ -221,6 +277,7 @@ public class RenderRuntime(
                     order,
                     topLayer,
                     element.content as? HitRegionSource,
+                    element.content as? SceneContent,
                 )
         val childState =
             ParentState(transform, clip, transformId, clipId, effectId, scrollId, stackId, topLayer)

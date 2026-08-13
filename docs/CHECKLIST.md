@@ -218,12 +218,12 @@
 - [x] retained PaintArtifact
 - [x] retained HitTestArtifact
 - [x] top layer
-- [ ] paint/property/order invalidation split
+- [x] paint/property/order invalidation split
 - [x] reverse paint-order hit testing
 - [x] transform/clip parity with hit testing
 - [x] property-only updates reuse paint
 - [x] transformed overflow can extend reachability only
-- [ ] custom scene local hit/raycast
+- [x] custom scene local hit/raycast
 - [x] semantic bounds use same coordinate chain
 - [x] platform replay extension boundary
 
