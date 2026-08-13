@@ -65,4 +65,59 @@ class ComponentsTest {
 
         root.close()
     }
+
+    @Test
+    fun `all universal components mount expected behavior and semantics`() {
+        val root = Element("root")
+        val ui = UiScope(root)
+        val elements =
+            listOf(
+                ui.block(),
+                ui.flex(),
+                ui.row(),
+                ui.column(),
+                ui.grid(),
+                ui.stack(),
+                ui.scroll(),
+                ui.list(),
+                ui.text("text"),
+                ui.image(ImageSource.Bytes(byteArrayOf(1), "image/test")),
+                ui.button("button").element,
+                ui.checkbox(state(false)).element,
+                ui.slider(state(0f)).element,
+                ui.textField().element,
+                ui.tooltip("tip"),
+            )
+        assertEquals(
+            listOf(
+                "block",
+                "flex",
+                "row",
+                "column",
+                "grid",
+                "stack",
+                "scroll",
+                "list",
+                "text",
+                "image",
+                "button",
+                "checkbox",
+                "slider",
+                "textField",
+                "tooltip",
+            ),
+            elements.map(Element::kind),
+        )
+        assertTrue(elements[6].attachment(GestureAttachment) != null)
+        assertEquals(
+            listOf(
+                SemanticRole.BUTTON,
+                SemanticRole.CHECKBOX,
+                SemanticRole.SLIDER,
+                SemanticRole.TEXT_FIELD,
+            ),
+            elements.slice(10..13).map { it.attachment(SemanticsAttachment)!!.role },
+        )
+        root.close()
+    }
 }

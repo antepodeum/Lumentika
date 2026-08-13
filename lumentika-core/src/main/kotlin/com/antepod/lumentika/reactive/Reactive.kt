@@ -1,5 +1,6 @@
 package com.antepod.lumentika.reactive
 
+import com.antepod.lumentika.runtime.OwnershipCounters
 import java.util.LinkedHashSet
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineDispatcher
@@ -240,6 +241,10 @@ public class ComponentScope(dispatcher: CoroutineDispatcher = Dispatchers.Defaul
     public var isDisposed: Boolean = false
         private set
 
+    init {
+        OwnershipCounters.createScope()
+    }
+
     internal fun own(cleanup: () -> Unit) {
         if (isDisposed) cleanup() else cleanups.addFirst(cleanup)
     }
@@ -247,6 +252,7 @@ public class ComponentScope(dispatcher: CoroutineDispatcher = Dispatchers.Defaul
     override fun close() {
         if (isDisposed) return
         isDisposed = true
+        OwnershipCounters.disposeScope()
         coroutineScope.cancel()
         var failure: Throwable? = null
         while (cleanups.isNotEmpty()) {

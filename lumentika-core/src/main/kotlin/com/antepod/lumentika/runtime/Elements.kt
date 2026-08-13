@@ -143,6 +143,10 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
     public var isMounted: Boolean = true
         private set
 
+    init {
+        OwnershipCounters.mountElement()
+    }
+
     public fun append(child: Element) {
         require(child.parent == null) { "Element ${child.id} already has a parent" }
         child.parent = this
@@ -185,6 +189,7 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
     override fun close() {
         if (!isMounted) return
         isMounted = false
+        OwnershipCounters.unmountElement()
         mutableChildren.toList().asReversed().forEach { remove(it) }
         scope.close()
         contentListeners.clear()

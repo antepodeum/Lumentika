@@ -9,6 +9,7 @@ import com.antepod.lumentika.layout.LayoutRuntime
 import com.antepod.lumentika.platform.*
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.render.RenderBackend
+import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.render.RenderRuntime
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.UiScope
@@ -65,6 +66,14 @@ public class UiRoot(
 
     public val layoutComputeCount: Long
         get() = layout.computeCount
+
+    public val renderRecordCount: Long
+        get() = render.recordCount
+
+    public fun configureRender(element: Element, properties: RenderProperties) {
+        render.configure(element, properties)
+        requestFrame(layoutDirty = false)
+    }
 
     init {
         styles.attach(element, defaultStyle)

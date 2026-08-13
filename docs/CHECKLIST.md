@@ -283,15 +283,15 @@
 
 - [x] deterministic headless host with real Taffy4J
 - [x] no native platform or mod-loader classes in core
-- [ ] unit revisions / accessibility / motion / insets update without remount
+- [x] unit revisions / accessibility / motion / insets update without remount
 - [x] gesture arbitration trace
 - [x] nested scroll/fling trace
 - [x] text composition/editing/session trace
 - [x] semantic action/accessibility-focus trace
 - [x] autofill/content-transfer trace
-- [ ] opacity transition absence-of-layout trace
-- [ ] width animation max-one-layout trace
-- [ ] static scrolling absence-of-Taffy/repaint trace
+- [x] opacity transition absence-of-layout trace
+- [x] width animation max-one-layout trace
+- [x] static scrolling absence-of-Taffy/repaint trace
 - [x] retained paint/hit/semantic geometry parity
-- [ ] repeated mount/unmount returns all ownership counters to baseline
-- [ ] all universal components pass behavior and semantics tests
+- [x] repeated mount/unmount returns all ownership counters to baseline
+- [x] all universal components pass behavior and semantics tests
