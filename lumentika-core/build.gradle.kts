@@ -12,6 +12,7 @@ plugins {
     id("buildsrc.convention.kotlin-jvm")
     `java-library`
     id("com.vanniktech.maven.publish")
+    id("org.jetbrains.dokka")
 }
 
 group = "com.antepod"
@@ -175,7 +176,12 @@ dependencies {
 }
 
 mavenPublishing {
-    configure(KotlinJvm(javadocJar = JavadocJar.Empty(), sourcesJar = SourcesJar.Sources()))
+    configure(
+        KotlinJvm(
+            javadocJar = JavadocJar.Dokka("dokkaGeneratePublicationHtml"),
+            sourcesJar = SourcesJar.Sources(),
+        )
+    )
     coordinates(group.toString(), "lumentika-core", version.toString())
     publishToMavenCentral(automaticRelease = true)
     signAllPublications()
