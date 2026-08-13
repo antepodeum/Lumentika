@@ -92,15 +92,15 @@
 
 - [x] GestureArena
 - [x] tap
-- [ ] double tap
-- [ ] long press
-- [ ] drag/pan
-- [ ] scale
-- [ ] cooperative gesture teams
+- [x] double tap
+- [x] long press
+- [x] drag/pan
+- [x] scale
+- [x] cooperative gesture teams
 - [x] touch slop from environment
-- [ ] long-press/double-tap timing from environment
+- [x] long-press/double-tap timing from environment
 - [x] velocity tracking
-- [ ] min/max fling velocity from environment
+- [x] min/max fling velocity from environment
 - [x] gesture cancellation on unmount
 - [ ] slider-vs-scroll arbitration
 - [ ] text-selection-vs-scroll arbitration
@@ -108,16 +108,16 @@
 ## Scrolling
 
 - [x] core ScrollState
-- [ ] wheel source
-- [ ] touch/pen drag source
-- [ ] keyboard/accessibility/programmatic source
+- [x] wheel source
+- [x] touch/pen drag source
+- [x] keyboard/accessibility/programmatic source
 - [x] nested preScroll/local/postScroll
 - [x] consumed/unconsumed conservation
-- [ ] preFling/local/postFling
-- [ ] root-clock fling animation
+- [x] preFling/local/postFling
+- [x] root-clock fling animation
 - [x] overscroll state separated from range
-- [ ] scrollbar behavior
-- [ ] scroll offset does not trigger Taffy
+- [x] scrollbar behavior
+- [x] scroll offset does not trigger Taffy
 
 ## Semantics/accessibility
 
@@ -284,8 +284,8 @@
 - [x] deterministic headless host with real Taffy4J
 - [x] no native platform or mod-loader classes in core
 - [ ] unit revisions / accessibility / motion / insets update without remount
-- [ ] gesture arbitration trace
-- [ ] nested scroll/fling trace
+- [x] gesture arbitration trace
+- [x] nested scroll/fling trace
 - [ ] text composition/editing/session trace
 - [ ] semantic action/accessibility-focus trace
 - [ ] autofill/content-transfer trace
