@@ -56,7 +56,7 @@ class ComponentsTest {
                     value = label,
                     partStyles = mapOf(Button.Part.LABEL to style { color = instanceLabel }),
                     style = style { background = rgb(1, 2, 3) },
-                    semantics = semantics { label = "Themed action" },
+                    semantics = semantics { this.label = "Themed action" },
                 )
             checkbox = checkbox(checked = checked, label = "check")
         }
