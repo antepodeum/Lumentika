@@ -48,10 +48,12 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The release workflow validates the tag, repeats the complete release gate, signs and publishes both
-modules to Maven Central, publishes the same coordinates to GitHub Packages, and creates a GitHub
-Release containing all binary, sources, and generated API-documentation JARs. Maven Central
-deployment uses automatic release after portal validation.
+The release workflow validates the tag and completes the release gate in an unprivileged job. Only
+after verification succeeds does the publishing job enter the protected `maven-central`
+environment, receive its secrets, sign and publish both modules to Maven Central, publish the same
+coordinates to GitHub Packages, and create a GitHub Release containing all binary, sources, and
+generated API-documentation JARs. Maven Central deployment uses automatic release after portal
+validation.
 
 Tags that do not match `v<semver>` fail before publication. Versions are derived only from the tag;
 the default local build remains `0.1.0-SNAPSHOT`.
