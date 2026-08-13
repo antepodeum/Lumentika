@@ -8,6 +8,7 @@ import com.antepod.lumentika.runtime.Element
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class StyleTest {
@@ -50,5 +51,39 @@ class StyleTest {
         assertEquals(10f, resolveLength(5.sp, environment, LogicalUnitResolver))
         assertEquals(2.5f, resolveLength(5.physicalPx, environment, LogicalUnitResolver))
         assertEquals(25f, resolveLength(25.percent, environment, LogicalUnitResolver, 100f))
+    }
+
+    @Test
+    fun `style compiles masks and shares unchanged resolved groups`() {
+        val source =
+            state(
+                style {
+                    width = 10.dp
+                    set(Properties.FontSize, 14.sp)
+                    on(HOVER) { opacity = 0.5f }
+                }
+            )
+        val program = source.value.program
+        assertTrue(Properties.Width in program.writtenProperties)
+        assertTrue(Properties.Opacity in program.stateDependencies.getValue(HOVER))
+        assertTrue(
+            Properties.Width in
+                program.environmentDependencies.getValue(EnvironmentDependency.DP_UNITS)
+        )
+        assertTrue(
+            Properties.FontSize in
+                program.environmentDependencies.getValue(EnvironmentDependency.SP_UNITS)
+        )
+
+        val element = Element()
+        val runtime = StyleRuntime()
+        runtime.attach(element, source)
+        val initial = runtime.resolve(element).first
+        runtime.setState(element, HOVER, true)
+        val hovered = runtime.resolve(element).first
+
+        assertSame(initial.boxLayout, hovered.boxLayout)
+        assertSame(initial.inherited, hovered.inherited)
+        assertEquals(0.5f, hovered.render.opacity)
     }
 }

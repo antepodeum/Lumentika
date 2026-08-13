@@ -12,8 +12,8 @@ import com.antepod.lumentika.render.RenderRuntime
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.UiScope
 import com.antepod.lumentika.semantics.SemanticsRuntime
-import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.StyleRuntime
+import com.antepod.lumentika.style.style
 
 public data class PlatformServices(
     val frameScheduler: FrameScheduler,
@@ -41,7 +41,7 @@ public class UiRoot(
     public val focus = FocusManager(element, events)
     public val semantics = SemanticsRuntime(element)
     public val animations = UiAnimationClock()
-    private val defaultStyle = state(Style(emptyList()))
+    private val defaultStyle = state(style {})
     private val frame = CoalescingFrameScheduler(services.frameScheduler)
     private val layout =
         LayoutRuntime(

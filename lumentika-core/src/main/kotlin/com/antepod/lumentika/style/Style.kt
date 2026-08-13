@@ -163,7 +163,21 @@ public class StyleProperty<T>(
     public val initialValue: T,
     public val inherited: Boolean = false,
     public val impact: StyleImpact,
-)
+) {
+    public val mask: PropertyMask = PropertyMask(1L shl id)
+}
+
+@JvmInline
+public value class PropertyMask(public val bits: Long) {
+    public operator fun plus(other: PropertyMask): PropertyMask = PropertyMask(bits or other.bits)
+
+    public operator fun contains(property: StyleProperty<*>): Boolean =
+        bits and property.mask.bits != 0L
+
+    public companion object {
+        public val NONE: PropertyMask = PropertyMask(0)
+    }
+}
 
 public object Properties {
     public val Display =
@@ -291,22 +305,34 @@ public val FOCUS_WITHIN: StyleState = BuiltinStyleState.FOCUS_WITHIN
 public val DISABLED: StyleState = BuiltinStyleState.DISABLED
 
 public sealed interface StyleCondition {
+    public val dependencies: Set<StyleState>
+
     public fun matches(states: Set<StyleState>): Boolean
 }
 
 private data class HasState(val state: StyleState) : StyleCondition {
+    override val dependencies: Set<StyleState> = setOf(state)
+
     override fun matches(states: Set<StyleState>) = state in states
 }
 
 private data class All(val conditions: List<StyleCondition>) : StyleCondition {
+    override val dependencies: Set<StyleState> =
+        conditions.flatMapTo(linkedSetOf()) { it.dependencies }
+
     override fun matches(states: Set<StyleState>) = conditions.all { it.matches(states) }
 }
 
 private data class AnyCondition(val conditions: List<StyleCondition>) : StyleCondition {
+    override val dependencies: Set<StyleState> =
+        conditions.flatMapTo(linkedSetOf()) { it.dependencies }
+
     override fun matches(states: Set<StyleState>) = conditions.any { it.matches(states) }
 }
 
 private data class Not(val condition: StyleCondition) : StyleCondition {
+    override val dependencies: Set<StyleState> = condition.dependencies
+
     override fun matches(states: Set<StyleState>) = !condition.matches(states)
 }
 
@@ -324,14 +350,73 @@ public data class StyleEntry(
     val condition: StyleCondition? = null,
 )
 
-public class Style internal constructor(internal val entries: List<StyleEntry>)
+public enum class EnvironmentDependency {
+    DP_UNITS,
+    SP_UNITS,
+    PHYSICAL_PX_UNITS,
+}
+
+public data class StyleProgram(
+    val assignments: List<StyleEntry>,
+    val previousAssignmentForSameProperty: IntArray,
+    val lastAssignmentForProperty: IntArray,
+    val writtenProperties: PropertyMask,
+    val stateDependencies: Map<StyleState, PropertyMask>,
+    val environmentDependencies: Map<EnvironmentDependency, PropertyMask>,
+) {
+    internal fun winner(property: StyleProperty<*>, states: Set<StyleState>): StyleWinner {
+        var index = lastAssignmentForProperty[property.id]
+        while (index >= 0) {
+            val entry = assignments[index]
+            if (entry.condition?.matches(states) != false) return StyleWinner(true, entry.value)
+            index = previousAssignmentForSameProperty[index]
+        }
+        return StyleWinner(false, null)
+    }
+
+    internal companion object {
+        fun compile(assignments: List<StyleEntry>): StyleProgram {
+            val previous = IntArray(assignments.size) { -1 }
+            val last = IntArray(Properties.all.size) { -1 }
+            var written = PropertyMask.NONE
+            val states = mutableMapOf<StyleState, PropertyMask>()
+            val environment = mutableMapOf<EnvironmentDependency, PropertyMask>()
+            assignments.forEachIndexed { index, entry ->
+                previous[index] = last[entry.property.id]
+                last[entry.property.id] = index
+                written += entry.property.mask
+                entry.condition?.dependencies?.forEach { state ->
+                    states[state] = (states[state] ?: PropertyMask.NONE) + entry.property.mask
+                }
+                dependenciesOf(entry.value).forEach { dependency ->
+                    environment[dependency] =
+                        (environment[dependency] ?: PropertyMask.NONE) + entry.property.mask
+                }
+            }
+            return StyleProgram(
+                assignments.toList(),
+                previous,
+                last,
+                written,
+                states.toMap(),
+                environment.toMap(),
+            )
+        }
+    }
+}
+
+internal data class StyleWinner(val found: Boolean, val value: Any?)
+
+public class Style internal constructor(public val program: StyleProgram)
 
 public class StyleBuilder internal constructor(private val condition: StyleCondition? = null) {
     private val entries = mutableListOf<StyleEntry>()
 
     public fun include(style: Style) {
         entries +=
-            style.entries.map { if (condition == null) it else it.copy(condition = condition) }
+            style.program.assignments.map {
+                if (condition == null) it else it.copy(condition = condition)
+            }
     }
 
     public fun <T> set(property: StyleProperty<T>, value: T) {
@@ -412,7 +497,7 @@ public class StyleBuilder internal constructor(private val condition: StyleCondi
         get() = error("write-only")
         set(value) = set(Properties.ZIndex, value)
 
-    internal fun build(): Style = Style(entries.toList())
+    internal fun build(): Style = Style(StyleProgram.compile(entries))
 }
 
 public fun style(block: StyleBuilder.() -> Unit): Style = StyleBuilder().apply(block).build()
@@ -446,10 +531,134 @@ public class ThemeBuilder {
 
 public fun theme(block: ThemeBuilder.() -> Unit): Theme = ThemeBuilder().apply(block).build()
 
-public data class ResolvedStyle(private val values: Map<StyleProperty<*>, Any?>) {
+public data class InheritedValues(
+    val visibility: Visibility,
+    val fontSize: DimensionValue,
+    val color: Paint,
+)
+
+public data class BoxLayoutValues(
+    val display: Display,
+    val width: DimensionValue,
+    val height: DimensionValue,
+    val minWidth: DimensionValue,
+    val minHeight: DimensionValue,
+    val maxWidth: DimensionValue,
+    val maxHeight: DimensionValue,
+    val padding: Edges<DimensionValue>,
+    val margin: Edges<DimensionValue>,
+    val gap: DimensionValue,
+    val overflow: Overflow,
+)
+
+public data class FlexGridValues(
+    val direction: FlexDirection,
+    val grow: Float,
+    val shrink: Float,
+)
+
+public data class PaintValues(val background: Paint?)
+
+public data class RenderValues(val opacity: Float, val zIndex: Int)
+
+public data class InteractionValues(val pointerEvents: PointerEvents)
+
+public class ResolvedStyle
+internal constructor(
+    public val inherited: InheritedValues,
+    public val boxLayout: BoxLayoutValues,
+    public val flexGrid: FlexGridValues,
+    public val paint: PaintValues,
+    public val render: RenderValues,
+    public val interaction: InteractionValues,
+) {
     public operator fun <T> get(property: StyleProperty<T>): T {
         @Suppress("UNCHECKED_CAST")
-        return (values[property] ?: property.initialValue) as T
+        return when (property.id) {
+            0 -> boxLayout.display
+            1 -> boxLayout.width
+            2 -> boxLayout.height
+            3 -> boxLayout.minWidth
+            4 -> boxLayout.minHeight
+            5 -> boxLayout.maxWidth
+            6 -> boxLayout.maxHeight
+            7 -> boxLayout.padding
+            8 -> boxLayout.margin
+            9 -> boxLayout.gap
+            10 -> flexGrid.direction
+            11 -> flexGrid.grow
+            12 -> flexGrid.shrink
+            13 -> boxLayout.overflow
+            14 -> paint.background
+            15 -> render.opacity
+            16 -> render.zIndex
+            17 -> inherited.visibility
+            18 -> interaction.pointerEvents
+            19 -> inherited.fontSize
+            20 -> inherited.color
+            else -> error("Unknown style property ${property.name}")
+        }
+            as T
+    }
+
+    internal companion object {
+        fun from(values: Map<StyleProperty<*>, Any?>, previous: ResolvedStyle?): ResolvedStyle {
+            fun <T> value(property: StyleProperty<T>): T {
+                @Suppress("UNCHECKED_CAST")
+                return (if (values.containsKey(property)) values[property]
+                else property.initialValue)
+                    as T
+            }
+
+            fun <T> share(old: T?, next: T): T = if (old == next) old else next
+            val inherited =
+                share(
+                    previous?.inherited,
+                    InheritedValues(
+                        value(Properties.Visibility),
+                        value(Properties.FontSize),
+                        value(Properties.Color),
+                    ),
+                )
+            val box =
+                share(
+                    previous?.boxLayout,
+                    BoxLayoutValues(
+                        value(Properties.Display),
+                        value(Properties.Width),
+                        value(Properties.Height),
+                        value(Properties.MinWidth),
+                        value(Properties.MinHeight),
+                        value(Properties.MaxWidth),
+                        value(Properties.MaxHeight),
+                        value(Properties.Padding),
+                        value(Properties.Margin),
+                        value(Properties.Gap),
+                        value(Properties.Overflow),
+                    ),
+                )
+            val flex =
+                share(
+                    previous?.flexGrid,
+                    FlexGridValues(
+                        value(Properties.FlexDirection),
+                        value(Properties.FlexGrow),
+                        value(Properties.FlexShrink),
+                    ),
+                )
+            val paint = share(previous?.paint, PaintValues(value(Properties.Background)))
+            val render =
+                share(
+                    previous?.render,
+                    RenderValues(value(Properties.Opacity), value(Properties.ZIndex)),
+                )
+            val interaction =
+                share(
+                    previous?.interaction,
+                    InteractionValues(value(Properties.PointerEvents)),
+                )
+            return ResolvedStyle(inherited, box, flex, paint, render, interaction)
+        }
     }
 }
 
@@ -482,14 +691,18 @@ public class StyleRuntime {
         Properties.all
             .filter { it.inherited }
             .forEach { property -> parent?.let { values[property] = getUntyped(it, property) } }
-        state.sources.forEach { source ->
-            source.value.entries.forEach { entry ->
-                if (entry.condition?.matches(state.states) != false)
-                    values[entry.property] = entry.value
-            }
+        Properties.all.forEach { property ->
+            state.sources
+                .asReversed()
+                .firstNotNullOfOrNull { source ->
+                    source.value.program.winner(property, state.states).takeIf(StyleWinner::found)
+                }
+                ?.let { winner ->
+                    values[property] = winner.value
+                }
         }
-        val next = ResolvedStyle(values)
         val previous = state.resolved
+        val next = ResolvedStyle.from(values, previous)
         val changed =
             Properties.all.filterTo(linkedSetOf()) {
                 previous == null || getUntyped(previous, it) != getUntyped(next, it)
@@ -513,6 +726,19 @@ public class StyleRuntime {
         return style[property as StyleProperty<Any?>]
     }
 }
+
+private fun dependenciesOf(value: Any?): Set<EnvironmentDependency> =
+    when (value) {
+        is Dp -> setOf(EnvironmentDependency.DP_UNITS)
+        is Sp -> setOf(EnvironmentDependency.SP_UNITS)
+        is PhysicalPx -> setOf(EnvironmentDependency.PHYSICAL_PX_UNITS)
+        is Calc -> value.terms.flatMapTo(linkedSetOf()) { dependenciesOf(it.second) }
+        is Edges<*> ->
+            listOf(value.top, value.right, value.bottom, value.left).flatMapTo(linkedSetOf()) {
+                dependenciesOf(it)
+            }
+        else -> emptySet()
+    }
 
 public fun resolveLength(
     value: DimensionValue,

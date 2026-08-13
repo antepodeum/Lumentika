@@ -232,14 +232,14 @@
 - [x] immutable Style
 - [x] `style {}` / `on(condition) {}`
 - [ ] generated property IDs/masks
-- [ ] compiled StyleProgram
-- [ ] grouped ResolvedStyle
-- [ ] structural sharing
+- [x] compiled StyleProgram
+- [x] grouped ResolvedStyle
+- [x] structural sharing
 - [x] inheritance
 - [x] StyleVar token identity
 - [x] typed StylePart
 - [x] theme part mappings
-- [ ] `DP_UNITS` / `SP_UNITS` / `PHYSICAL_PX_UNITS` dependency masks
+- [x] `DP_UNITS` / `SP_UNITS` / `PHYSICAL_PX_UNITS` dependency masks
 - [x] orthogonal StyleImpact includes SEMANTICS
 - [x] style resolution never calls renderer/layout directly
 
