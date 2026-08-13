@@ -221,10 +221,8 @@ internal class LayoutStyleProjection {
     fun project(
         style: ResolvedLayoutStyle,
         metadata: LayoutNodeMetadata
-    ): com.antepod.taffy.style.Style {
-        // framework values -> Taffy4J values
-        TODO()
-    }
+    ): com.antepod.taffy.style.Style =
+        projectResolvedStyle(style, metadata)
 }
 ```
 
