@@ -309,11 +309,37 @@ public object Scroll {
     }
 }
 
-/** Stable theme-part namespace for tooltips. */
-public object Tooltip {
+/** Standard tooltip declared through the shared component model. */
+@UIComponent
+public class Tooltip : Component() {
+    public val value = prop("")
+    public val showDelayMillis = prop(500L)
+    public val hideDelayMillis = prop(100L)
+    public val placement = prop(TooltipPlacement.AUTO)
+    public val offset = prop(8f)
+    public val style = prop<Style?>(null)
+    public val partStyles = prop<Map<StylePart<Tooltip>, Style>>(emptyMap())
+    public val semantics = prop<ElementSemantics?>(null)
+    public val content = slot()
+
     public object Part {
         public val ROOT: StylePart<Tooltip> = StylePart()
         public val POPUP: StylePart<Tooltip> = StylePart()
+    }
+
+    override fun view(): Element {
+        val element = ui.element()
+        ui.mountTooltip(
+            element,
+            value,
+            showDelayMillis,
+            hideDelayMillis,
+            placement,
+            offset,
+        )
+        ui.configure(element, style.value, partStyles.value, semantics.value)
+        content.mount(ui.nested(element))
+        return element
     }
 }
 
@@ -716,10 +742,10 @@ internal constructor(
     private val wrapper: Element,
     private val context: UiContext,
     private val text: Readable<String>,
-    private val showDelayNanos: Long,
-    private val hideDelayNanos: Long,
-    private val preferredPlacement: TooltipPlacement,
-    private val offset: Float,
+    private val showDelayMillis: Readable<Long>,
+    private val hideDelayMillis: Readable<Long>,
+    private val preferredPlacement: Readable<TooltipPlacement>,
+    private val offset: Readable<Float>,
 ) : AutoCloseable {
     private val cleanups = mutableListOf<AutoCloseable>()
     private var desiredVisible = false
@@ -766,7 +792,9 @@ internal constructor(
     public fun requestVisible(visible: Boolean) {
         if (closed) return
         desiredVisible = visible
-        val delay = if (visible) showDelayNanos else hideDelayNanos
+        val delayMillis = if (visible) showDelayMillis.value else hideDelayMillis.value
+        require(delayMillis >= 0)
+        val delay = delayMillis * 1_000_000
         deadline = context.animationClock.frameTimeNanos + delay
         context.animationClock.animate(tick)
         context.requestFrame(false)
@@ -835,16 +863,18 @@ internal constructor(
         val anchorBounds = context.committedBounds(anchor) ?: anchor.geometry
         val popupHeight = popup.geometry.height
         val placement =
-            when (preferredPlacement) {
+            when (preferredPlacement.value) {
                 TooltipPlacement.AUTO ->
-                    if (anchorBounds.y >= popupHeight + offset) TooltipPlacement.ABOVE
+                    if (anchorBounds.y >= popupHeight + offset.value) TooltipPlacement.ABOVE
                     else TooltipPlacement.BELOW
-                else -> preferredPlacement
+                else -> preferredPlacement.value
             }
+        val currentOffset = offset.value
+        require(currentOffset.isFinite() && currentOffset >= 0f)
         val targetY =
-            if (placement == TooltipPlacement.ABOVE) anchorBounds.y - popupHeight - offset
-            else anchorBounds.bottom + offset
-        placementRequest = TooltipPlacementRequest(anchorBounds, placement, offset)
+            if (placement == TooltipPlacement.ABOVE) anchorBounds.y - popupHeight - currentOffset
+            else anchorBounds.bottom + currentOffset
+        placementRequest = TooltipPlacementRequest(anchorBounds, placement, currentOffset)
         context.configureRender(
             popup,
             RenderProperties(
@@ -870,10 +900,10 @@ internal constructor(
 internal fun UiScope.mountTooltip(
     element: Element,
     text: Readable<String>,
-    showDelayMillis: Long,
-    hideDelayMillis: Long,
-    placement: TooltipPlacement,
-    offset: Float,
+    showDelayMillis: Readable<Long>,
+    hideDelayMillis: Readable<Long>,
+    placement: Readable<TooltipPlacement>,
+    offset: Readable<Float>,
 ) {
     context.attachPart(element, element, Tooltip.Part.ROOT, style {})
     element.attach(VisualPartsAttachment, mapOf(Tooltip.Part.ROOT to element))
@@ -882,8 +912,8 @@ internal fun UiScope.mountTooltip(
             element,
             context,
             text,
-            showDelayMillis * 1_000_000,
-            hideDelayMillis * 1_000_000,
+            showDelayMillis,
+            hideDelayMillis,
             placement,
             offset,
         )

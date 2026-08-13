@@ -28,6 +28,40 @@ import kotlin.test.*
 
 class ComponentsTest {
     @Test
+    fun `generated tooltip owns reactive props and anchor slot`() {
+        val root = Element()
+        val value = state("before")
+        val showDelay = state(500L)
+        val hideDelay = state(100L)
+        val placement = state(TooltipPlacement.AUTO)
+        val offset = state(8f)
+        val tooltip =
+            UiScope(root).tooltip(
+                value = source(value),
+                showDelayMillis = source(showDelay),
+                hideDelayMillis = source(hideDelay),
+                placement = source(placement),
+                offset = source(offset),
+            ) {
+                text("anchor")
+            }
+        val runtime = tooltip.attachment(TooltipRuntimeAttachment)!!
+
+        runtime.showNow()
+        value.value = "after"
+        placement.value = TooltipPlacement.BELOW
+        offset.value = 12f
+        runtime.hideNow()
+        runtime.showNow()
+
+        assertEquals("after", (runtime.popup!!.content as TextContent).text)
+        assertEquals(TooltipPlacement.BELOW, runtime.placementRequest?.placement)
+        assertEquals(12f, runtime.placementRequest?.offset)
+        assertTrue(tooltip.children.flatMap { it.children }.any { it.content is TextContent })
+        root.close()
+    }
+
+    @Test
     fun `generated text and image react through every semantic declaration`() {
         val root = Element()
         val textValue = state("before")

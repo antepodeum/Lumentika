@@ -870,7 +870,14 @@ private fun UiScope.mountTooltipComponent(
     require(offset.isFinite() && offset >= 0f)
     val element = element()
     val local = controlValue(source, element)
-    mountTooltip(element, local, showDelayMillis, hideDelayMillis, placement, offset)
+    mountTooltip(
+        element,
+        local,
+        state(showDelayMillis),
+        state(hideDelayMillis),
+        state(placement),
+        state(offset),
+    )
     configure(element, style, partStyles, semantics)
     nested(element).content()
     return element
