@@ -648,17 +648,23 @@ public class ElementAnimationRuntime(
                 return@forEach
             }
             val elapsedMillis = (timeNanos - track.startNanos) / 1_000_000f / clock.motionScale
-            val fraction =
+            val rawFraction =
                 if (elapsedMillis < track.config.delayMillis) 0f
                 else if (track.durationMillis == 0f) 1f
                 else
-                    ((elapsedMillis - track.config.delayMillis) / track.durationMillis)
-                        .coerceIn(0f, 1f)
-                        .let(track.config.easing)
-                        .coerceIn(0f, 1f)
+                    ((elapsedMillis - track.config.delayMillis) / track.durationMillis).coerceIn(
+                        0f,
+                        1f,
+                    )
+            val fraction =
+                if (rawFraction >= 1f) 1f
+                else
+                    track.config.easing(rawFraction).also {
+                        require(it.isFinite()) { "Transition easing must return a finite value" }
+                    }
             track.current = track.from + (track.target - track.from) * fraction
             track.config.tick(track.current, 1f - track.current)
-            if (fraction >= 1f) completed += track
+            if (rawFraction >= 1f) completed += track
         }
         tracks.keys.map(Key::element).distinct().forEach(::apply)
         completed.forEach { track ->

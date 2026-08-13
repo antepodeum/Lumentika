@@ -347,6 +347,40 @@ class AnimationTest {
     }
 
     @Test
+    fun `elapsed duration completes custom easing at exact natural state`() {
+        val clock = UiAnimationClock()
+        val element = Element()
+        val ticks = mutableListOf<Float>()
+        var motion: MotionRenderProperties? = null
+        val runtime =
+            ElementAnimationRuntime(
+                clock,
+                { _, value -> motion = value },
+                { Rect(0f, 0f, 20f, 10f) },
+                {},
+            )
+        val custom = ElementTransition {
+            ElementTransitionConfig(
+                durationMillis = 100,
+                easing = { .25f },
+                tick = { t, _ -> ticks += t },
+                sample = { t, _ -> TransitionFrame(opacity = t) },
+            )
+        }
+
+        runtime.start(element, "custom-easing", custom, TransitionDirection.IN)
+        runtime.afterCommit()
+        clock.frame(50_000_000)
+        assertEquals(.25f, motion?.opacity)
+        clock.frame(100_000_000)
+        assertEquals(1f, ticks.last())
+        assertEquals(null, motion)
+        assertEquals(0, runtime.activeCount)
+        runtime.close()
+        element.close()
+    }
+
+    @Test
     fun `custom keyed animation receives from and to bounds and drives runtime`() {
         val clock = UiAnimationClock()
         val element = Element()
