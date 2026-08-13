@@ -71,7 +71,7 @@ internal constructor(
 public open class ContainerBuilder internal constructor(element: Element, context: UiContext) :
     ElementBuilder(element, context)
 
-public class ScrollBuilder internal constructor(element: Element, context: UiContext) :
+public open class ScrollBuilder internal constructor(element: Element, context: UiContext) :
     ContainerBuilder(element, context) {
     public var state: ScrollState = ScrollState()
     public var gestures: GestureConfiguration = context.gestureConfiguration()
@@ -84,6 +84,29 @@ public fun UiScope.scroll(block: ScrollBuilder.() -> Unit = {}): Element {
     val element = element("scroll")
     context.attachStyle(element, style { overflow = Overflow.SCROLL })
     return ScrollBuilder(element, context).apply(block).mount()
+}
+
+public class ListBuilder internal constructor(element: Element, context: UiContext) :
+    ScrollBuilder(element, context)
+
+public fun UiScope.list(block: ListBuilder.() -> Unit = {}): Element {
+    val element = element("list")
+    context.attachStyle(
+        element,
+        style {
+            display = com.antepod.lumentika.style.Display.FLEX
+            flexDirection = com.antepod.lumentika.style.FlexDirection.COLUMN
+            overflow = Overflow.SCROLL
+        },
+    )
+    val builder = ListBuilder(element, context).apply(block)
+    builder.mount()
+    val semantics = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
+    element.attach(
+        SemanticsAttachment,
+        semantics.copy(role = SemanticRole.LIST),
+    )
+    return element
 }
 
 public class SemanticsBuilder internal constructor(private val initial: SemanticsConfiguration) {
@@ -457,13 +480,22 @@ public fun UiScope.image(block: ImageBuilder.() -> Unit): Element {
 
 public class TooltipBuilder internal constructor(element: Element, context: UiContext) :
     ValueElementBuilder<String>(element, context, "") {
+    public var showDelayMillis: Long = 500
+    public var hideDelayMillis: Long = 100
+    public var placement: TooltipPlacement = TooltipPlacement.AUTO
+    public var offset: Float = 8f
+
     internal fun mount(): Element {
-        withComponentScope(element.scope) {
-            effect {
-                element.content = TextContent(local.value, context.textLayout)
-                context.requestFrame(true)
-            }
-        }
+        require(showDelayMillis >= 0 && hideDelayMillis >= 0)
+        require(offset.isFinite() && offset >= 0f)
+        mountTooltip(
+            element,
+            local,
+            showDelayMillis,
+            hideDelayMillis,
+            placement,
+            offset,
+        )
         applySemantics()
         return element
     }

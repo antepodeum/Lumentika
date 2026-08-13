@@ -1,6 +1,8 @@
 package com.antepod.lumentika.components
 
+import com.antepod.lumentika.geometry.Matrix3
 import com.antepod.lumentika.geometry.Point
+import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.gesture.DragAxis
 import com.antepod.lumentika.gesture.DragRecognizer
 import com.antepod.lumentika.gesture.GestureArena
@@ -31,6 +33,7 @@ import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
 import com.antepod.lumentika.style.Display
 import com.antepod.lumentika.style.FlexDirection
+import com.antepod.lumentika.style.Position
 import com.antepod.lumentika.style.Style
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillConfiguration
@@ -85,6 +88,7 @@ public val TextEditorAttachment: AttachmentKey<TextEditorRuntime> = AttachmentKe
 public val ReceiveContentAttachment: AttachmentKey<(TransferContent) -> TransferContent> =
     AttachmentKey()
 public val ScrollRuntimeAttachment: AttachmentKey<ScrollRuntimeHandle> = AttachmentKey()
+public val TooltipRuntimeAttachment: AttachmentKey<TooltipRuntimeHandle> = AttachmentKey()
 private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
@@ -276,21 +280,42 @@ internal constructor(
         )
         horizontal.updateExtents(viewportWidth, contentWidth)
         vertical.updateExtents(viewportHeight, contentHeight)
+        if (element.kind == "list") updateListSemantics()
+    }
+
+    private fun updateListSemantics() {
+        val items =
+            element.children
+                .filter { it.isMounted }
+                .flatMap { child ->
+                    if (child.kind == "for-each") child.children.filter { it.isMounted }
+                    else listOf(child)
+                }
+        val rootSemantics = element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
+        element.attach(
+            SemanticsAttachment,
+            rootSemantics.copy(
+                role = SemanticRole.LIST,
+                collection = CollectionInfo(rows = items.size, columns = 1),
+            ),
+        )
+        items.forEachIndexed { index, item ->
+            val semantics = item.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
+            item.attach(
+                SemanticsAttachment,
+                semantics.copy(
+                    role =
+                        if (semantics.role == SemanticRole.NONE) SemanticRole.LIST_ITEM
+                        else semantics.role,
+                    item = CollectionItemInfo(row = index, column = 0),
+                ),
+            )
+        }
     }
 
     private fun flatten(current: Element): List<Element> =
         listOf(current) + current.children.flatMap(::flatten)
 }
-
-public fun UiScope.list(content: ContainerBuilder.() -> Unit = {}): Element =
-    container(
-        "list",
-        style {
-            display = Display.FLEX
-            flexDirection = FlexDirection.COLUMN
-        },
-        content,
-    )
 
 public fun UiScope.text(value: String): Element =
     element("text", TextContent(value, context.textLayout))
@@ -301,6 +326,181 @@ public fun UiScope.image(
     source: ImageSource,
     size: com.antepod.lumentika.geometry.Size? = null,
 ): Element = element("image", ImageContent(source, size ?: context.images?.intrinsicSize(source)))
+
+public enum class TooltipPlacement {
+    AUTO,
+    ABOVE,
+    BELOW,
+}
+
+public data class TooltipPlacementRequest(
+    val anchorBounds: Rect,
+    val placement: TooltipPlacement,
+    val offset: Float,
+)
+
+public class TooltipRuntimeHandle
+internal constructor(
+    private val wrapper: Element,
+    private val context: UiContext,
+    private val text: Readable<String>,
+    private val showDelayNanos: Long,
+    private val hideDelayNanos: Long,
+    private val preferredPlacement: TooltipPlacement,
+    private val offset: Float,
+) : AutoCloseable {
+    private val cleanups = mutableListOf<AutoCloseable>()
+    private var desiredVisible = false
+    private var deadline = 0L
+    private var placementFrames = 0
+    private var closed = false
+    private val tick: (Long) -> Boolean = ::onFrame
+    public var popup: Element? = null
+        private set
+
+    public var placementRequest: TooltipPlacementRequest? = null
+        private set
+
+    public val visible: Boolean
+        get() = popup != null
+
+    init {
+        context.events?.let { events ->
+            cleanups += events.on(wrapper, EventType.POINTER_ENTER) { requestVisible(true) }
+            cleanups += events.on(wrapper, EventType.POINTER_LEAVE) { requestVisible(false) }
+            cleanups += events.on(wrapper, EventType.FOCUS_IN) { requestVisible(true) }
+            cleanups += events.on(wrapper, EventType.FOCUS_OUT) { requestVisible(false) }
+            cleanups +=
+                events.on(wrapper, EventType.KEY_DOWN) { event ->
+                    if ((event as KeyboardEvent).logicalKey == LogicalKey.ESCAPE) hideNow()
+                }
+        }
+        withComponentScope(wrapper.scope) {
+            effect {
+                val value = text.value
+                popup?.content = TextContent(value, context.textLayout)
+                wrapper.children
+                    .firstOrNull { it !== popup }
+                    ?.let { anchor ->
+                        val semantics =
+                            anchor.attachment(SemanticsAttachment) ?: SemanticsConfiguration()
+                        anchor.attach(SemanticsAttachment, semantics.copy(hint = value))
+                    }
+                context.requestFrame(popup != null)
+            }
+        }
+    }
+
+    public fun requestVisible(visible: Boolean) {
+        if (closed) return
+        desiredVisible = visible
+        val delay = if (visible) showDelayNanos else hideDelayNanos
+        deadline = context.animationClock.frameTimeNanos + delay
+        context.animationClock.animate(tick)
+        context.requestFrame(false)
+    }
+
+    public fun showNow() {
+        if (closed || popup != null) return
+        val popup =
+            Element("tooltip-popup").also {
+                it.content = TextContent(text.value, context.textLayout)
+                it.attach(
+                    SemanticsAttachment,
+                    SemanticsConfiguration(
+                        role = SemanticRole.TOOLTIP,
+                        liveRegion = LiveRegion.POLITE,
+                    ),
+                )
+                wrapper.append(it)
+                context.attachStyle(it, style { position = Position.ABSOLUTE })
+                context.configureRender(it, RenderProperties(topLayer = true))
+            }
+        this.popup = popup
+        placementFrames = 2
+        updatePlacement()
+        context.requestFrame(true)
+    }
+
+    public fun hideNow() {
+        val popup = popup ?: return
+        this.popup = null
+        placementRequest = null
+        wrapper.remove(popup)
+        context.requestFrame(true)
+    }
+
+    private fun onFrame(timeNanos: Long): Boolean {
+        if (closed) return false
+        if (timeNanos >= deadline) {
+            if (desiredVisible) showNow() else hideNow()
+        }
+        if (popup != null && placementFrames > 0) {
+            placementFrames--
+            updatePlacement()
+            context.requestFrame(false)
+        }
+        return timeNanos < deadline || placementFrames > 0
+    }
+
+    private fun updatePlacement() {
+        val popup = popup ?: return
+        val anchor = wrapper.children.firstOrNull { it !== popup } ?: wrapper
+        val anchorBounds = context.committedBounds(anchor) ?: anchor.geometry
+        val popupHeight = popup.geometry.height
+        val placement =
+            when (preferredPlacement) {
+                TooltipPlacement.AUTO ->
+                    if (anchorBounds.y >= popupHeight + offset) TooltipPlacement.ABOVE
+                    else TooltipPlacement.BELOW
+                else -> preferredPlacement
+            }
+        val targetY =
+            if (placement == TooltipPlacement.ABOVE) anchorBounds.y - popupHeight - offset
+            else anchorBounds.bottom + offset
+        placementRequest = TooltipPlacementRequest(anchorBounds, placement, offset)
+        context.configureRender(
+            popup,
+            RenderProperties(
+                transform =
+                    Matrix3.translation(
+                        anchorBounds.x - popup.geometry.x,
+                        targetY - popup.geometry.y,
+                    ),
+                topLayer = true,
+            ),
+        )
+    }
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        cleanups.asReversed().forEach(AutoCloseable::close)
+        cleanups.clear()
+        hideNow()
+    }
+}
+
+internal fun UiScope.mountTooltip(
+    element: Element,
+    text: Readable<String>,
+    showDelayMillis: Long,
+    hideDelayMillis: Long,
+    placement: TooltipPlacement,
+    offset: Float,
+) {
+    val runtime =
+        TooltipRuntimeHandle(
+            element,
+            context,
+            text,
+            showDelayMillis * 1_000_000,
+            hideDelayMillis * 1_000_000,
+            placement,
+            offset,
+        )
+    element.attach(TooltipRuntimeAttachment, runtime)
+}
 
 private fun control(
     element: Element,

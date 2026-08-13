@@ -1,9 +1,13 @@
 package com.antepod.lumentika.components
 
+import com.antepod.lumentika.animation.UiAnimationClock
+import com.antepod.lumentika.component.forEach
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.headlessRoot
+import com.antepod.lumentika.input.EventDispatcher
 import com.antepod.lumentika.input.PointerType
 import com.antepod.lumentika.reactive.state
+import com.antepod.lumentika.render.RenderProperties
 import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
 import com.antepod.lumentika.style.px
@@ -264,7 +268,16 @@ class ComponentsTest {
     @Test
     fun `image and tooltip builders update reactive primary values`() {
         val root = Element("root")
-        val ui = UiScope(root)
+        val clock = UiAnimationClock()
+        val renderProperties = mutableMapOf<Element, RenderProperties>()
+        val context =
+            UiContext(
+                animationClock = clock,
+                events = EventDispatcher(root),
+                committedBounds = { com.antepod.lumentika.geometry.Rect(10f, 20f, 40f, 10f) },
+                configureRender = { element, properties -> renderProperties[element] = properties },
+            )
+        val ui = UiScope(root, context)
         val imageSource = state<ImageSource>(ImageSource.Uri("first"))
         val image = ui.image { source(imageSource) }
         val tooltipText = state("first tip")
@@ -277,8 +290,48 @@ class ComponentsTest {
         tooltipText.value = "second tip"
 
         assertEquals(ImageSource.Uri("second"), (image.content as ImageContent).source)
-        assertEquals("second tip", (tooltip.content as TextContent).text)
         assertEquals("anchor", (tooltip.children.single().content as TextContent).text)
+        val runtime = tooltip.attachment(TooltipRuntimeAttachment)!!
+        runtime.requestVisible(true)
+        clock.frame(499_000_000)
+        assertFalse(runtime.visible)
+        clock.frame(500_000_000)
+        val popup = runtime.popup!!
+        assertEquals("second tip", (popup.content as TextContent).text)
+        assertTrue(renderProperties.getValue(popup).topLayer)
+        assertEquals(SemanticRole.TOOLTIP, popup.attachment(SemanticsAttachment)!!.role)
+        assertEquals("second tip", tooltip.children.first().attachment(SemanticsAttachment)!!.hint)
+        runtime.requestVisible(false)
+        clock.frame(599_000_000)
+        assertTrue(runtime.visible)
+        clock.frame(600_000_000)
+        assertFalse(runtime.visible)
+        root.close()
+    }
+
+    @Test
+    fun `list composes scrolling keyed items and collection semantics`() {
+        val root = Element("root")
+        val items = state(listOf(1, 2, 3))
+        val list =
+            UiScope(root).list {
+                forEach(items, key = { it }) { value -> text("item-$value") }
+            }
+        val runtime = list.attachment(ScrollRuntimeAttachment)!!
+        runtime.updateLayout()
+
+        assertEquals(3, list.attachment(SemanticsAttachment)!!.collection!!.rows)
+        val keyedItems = list.children.single().children
+        assertEquals(
+            listOf(0, 1, 2),
+            keyedItems.map { it.attachment(SemanticsAttachment)!!.item!!.row },
+        )
+        val identity = keyedItems.associateBy { (it.children.single().content as TextContent).text }
+        items.value = listOf(3, 1)
+        runtime.updateLayout()
+        assertSame(identity.getValue("item-3"), list.children.single().children[0])
+        assertSame(identity.getValue("item-1"), list.children.single().children[1])
+        assertEquals(2, list.attachment(SemanticsAttachment)!!.collection!!.rows)
         root.close()
     }
 
