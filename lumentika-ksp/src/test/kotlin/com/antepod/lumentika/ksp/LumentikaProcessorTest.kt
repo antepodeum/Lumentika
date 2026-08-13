@@ -119,6 +119,45 @@ class LumentikaProcessorTest {
     }
 
     @Test
+    fun `returns declared component output after mounting`() {
+        val compilation =
+            compilation(
+                SourceFile.kotlin(
+                    "Output.kt",
+                    """
+                    package proof
+
+                    import com.antepod.lumentika.component.*
+                    import com.antepod.lumentika.runtime.*
+
+                    class Handle(val element: Element)
+
+                    @UIComponent
+                    class Output : Component(), ComponentOutput<Handle> {
+                        override lateinit var componentOutput: Handle
+
+                        override fun view(): Element = ui.element().also {
+                            componentOutput = Handle(it)
+                        }
+                    }
+
+                    fun mountOutput(scope: UiScope): Handle = scope.output()
+                    """
+                        .trimIndent(),
+                )
+            )
+
+        val result = compilation.compile()
+
+        assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode, result.messages)
+        val generated =
+            compilation.kspSourcesDir.walkTopDown().single { it.name == "OutputDsl.kt" }.readText()
+        assertContains(generated, "): proof.Handle {")
+        assertContains(generated, "instance.mount(this)")
+        assertContains(generated, "return instance.componentOutput")
+    }
+
+    @Test
     fun `rejects unsupported component shapes before generating invalid Kotlin`() {
         val cases =
             listOf(

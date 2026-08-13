@@ -230,6 +230,11 @@ public open class Slot internal constructor() {
 /** A slot intended to hold an arbitrary list of child declarations. */
 public class SlotList internal constructor() : Slot()
 
+/** Exposes a mounted component's public result when it is richer than its root [Element]. */
+public interface ComponentOutput<out T> {
+    public val componentOutput: T
+}
+
 /** Base class for persistent, owner-scoped UI components. */
 public abstract class Component : AutoCloseable {
     private val declarations = mutableListOf<Declaration<*>>()

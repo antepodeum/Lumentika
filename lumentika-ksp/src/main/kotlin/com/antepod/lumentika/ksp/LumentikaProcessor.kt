@@ -88,6 +88,8 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
         val slots = declarations.filter { it.kind.isSlot }
         val canonicalSlot = slots.firstOrNull { it.name == "content" } ?: slots.firstOrNull()
         val className = name.identifier()
+        val outputType = type.componentOutputType()
+        val returnType = outputType ?: "Element"
         val parameters = buildList {
             add("instance: $className = $className()")
             declarations.filterNot { it.kind.isSlot }.forEach { add(it.parameter()) }
@@ -109,15 +111,33 @@ private class LumentikaProcessor(private val code: CodeGenerator, private val lo
             } else {
                 out.appendLine("public fun UiScope.$factoryName(")
                 parameters.forEach { out.appendLine("    $it,") }
-                out.appendLine("): Element {")
+                out.appendLine("): $returnType {")
             }
             declarations.filterNot { it.kind.isSlot }.forEach { it.writeConfiguration(out) }
             slots.filterNot { it == canonicalSlot }.forEach { it.writeConfiguration(out) }
             canonicalSlot?.writeConfiguration(out)
-            out.appendLine("    return instance.mount(this)")
+            if (outputType == null) {
+                out.appendLine("    return instance.mount(this)")
+            } else {
+                out.appendLine("    instance.mount(this)")
+                out.appendLine("    return instance.componentOutput")
+            }
             out.appendLine("}")
         }
     }
+
+    private fun KSClassDeclaration.componentOutputType(): String? =
+        superTypes
+            .map { it.resolve() }
+            .firstOrNull {
+                it.declaration.qualifiedName?.asString() ==
+                    "com.antepod.lumentika.component.ComponentOutput"
+            }
+            ?.arguments
+            ?.singleOrNull()
+            ?.type
+            ?.resolve()
+            ?.render()
 
     private fun KSClassDeclaration.isComponentSubclass(): Boolean = superTypes.any { superType ->
         val declaration = superType.resolve().declaration as? KSClassDeclaration
