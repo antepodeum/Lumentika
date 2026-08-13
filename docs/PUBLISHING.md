@@ -29,15 +29,15 @@ Before the first release:
 ```text
 MAVEN_CENTRAL_USERNAME
 MAVEN_CENTRAL_PASSWORD
-SIGNING_KEY
-SIGNING_PASSWORD
+MAVEN_SIGNING_KEY
+MAVEN_SIGNING_PASSWORD
 ```
 
-`SIGNING_KEY` is the complete ASCII-armored private key, including its BEGIN/END lines. GitHub
-Packages uses the workflow `GITHUB_TOKEN`; no personal access token is required for publication
-from this repository. The release job explicitly references `maven-central`, so GitHub exposes
-these credentials only to that job. A required reviewer may be configured on the environment to
-hold every tagged deployment for approval before any secret becomes available.
+`MAVEN_SIGNING_KEY` is the complete ASCII-armored private key, including its BEGIN/END lines.
+GitHub Packages uses the workflow `GITHUB_TOKEN`; no personal access token is required for
+publication from this repository. The release job explicitly references `maven-central`, so GitHub
+exposes these credentials only to that job. A required reviewer may be configured on the
+environment to hold every tagged deployment for approval before any secret becomes available.
 
 ## Releasing
 
