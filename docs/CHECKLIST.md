@@ -102,8 +102,8 @@
 - [x] velocity tracking
 - [x] min/max fling velocity from environment
 - [x] gesture cancellation on unmount
-- [ ] slider-vs-scroll arbitration
-- [ ] text-selection-vs-scroll arbitration
+- [x] slider-vs-scroll arbitration
+- [x] text-selection-vs-scroll arbitration
 
 ## Scrolling
 

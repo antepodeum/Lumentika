@@ -80,6 +80,71 @@ class GesturesTest {
     }
 
     @Test
+    fun `horizontal slider and vertical scroll resolve by dominant axis`() {
+        val arena = GestureArena()
+        val sliderUpdates = mutableListOf<DragUpdate>()
+        val scrollUpdates = mutableListOf<DragUpdate>()
+        val slider = DragRecognizer(config, DragAxis.HORIZONTAL, sliderUpdates::add)
+        val scroll = DragRecognizer(config, DragAxis.VERTICAL, scrollUpdates::add)
+        arena.add(1, slider)
+        arena.add(1, scroll)
+        slider.down(Point(0f, 0f), 0)
+        scroll.down(Point(0f, 0f), 0)
+
+        slider.move(Point(4f, 4f), 10_000_000)
+        scroll.move(Point(4f, 4f), 10_000_000)
+        assertTrue(sliderUpdates.isEmpty())
+        assertTrue(scrollUpdates.isEmpty())
+
+        slider.move(Point(12f, 5f), 20_000_000)
+        scroll.move(Point(12f, 5f), 20_000_000)
+        assertEquals(1, sliderUpdates.size)
+        assertTrue(scrollUpdates.isEmpty())
+    }
+
+    @Test
+    fun `long press selection defeats scrolling and keeps auto scroll teammate`() {
+        val arena = GestureArena()
+        val selectionTeam = Any()
+        val selectionUpdates = mutableListOf<DragUpdate>()
+        val teamTrace = mutableListOf<GestureDisposition>()
+        val selection = SelectionDragRecognizer(config, selectionUpdates::add, selectionTeam)
+        val autoScroll =
+            object : GestureRecognizer {
+                override val team: Any = selectionTeam
+
+                override fun down(point: Point, timeNanos: Long) = Unit
+
+                override fun move(point: Point, timeNanos: Long) = Unit
+
+                override fun up(point: Point, timeNanos: Long) = Unit
+
+                override fun cancel() = Unit
+
+                override fun resolve(disposition: GestureDisposition) {
+                    teamTrace += disposition
+                }
+
+                override fun close() = Unit
+            }
+        val scrollUpdates = mutableListOf<DragUpdate>()
+        val scroll = DragRecognizer(config, DragAxis.VERTICAL, scrollUpdates::add)
+        arena.add(2, selection)
+        arena.add(2, autoScroll)
+        arena.add(2, scroll)
+        selection.down(Point(0f, 0f), 0)
+        scroll.down(Point(0f, 0f), 0)
+
+        selection.advance(400_000_000)
+        selection.move(Point(2f, 8f), 410_000_000)
+        scroll.move(Point(2f, 8f), 410_000_000)
+
+        assertEquals(listOf(GestureDisposition.ACCEPTED), teamTrace)
+        assertEquals(1, selectionUpdates.size)
+        assertTrue(scrollUpdates.isEmpty())
+    }
+
+    @Test
     fun `nested scroll conserves deltas and fling shares root clock`() {
         val trace = mutableListOf<String>()
         val connection =

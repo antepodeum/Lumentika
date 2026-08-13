@@ -31,6 +31,7 @@ public class GestureArena {
 
     public fun add(pointer: Int, recognizer: GestureRecognizer) {
         entries.getOrPut(pointer, ::mutableListOf) += recognizer
+        (recognizer as? SinglePointerRecognizer)?.join(this, pointer)
     }
 
     public fun resolve(pointer: Int, winner: GestureRecognizer) {
@@ -53,12 +54,23 @@ public abstract class SinglePointerRecognizer(final override val team: Any?) : G
     protected var last = start
     protected var startTime = 0L
     protected var rejected = false
+    protected var accepted = false
+        private set
+
+    private var arena: GestureArena? = null
+    private var pointer: Int = 0
+
+    internal fun join(arena: GestureArena, pointer: Int) {
+        this.arena = arena
+        this.pointer = pointer
+    }
 
     override fun down(point: Point, timeNanos: Long) {
         start = point
         last = point
         startTime = timeNanos
         rejected = false
+        accepted = arena == null
     }
 
     override fun cancel() {
@@ -66,7 +78,16 @@ public abstract class SinglePointerRecognizer(final override val team: Any?) : G
     }
 
     override fun resolve(disposition: GestureDisposition) {
-        if (disposition == GestureDisposition.REJECTED) cancel()
+        when (disposition) {
+            GestureDisposition.ACCEPTED -> accepted = true
+            GestureDisposition.REJECTED -> cancel()
+            GestureDisposition.PENDING -> Unit
+        }
+    }
+
+    protected fun accept() {
+        val currentArena = arena
+        if (currentArena == null) accepted = true else currentArena.resolve(pointer, this)
     }
 
     override fun close() = cancel()
@@ -83,7 +104,10 @@ public class TapRecognizer(
     }
 
     override fun up(point: Point, timeNanos: Long) {
-        if (!rejected) onTap()
+        if (!rejected) {
+            accept()
+            if (accepted) onTap()
+        }
     }
 }
 
@@ -107,7 +131,8 @@ public class DoubleTapRecognizer(
                 timeNanos - previousUp <= config.doubleTapTimeoutMillis * 1_000_000 &&
                 distance(previous, point) <= config.touchSlop * 2
         ) {
-            onDoubleTap()
+            accept()
+            if (accepted) onDoubleTap()
             previousPoint = null
         } else {
             previousUp = timeNanos
@@ -139,8 +164,9 @@ public class LongPressRecognizer(
                 !fired &&
                 timeNanos - startTime >= config.longPressTimeoutMillis * 1_000_000
         ) {
+            accept()
             fired = true
-            onLongPress()
+            if (accepted) onLongPress()
         }
     }
 
@@ -169,11 +195,11 @@ public class DragRecognizer(
     team: Any? = null,
 ) : SinglePointerRecognizer(team) {
     private val velocity = VelocityTracker()
-    private var accepted = false
+    private var thresholdCrossed = false
 
     override fun down(point: Point, timeNanos: Long) {
         super.down(point, timeNanos)
-        accepted = false
+        thresholdCrossed = false
         velocity.reset()
         velocity.add(timeNanos, point)
     }
@@ -186,12 +212,66 @@ public class DragRecognizer(
                 DragAxis.HORIZONTAL -> abs(total.x)
                 DragAxis.VERTICAL -> abs(total.y)
             }
-        if (eligible > config.touchSlop) accepted = true
+        val competing =
+            when (axis) {
+                DragAxis.FREE -> 0f
+                DragAxis.HORIZONTAL -> abs(total.y)
+                DragAxis.VERTICAL -> abs(total.x)
+            }
+        if (!thresholdCrossed && eligible > config.touchSlop && eligible > competing) {
+            thresholdCrossed = true
+            accept()
+        } else if (!thresholdCrossed && competing > config.touchSlop && competing > eligible) {
+            rejected = true
+        }
         velocity.add(timeNanos, point)
         val delta = Point(point.x - last.x, point.y - last.y)
         last = point
-        if (accepted && !rejected)
+        if (thresholdCrossed && accepted && !rejected)
             onUpdate(DragUpdate(point, delta, total, velocity.velocity(config)))
+    }
+
+    override fun up(point: Point, timeNanos: Long) {
+        move(point, timeNanos)
+    }
+}
+
+public class SelectionDragRecognizer(
+    private val config: GestureConfiguration,
+    private val onUpdate: (DragUpdate) -> Unit,
+    team: Any? = null,
+) : SinglePointerRecognizer(team) {
+    private val velocity = VelocityTracker()
+    private var selecting = false
+
+    override fun down(point: Point, timeNanos: Long) {
+        super.down(point, timeNanos)
+        selecting = false
+        velocity.reset()
+        velocity.add(timeNanos, point)
+    }
+
+    public fun advance(timeNanos: Long) {
+        if (
+            !selecting &&
+                !rejected &&
+                timeNanos - startTime >= config.longPressTimeoutMillis * 1_000_000
+        ) {
+            selecting = true
+            accept()
+        }
+    }
+
+    override fun move(point: Point, timeNanos: Long) {
+        advance(timeNanos)
+        val total = Point(point.x - start.x, point.y - start.y)
+        if (!selecting && distance(start, point) > config.touchSlop) rejected = true
+        velocity.add(timeNanos, point)
+        val delta = Point(point.x - last.x, point.y - last.y)
+        last = point
+        if (selecting && accepted && !rejected) {
+            onUpdate(DragUpdate(point, delta, total, velocity.velocity(config)))
+        }
     }
 
     override fun up(point: Point, timeNanos: Long) {
