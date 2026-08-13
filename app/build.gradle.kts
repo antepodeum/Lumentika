@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":utils"))
     implementation(project(":lumentika-core"))
     ksp(project(":lumentika-ksp"))
+    testImplementation(kotlin("test"))
 }
 
 application {
