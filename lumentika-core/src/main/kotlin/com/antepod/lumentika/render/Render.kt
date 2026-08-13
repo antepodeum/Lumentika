@@ -195,12 +195,14 @@ public class RenderRuntime(
     private val root: Element,
     private val resolveBorderLength: (LengthPercentageValue, Float) -> Float =
         ::defaultResolveBorderLength,
+    private val onPaintRequested: () -> Unit = {},
     private val resolveStyle: (Element) -> ResolvedStyle,
-) {
+) : AutoCloseable {
     private val properties = mutableMapOf<Element, RenderProperties>()
     private val motionProperties = mutableMapOf<Element, MotionRenderProperties>()
     private val paintCache = mutableMapOf<Element, Pair<Any?, List<PaintCommand>>>()
     private val invalidations = mutableMapOf<Element, MutableSet<RenderInvalidation>>()
+    private val contentSubscriptions = mutableMapOf<Element, AutoCloseable>()
     private var generation = 0L
     public var recordCount: Long = 0
         private set
@@ -258,6 +260,9 @@ public class RenderRuntime(
         invalidations.clear()
         val builder = Builder()
         walk(root, ParentState(), builder)
+        contentSubscriptions.keys
+            .filter { it !in builder.visited }
+            .forEach { contentSubscriptions.remove(it)?.close() }
         generation++
         val ordered =
             builder.chunks
@@ -298,6 +303,13 @@ public class RenderRuntime(
             ?.transform(point)
 
     private fun walk(element: Element, parent: ParentState, builder: Builder) {
+        builder.visited += element
+        contentSubscriptions.getOrPut(element) {
+            element.onContentInvalidated {
+                invalidate(element, RenderInvalidation.PAINT)
+                onPaintRequested()
+            }
+        }
         val style = resolveStyle(element)
         if (
             style[Properties.Visibility] == Visibility.HIDDEN ||
@@ -521,6 +533,7 @@ public class RenderRuntime(
         val stacks = mutableListOf<StackingContextNode>()
         val chunks = mutableListOf<PaintChunk>()
         val hitEntries = mutableListOf<HitTestEntry>()
+        val visited = mutableSetOf<Element>()
         var nextOrder = 0
 
         fun transform(parent: PropertyNodeId?, value: Matrix3) =
@@ -561,6 +574,13 @@ public class RenderRuntime(
                 ),
                 HitTestArtifact(0, emptyList()),
             )
+    }
+
+    override fun close() {
+        contentSubscriptions.values.forEach(AutoCloseable::close)
+        contentSubscriptions.clear()
+        paintCache.clear()
+        invalidations.clear()
     }
 }
 

@@ -163,6 +163,7 @@ public class UiRoot(
                 ) ?: 0f
             },
             resolveStyle = { styleAnimations.effective(it, styles.resolve(it).first) },
+            onPaintRequested = { requestFrame(false) },
         )
     }
     private val pointerGestures = mutableMapOf<Int, PointerGestureSession>()
@@ -364,6 +365,7 @@ public class UiRoot(
         elementAnimations.close()
         styleAnimations.close()
         layout.close()
+        render.close()
         element.close()
     }
 

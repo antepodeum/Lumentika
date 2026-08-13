@@ -22,7 +22,13 @@ import com.antepod.lumentika.platform.UnitEnvironment
 import com.antepod.lumentika.platform.UnitRevisions
 import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.render.RenderProperties
+import com.antepod.lumentika.runtime.Content
+import com.antepod.lumentika.runtime.ContentInvalidation
+import com.antepod.lumentika.runtime.IntrinsicMeasurable
+import com.antepod.lumentika.runtime.IntrinsicMeasureInput
 import com.antepod.lumentika.runtime.OwnershipCounters
+import com.antepod.lumentika.runtime.PaintCommand
+import com.antepod.lumentika.runtime.PaintRecorder
 import com.antepod.lumentika.style.Properties
 import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.rgb
@@ -33,6 +39,60 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class IntegrationProofTest {
+    @Test
+    fun `retained content invalidation separates paint intrinsic and text metrics`() {
+        class RetainedContent(var size: com.antepod.lumentika.geometry.Size) :
+            Content, IntrinsicMeasurable {
+            var color = 0xff000000.toInt()
+            var records = 0
+
+            override fun measure(input: IntrinsicMeasureInput) = size
+
+            override fun record(
+                recorder: PaintRecorder,
+                bounds: com.antepod.lumentika.geometry.Rect,
+            ) {
+                records++
+                recorder.record(PaintCommand.FillRect(bounds, color))
+            }
+        }
+
+        val root = headlessRoot(100f, 100f)
+        val content = RetainedContent(com.antepod.lumentika.geometry.Size(20f, 10f))
+        val element = root.scope.element("retained", content)
+        root.requestFrame()
+        root.frame(1)
+        val initialElement = element
+        val initialLayout = root.layoutComputeCount
+        val initialRecords = content.records
+
+        content.color = 0xffffffff.toInt()
+        element.invalidateContent(ContentInvalidation.PAINT)
+        root.frame(2)
+        assertEquals(initialLayout, root.layoutComputeCount)
+        assertEquals(initialRecords + 1, content.records)
+
+        content.size = com.antepod.lumentika.geometry.Size(20f, 30f)
+        element.invalidateContent(ContentInvalidation.INTRINSIC_MEASUREMENT)
+        element.invalidateContent(ContentInvalidation.INTRINSIC_MEASUREMENT)
+        root.frame(3)
+        assertEquals(initialLayout + 1, root.layoutComputeCount)
+        assertEquals(30f, element.geometry.height)
+
+        val afterIntrinsic = root.layoutComputeCount
+        element.invalidateContent(ContentInvalidation.TEXT_METRICS)
+        root.frame(4)
+        assertEquals(afterIntrinsic, root.layoutComputeCount)
+
+        content.size = com.antepod.lumentika.geometry.Size(20f, 35f)
+        element.invalidateContent(ContentInvalidation.TEXT_METRICS)
+        root.frame(5)
+        assertEquals(afterIntrinsic + 1, root.layoutComputeCount)
+        assertEquals(35f, element.geometry.height)
+        assertSame(initialElement, root.element.children.single())
+        root.close()
+    }
+
     @Test
     fun `paint radius and clip changes do not recompute Taffy`() {
         val root = headlessRoot(100f, 100f)

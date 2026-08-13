@@ -134,6 +134,23 @@ public interface Content {
     public fun record(recorder: PaintRecorder, bounds: Rect)
 }
 
+/** Explicit invalidation class for retained [Content] whose identity remains stable. */
+public enum class ContentInvalidation {
+    /** Recorded drawing changed without changing intrinsic dimensions. */
+    PAINT,
+
+    /** Intrinsic dimensions may have changed. */
+    INTRINSIC_MEASUREMENT,
+
+    /** Text shaping or wrapping metrics changed and dimensions must be compared. */
+    TEXT_METRICS,
+}
+
+/** Optional hook for content-owned caches that must react before runtime invalidation. */
+public interface ContentInvalidationAware {
+    public fun onContentInvalidated(invalidation: ContentInvalidation)
+}
+
 /** Geometry required by the standard draw transition. Values are expressed in local pixels. */
 public interface PathMetrics {
     public val pathLength: Float
@@ -157,7 +174,7 @@ public interface SceneContent : Content, HitRegionSource {
 public class TextContent(
     public val request: com.antepod.lumentika.text.TextLayoutRequest,
     private val layoutService: TextLayoutService = HeadlessTextLayoutService,
-) : Content, IntrinsicMeasurable {
+) : Content, IntrinsicMeasurable, ContentInvalidationAware {
     public constructor(
         text: String,
         layoutService: TextLayoutService = HeadlessTextLayoutService,
@@ -204,6 +221,13 @@ public class TextContent(
                 lastLayoutResult = it
             }
     }
+
+    override fun onContentInvalidated(invalidation: ContentInvalidation) {
+        if (invalidation != ContentInvalidation.PAINT) {
+            layouts.clear()
+            lastLayoutResult = null
+        }
+    }
 }
 
 /** Image content with optional known intrinsic dimensions. */
@@ -230,6 +254,7 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
         get() = mutableChildren
 
     private val contentListeners = LinkedHashSet<(Content?) -> Unit>()
+    private val contentInvalidationListeners = LinkedHashSet<(ContentInvalidation) -> Unit>()
     public var content: Content? = null
         set(value) {
             if (field === value) return
@@ -298,6 +323,18 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
         return AutoCloseable { contentListeners -= listener }
     }
 
+    /** Invalidates retained [content] without replacing or remounting this element. */
+    public fun invalidateContent(invalidation: ContentInvalidation = ContentInvalidation.PAINT) {
+        content?.let { (it as? ContentInvalidationAware)?.onContentInvalidated(invalidation) }
+        contentInvalidationListeners.toList().forEach { it(invalidation) }
+    }
+
+    /** Observes explicit retained-content invalidation. */
+    public fun onContentInvalidated(listener: (ContentInvalidation) -> Unit): AutoCloseable {
+        contentInvalidationListeners += listener
+        return AutoCloseable { contentInvalidationListeners -= listener }
+    }
+
     override fun close() {
         if (!isMounted || isClosing) return
         isClosing = true
@@ -312,6 +349,7 @@ public open class Element(public val kind: String = "element") : AutoCloseable {
         mutableChildren.toList().asReversed().forEach { child -> safely { remove(child) } }
         safely(scope::close)
         contentListeners.clear()
+        contentInvalidationListeners.clear()
         attachments.values.filterIsInstance<AutoCloseable>().forEach { safely(it::close) }
         attachments.clear()
         isMounted = false

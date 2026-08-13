@@ -3,6 +3,7 @@ package com.antepod.lumentika.layout
 import com.antepod.lumentika.geometry.Rect
 import com.antepod.lumentika.platform.UiEnvironment
 import com.antepod.lumentika.platform.UnitResolver
+import com.antepod.lumentika.runtime.ContentInvalidation
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.Fragment
 import com.antepod.lumentika.runtime.IntrinsicMeasurable
@@ -176,6 +177,8 @@ public class LayoutRuntime(
                         }
                     created = tree.newLeafWithContext(style, handle)
                     handle.subscription = element.onContentChanged(handle::update)
+                    handle.invalidationSubscription =
+                        element.onContentInvalidated(handle::invalidate)
                     nodes[element] = created
                     measures[element] = handle
                     created
@@ -635,6 +638,7 @@ public class LayoutRuntime(
             mutableMapOf<IntrinsicMeasureInput, com.antepod.lumentika.geometry.Size>()
         var markedDirty = false
         var subscription: AutoCloseable? = null
+        var invalidationSubscription: AutoCloseable? = null
 
         fun measure(input: IntrinsicMeasureInput): com.antepod.lumentika.geometry.Size =
             cache.getOrPut(input) {
@@ -648,6 +652,29 @@ public class LayoutRuntime(
             invalidated()
         }
 
+        fun invalidate(invalidation: ContentInvalidation) {
+            when (invalidation) {
+                ContentInvalidation.PAINT -> Unit
+                ContentInvalidation.INTRINSIC_MEASUREMENT -> {
+                    cache.clear()
+                    invalidated()
+                }
+                ContentInvalidation.TEXT_METRICS -> {
+                    val target = measurable ?: return
+                    if (cache.isEmpty()) return
+                    val previous = cache.toMap()
+                    val updated =
+                        previous.keys.associateWith { input ->
+                            measurementCount++
+                            target.measure(input)
+                        }
+                    cache.clear()
+                    cache.putAll(updated)
+                    if (previous.any { (input, size) -> updated[input] != size }) invalidated()
+                }
+            }
+        }
+
         fun commit() {
             markedDirty = false
         }
@@ -655,6 +682,8 @@ public class LayoutRuntime(
         override fun close() {
             subscription?.close()
             subscription = null
+            invalidationSubscription?.close()
+            invalidationSubscription = null
             cache.clear()
         }
     }
