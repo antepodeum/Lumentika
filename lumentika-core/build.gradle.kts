@@ -18,7 +18,7 @@ plugins {
 
 group = "com.antepod"
 
-version = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT").get()
+version = providers.gradleProperty("releaseVersion").get()
 
 abstract class GenerateStylePropertyCatalog : DefaultTask() {
     @get:Input abstract val propertyNames: ListProperty<String>

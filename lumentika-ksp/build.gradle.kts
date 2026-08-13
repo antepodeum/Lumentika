@@ -11,7 +11,7 @@ plugins {
 
 group = "com.antepod"
 
-version = providers.gradleProperty("releaseVersion").orElse("0.1.0-SNAPSHOT").get()
+version = providers.gradleProperty("releaseVersion").get()
 
 tasks.withType<Jar>().configureEach {
     from(rootProject.file("LICENSE")) { into("META-INF") }
