@@ -226,6 +226,11 @@
 - [x] custom scene local hit/raycast
 - [x] semantic bounds use same coordinate chain
 - [x] platform replay extension boundary
+- [x] committed render/hit artifacts exposed to platform adapter
+- [x] normalized pointer/wheel/key adapter entry points
+- [x] platform input routes through core hit testing and gesture arena
+- [x] styled backgrounds and exact text layout objects reach replay
+- [x] scroll state updates descendant property transforms without layout/repaint
 
 ## Styles/themes
 
@@ -277,6 +282,19 @@
 - [x] interactive controls use shared gesture runtime
 - [x] interactive controls install default semantics
 - [x] textField uses shared text-editing runtime
+- [x] layout primitives install real Taffy display/direction/overflow defaults
+- [x] platform text layout/input/image services propagate through nested/structural scopes
+- [x] textField owns focus, IME session, keyboard editing, and disposal lifecycle
+- [x] checkbox/slider/textField semantics follow bound state
+
+## Platform adapter readiness
+
+- [x] renderer needs only public immutable paint/property artifacts
+- [x] platform-specific paint commands remain opaque to core
+- [x] platform text shaping controls measurement, paint, caret, and selection geometry
+- [x] platform image service controls intrinsic dimensions
+- [x] custom scene hit testing/raycast remains local and platform-owned
+- [x] adapter implementation guide and acceptance test defined
 
 
 ## Core integration proof

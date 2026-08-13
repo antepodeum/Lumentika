@@ -23,3 +23,7 @@ button / checkbox / slider / textField / tooltip
 ```
 
 No concrete platform implementation is part of this archive. The core implementation finishes and is accepted independently through `docs/IMPLEMENTATION_PLAN.md`, `docs/CHECKLIST.md`, and `docs/INTEGRATION_PROOF_SPEC.md`.
+
+Platform libraries implement scheduling, renderer replay, text shaping/input, image metadata, and
+native services around `UiRoot`. See [`docs/PLATFORM_ADAPTER_GUIDE.md`](docs/PLATFORM_ADAPTER_GUIDE.md)
+for the complete adapter contract, Minecraft mapping, and acceptance tests.
