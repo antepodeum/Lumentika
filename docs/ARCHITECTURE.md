@@ -29,6 +29,15 @@ rendering adapter
 Taffy4J is an internal layout dependency. Application components use Lumentika's typed style API,
 not Taffy nodes.
 
+## Persistent component model
+
+Function arguments configure a component. A trailing UI lambda is child or default-slot content
+only. Mounting creates persistent `Component` and `Element` instances, then executes `view()` once.
+Runtime dependency tracking connects `Readable`, `Mutable`, and tracked-formula arguments to their
+fine-grained targets. A value change does not rerun the full component view or remount unaffected
+children and visual parts. Structural primitives such as `show` and keyed `forEach` update only
+their owned region.
+
 ## Platform ownership
 
 The adapter owns:

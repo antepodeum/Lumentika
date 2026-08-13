@@ -34,6 +34,9 @@ services.
 Built-in UI building blocks include `block`, `flex`, `row`, `column`, `grid`, `stack`, `scroll`,
 `list`, `text`, `image`, `button`, `checkbox`, `slider`, `textField`, and `tooltip`.
 
+One rule applies across the public DSL: function arguments configure a component; a trailing UI
+lambda is child or default-slot content only. Leaf components have no trailing UI lambda.
+
 ## Installation
 
 Use the same release version for both artifacts. The KSP artifact is only needed when declaring
@@ -66,23 +69,24 @@ import com.antepod.lumentika.reactive.state
 import com.antepod.lumentika.style.*
 
 val root = headlessRoot(640f, 360f)
-val count = state(0)
-val summary = derived { "Clicks: ${count.value}" }
+val volume = state(50f)
+val enabled = state(true)
+val title = derived { "Volume: ${volume.value.toInt()}%" }
 
-root.scope.column {
-    style {
-        width = 320.px
-        padding = edges(16.px)
-        gap = 8.px
-        background = rgb(24, 26, 32)
-        color = rgb(245, 245, 245)
-    }
+val rootStyle = style {
+    width = 320.px
+    padding = edges(16.px)
+    gap = 8.px
+    background = rgb(24, 26, 32)
+    color = rgb(245, 245, 245)
+}
 
-    text(summary)
-    button {
-        value = "Increment"
-        onClick { count.value++ }
-    }
+root.scope.column(style = rootStyle) {
+    text(value = title)
+
+    slider(value = volume, min = 0f, max = 100f, step = 1f)
+    checkbox(checked = enabled, label = "Enabled")
+    button(value = "Reset", onClick = { volume.value = 50f })
 }
 
 root.requestFrame()

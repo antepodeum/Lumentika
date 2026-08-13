@@ -1,58 +1,129 @@
 # Built-in components
 
-Lumentika ships behavior-first components. Their appearance is controlled by styles and themes, so
-a UI library can provide its own visual language without replacing interaction logic.
+Lumentika ships behavior-first components whose appearance comes from typed styles and themes.
 
-| Builder | Purpose |
+The DSL has one structural rule:
+
+```text
+Function arguments configure a component.
+A trailing UI lambda is child or default-slot content only.
+```
+
+`block`, `flex`, `row`, `column`, `grid`, `stack`, `scroll`, and `list` accept trailing child
+content. `text`, `image`, `button`, `checkbox`, `slider`, and `textField` are leaves. `tooltip`
+accepts trailing anchor content.
+
+## Reactive arguments
+
+Built-in value properties use finite, strongly typed overloads:
+
+| Argument | Meaning |
 | --- | --- |
-| `block` | Block-layout container |
-| `flex` | Generic flex container |
-| `row`, `column` | Horizontal and vertical flex containers |
-| `grid` | Grid-layout container |
-| `stack` | Overlay container |
-| `scroll` | Scroll container with gesture and wheel behavior |
-| `list` | Scrollable semantic collection |
-| `text` | Reactive text content |
-| `image` | Image content resolved by the platform image service |
-| `button` | Pressable action control |
-| `checkbox` | Boolean control with two-way binding |
-| `slider` | Bounded numeric control with input/change events |
-| `textField` | Single-line or multiline editor with selection and IME support |
-| `tooltip` | Delayed anchored popup |
+| `T` | Constant or control-local initial value |
+| `Readable<T>` | One-way reactive source |
+| `Mutable<T>` | Two-way source for binding-capable properties |
+| `() -> T` | Scope-owned tracked formula |
 
-## Controls
+`Mutable<T>` extends `Readable<T>`, so `slider(value = volume)` selects the two-way overload while
+`slider(value = derivedVolume)` remains one-way. Tracked formulas use explicit `.value` reads and
+update only the owned property target.
 
 ```kotlin
-val checked = state(false)
-val volume = state(0.5f)
-val query = state("")
+val volume = state(50f)
+val enabled = state(true)
+val title = derived { "Volume: ${volume.value.toInt()}%" }
 
 root.scope.column {
-    button {
-        value = "Save"
-        enabled = true
-        onClick { save() }
+    text(value = title)
+    text(value = { "Enabled: ${enabled.value}" })
+    slider(
+        value = volume,
+        min = 0f,
+        max = 100f,
+        step = 1f,
+        onInput = ::previewVolume,
+        onChange = ::commitVolume,
+    )
+    checkbox(checked = enabled, label = "Enabled")
+    button(value = "Reset", onClick = { volume.value = 50f })
+}
+```
+
+External changes flow into `Mutable` controls. Control interaction writes back to the same
+`Mutable` and then invokes its event callback. `Readable` and formula inputs never receive writes.
+
+## Containers
+
+```kotlin
+val viewport = ScrollState()
+
+column(style = PANEL) {
+    row(style = TOOLBAR) {
+        text(value = "Tools")
     }
-    checkbox {
-        label = "Notifications"
-        bindValue(checked)
-    }
-    slider {
-        min = 0f
-        max = 1f
-        step = 0.05f
-        bindValue(volume)
-        onInput { previewVolume(it) }
-    }
-    textField {
-        placeholder = "Search"
-        bindValue(query)
+    scroll(state = viewport, style = SCROLLER) {
+        grid(style = GRID) {
+            // children
+        }
     }
 }
 ```
 
-Each control returns a `ControlHandle` containing its element, current semantics, activation entry
-point, gesture handle when applicable, and typed access to persistent visual parts.
+Container configuration never uses the trailing receiver. `list` adds collection semantics and
+works with keyed structural content:
+
+```kotlin
+list(state = listState, style = LIST) {
+    forEach(items, key = Item::id) { item ->
+        text(value = item.label)
+    }
+}
+```
+
+## Text, images, and editing
+
+```kotlin
+text(value = "Static")
+text(value = reactiveString)
+text(value = { "Computed: ${count.value}" })
+text(
+    value = "Direction-aware",
+    alignment = TextAlign.START,
+    direction = Direction.RTL,
+)
+
+image(
+    source = ImageSource.Uri("textures/icon.png"),
+    size = Size(16f, 16f),
+    description = "Status icon",
+)
+
+textField(
+    value = query,
+    placeholder = "Search",
+    multiline = false,
+)
+```
+
+Text alignment is stored in `TextLayoutRequest`. Image loading and intrinsic metadata belong to
+the platform `ImageService`. Set `decorative = true` when accessibility should ignore an image.
+`textField(value = mutableText)` is two-way; `selection = mutableSelection` binds its selection.
+
+## Styles, parts, and semantics
+
+Every built-in accepts `style`. Controls with stable visual parts accept a typed `partStyles` map:
+
+```kotlin
+button(
+    value = "Save",
+    style = PRIMARY_BUTTON,
+    partStyles = mapOf(
+        Button.Part.LABEL to style { color = rgb(255, 255, 255) },
+    ),
+    semantics = semantics { label = "Save profile" },
+    onClick = ::save,
+)
+```
 
 | Control | Stable visual parts |
 | --- | --- |
@@ -62,63 +133,6 @@ point, gesture handle when applicable, and typed access to persistent visual par
 | `TextField` | `ROOT`, `TEXT`, `PLACEHOLDER`, `CURSOR`, `SELECTION`, scrollbar parts |
 | `Scroll` | `ROOT`, `SCROLLBAR_TRACK`, `SCROLLBAR_THUMB` |
 
-Theme styles and builder `partStyle` calls target these tokens. Behavior and semantics remain on the
-owner control; visual child elements do not replace or remount when values change.
-
-## Text and images
-
-```kotlin
-text("Static")
-text(reactiveString)
-text { "Computed: ${count.value}" }
-text {
-    value = "Direction-aware"
-    alignment = TextAlign.START
-    direction = Direction.RTL
-}
-
-image {
-    source = ImageSource.Uri("textures/icon.png")
-    size = Size(16f, 16f)
-    description = "Status icon"
-}
-```
-
-Text alignment is part of `TextLayoutRequest`. `START` and `END` resolve using its `Direction`;
-physical `LEFT` and `RIGHT`, `CENTER`, and `JUSTIFY` are also available.
-
-Mark an image `decorative = true` when accessibility should ignore it. Image loading and intrinsic
-metadata belong to the platform `ImageService`.
-
-## Scrolling and lists
-
-```kotlin
-val scrollState = ScrollState()
-
-root.scope.list {
-    state = scrollState
-    forEach(items, key = Item::id) { item ->
-        text(item.label)
-    }
-}
-```
-
-Scroll state is explicit and can be shared with scrollbars or inspected by higher-level components.
-Nested scroll and gesture thresholds can be customized through the builder.
-
-## Semantics
-
-Every element builder accepts a semantics block:
-
-```kotlin
-text {
-    value = "42"
-    semantics {
-        label = "Current score"
-        value = "42 points"
-    }
-}
-```
-
-Built-in controls already publish their role, state, and actions. Add custom semantics only for
-domain-specific meaning or custom elements.
+Each control returns a `ControlHandle` containing its owner element, current semantics, activation
+entry point, gesture handle, and typed access to persistent part elements. Reactive changes do not
+replace those parts.

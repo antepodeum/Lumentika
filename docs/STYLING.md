@@ -1,6 +1,6 @@
 # Styling and themes
 
-Styles are immutable typed programs attached through element builders. Layout and rendering use the
+Styles are immutable typed programs passed through component arguments. Layout and rendering use the
 same resolved style, so state and environment changes invalidate only affected work.
 
 ```kotlin
@@ -25,8 +25,8 @@ val panel = style {
     }
 }
 
-root.scope.column {
-    style(panel)
+root.scope.column(style = panel) {
+    // children
 }
 ```
 
@@ -86,15 +86,17 @@ val darkTheme = theme {
 }
 
 root.scope.theme(darkTheme) {
-    button {
-        value = "Save"
-        partStyle(Button.Part.LABEL) { color = rgb(255, 255, 255) }
-    }
+    button(
+        value = "Save",
+        partStyles = mapOf(
+            Button.Part.LABEL to style { color = rgb(255, 255, 255) },
+        ),
+    )
 }
 ```
 
 `UiScope.theme` creates an inherited nearest-theme boundary. Part precedence is structural style,
-nearest theme style, then component-instance `partStyle`. A caller style on a component root remains
+nearest theme style, then component-instance `partStyles`. A caller style on a component root remains
 last and can override its themed root. Conditional part styles evaluate against owner control state.
 
 `StylePart` tokens are typed and identity-based. Standard controls keep their part elements stable

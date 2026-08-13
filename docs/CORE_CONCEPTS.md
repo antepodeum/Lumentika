@@ -28,8 +28,8 @@ disposed with that owner.
 
 ## Custom components
 
-Annotate a `Component` to generate a type-safe builder. Declarations made with the protected
-component helpers become builder configuration:
+Annotate a `Component` to generate a typed mounting function. Function arguments configure the
+component; its trailing UI lambda configures only the canonical/default slot.
 
 ```kotlin
 @UIComponent
@@ -40,34 +40,65 @@ class LabeledToggle : Component() {
     val content = slot()
 
     override fun view(): Element = ui.row {
-        text { label.value }
-        checkbox {
-            bindValue(checked)
-            onChange(change::emit)
-        }
+        text(value = label)
+        checkbox(checked = checked, onChange = change::emit)
         content.mount(this)
     }
 }
 ```
 
-With `lumentika-ksp` configured, the generated DSL is used like this:
+With `lumentika-ksp` configured, configuration is passed before trailing content:
 
 ```kotlin
 val enabled = state(false)
 
-root.scope.labeledToggle {
-    label { "Experimental" }
-    bindChecked(enabled)
-    onChange { println("changed: $it") }
-    content { text("Restart required") }
+labeledToggle(
+    label = constant("Experimental"),
+    checked = bind(enabled),
+    onChange = { println("changed: $it") },
+) {
+    text(value = "Restart required")
+}
+```
+
+Generated declaration arguments use explicit typed wrappers because one generated function can
+contain many independent declarations:
+
+| Wrapper | Declaration behavior |
+| --- | --- |
+| `constant(value)` | Fixed `Prop` or control-local `Binding` value |
+| `source(readable)` | One-way `Prop` or `Binding` source |
+| `formula { ... }` | Scope-owned tracked one-way formula |
+| `bind(mutable)` | Two-way `Binding` source |
+
+Generated `PropInput<T>` parameters accept `constant`, `source`, and `formula`.
+`BindingInput<T>` also accepts `bind`. This distinction is statically typed. Events become nullable
+`onX` function arguments whose listeners are owned by the component scope.
+
+The slot named `content` is the canonical trailing slot. If no slot has that name, the first
+declared `Slot` or `SlotList` is canonical. Other slots are named `UiScope.() -> Unit` arguments:
+
+```kotlin
+dialog(
+    title = constant("Delete?"),
+    footer = {
+        row {
+            button(value = "Cancel", onClick = ::cancel)
+            button(value = "Delete", onClick = ::delete)
+        }
+    },
+) {
+    text(value = "This cannot be undone.")
 }
 ```
 
 - `prop` is one-way input; `requiredProp` must be configured before mount.
-- `binding` is two-way input; `bindX` connects it to `Mutable<T>`.
+- `binding` is a writable input; `bind(mutable)` connects it two-way.
 - `event` supports one or more listeners.
-- `slot` and `slotList` accept child content.
-- `Component.view` runs once for a mounted component; reactive value blocks update independently.
+- `slot` and `slotList` accept typed child content functions.
+- Omitted optional declarations retain their component-defined defaults.
+- Required declarations fail before `view()` when omitted; nullable values use `constant(null)`.
+- `Component.view` runs once for a mounted component; reactive arguments update independently.
 
 Do not reuse one component instance in multiple locations. Closing or structurally removing it
 disposes declarations, effects, coroutine work, and its mounted subtree.

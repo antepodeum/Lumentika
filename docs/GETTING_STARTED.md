@@ -21,11 +21,11 @@ dependencies {
 }
 ```
 
-For generated component builders, apply KSP and add the processor:
+For generated component functions, apply KSP 2.3.9 and add the processor:
 
 ```kotlin
 plugins {
-    id("com.google.devtools.ksp") version "<compatible-ksp-version>"
+    id("com.google.devtools.ksp") version "2.3.9"
 }
 
 dependencies {
@@ -43,11 +43,11 @@ val accepted = state(false)
 
 root.scope.column {
     text("Settings")
-    checkbox {
-        label = "Enable feature"
-        bindValue(accepted)
-        onChange { enabled -> println("enabled=$enabled") }
-    }
+    checkbox(
+        checked = accepted,
+        label = "Enable feature",
+        onChange = { enabled -> println("enabled=$enabled") },
+    )
 }
 
 root.requestFrame()
@@ -63,17 +63,18 @@ val controls = theme {
 }
 
 root.scope.theme(controls) {
-    button { value = "Continue" }
+    button(value = "Continue")
 }
 ```
 
-Builder calls mount persistent elements. Reactive reads inside supported value blocks update their
-owned value without rebuilding the complete tree:
+Function arguments configure components. A trailing UI lambda is child or default-slot content
+only. Calls mount persistent elements and component instances. Reactive arguments update their
+owned targets without rerunning the complete component view:
 
 ```kotlin
 val name = state("Alex")
 
-root.scope.text { "Hello, ${name.value}" }
+root.scope.text(value = { "Hello, ${name.value}" })
 name.value = "Sam"
 root.frame(2_000_000L)
 ```
@@ -112,5 +113,5 @@ default actions.
 ## Next steps
 
 - Learn state and custom components in [Core concepts](CORE_CONCEPTS.md).
-- See available builders in [Components](COMPONENTS.md).
+- See built-in APIs in [Components](COMPONENTS.md).
 - Connect a renderer and native services with the [Platform adapter guide](PLATFORM_ADAPTER.md).

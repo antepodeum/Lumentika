@@ -2,6 +2,8 @@
 
 A platform adapter connects `lumentika-core` to a rendering environment. The core owns UI behavior;
 the adapter owns scheduling, drawing, text shaping, input translation, and external services.
+Component arguments and tracked formulas update persistent targets; adapters must schedule the
+requested frame without rebuilding the mounted element tree.
 
 ## Create the root
 
