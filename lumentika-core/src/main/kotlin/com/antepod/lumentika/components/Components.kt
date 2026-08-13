@@ -57,58 +57,58 @@ import com.antepod.lumentika.text.TextLayoutRequest
 /** Stable theme-part namespace for buttons. */
 public object Button {
     public object Part {
-        public val ROOT: StylePart<Button> = StylePart("button.root")
-        public val LABEL: StylePart<Button> = StylePart("button.label")
-        public val ICON: StylePart<Button> = StylePart("button.icon")
+        public val ROOT: StylePart<Button> = StylePart()
+        public val LABEL: StylePart<Button> = StylePart()
+        public val ICON: StylePart<Button> = StylePart()
     }
 }
 
 /** Stable theme-part namespace for checkboxes. */
 public object Checkbox {
     public object Part {
-        public val ROOT: StylePart<Checkbox> = StylePart("checkbox.root")
-        public val INDICATOR: StylePart<Checkbox> = StylePart("checkbox.indicator")
-        public val LABEL: StylePart<Checkbox> = StylePart("checkbox.label")
+        public val ROOT: StylePart<Checkbox> = StylePart()
+        public val INDICATOR: StylePart<Checkbox> = StylePart()
+        public val LABEL: StylePart<Checkbox> = StylePart()
     }
 }
 
 /** Stable theme-part namespace for sliders. */
 public object Slider {
     public object Part {
-        public val ROOT: StylePart<Slider> = StylePart("slider.root")
-        public val TRACK: StylePart<Slider> = StylePart("slider.track")
-        public val THUMB: StylePart<Slider> = StylePart("slider.thumb")
-        public val LABEL: StylePart<Slider> = StylePart("slider.label")
+        public val ROOT: StylePart<Slider> = StylePart()
+        public val TRACK: StylePart<Slider> = StylePart()
+        public val THUMB: StylePart<Slider> = StylePart()
+        public val LABEL: StylePart<Slider> = StylePart()
     }
 }
 
 /** Stable theme-part namespace for text fields. */
 public object TextField {
     public object Part {
-        public val ROOT: StylePart<TextField> = StylePart("text-field.root")
-        public val TEXT: StylePart<TextField> = StylePart("text-field.text")
-        public val PLACEHOLDER: StylePart<TextField> = StylePart("text-field.placeholder")
-        public val CURSOR: StylePart<TextField> = StylePart("text-field.cursor")
-        public val SELECTION: StylePart<TextField> = StylePart("text-field.selection")
-        public val SCROLLBAR_TRACK: StylePart<TextField> = StylePart("text-field.scrollbar-track")
-        public val SCROLLBAR_THUMB: StylePart<TextField> = StylePart("text-field.scrollbar-thumb")
+        public val ROOT: StylePart<TextField> = StylePart()
+        public val TEXT: StylePart<TextField> = StylePart()
+        public val PLACEHOLDER: StylePart<TextField> = StylePart()
+        public val CURSOR: StylePart<TextField> = StylePart()
+        public val SELECTION: StylePart<TextField> = StylePart()
+        public val SCROLLBAR_TRACK: StylePart<TextField> = StylePart()
+        public val SCROLLBAR_THUMB: StylePart<TextField> = StylePart()
     }
 }
 
 /** Stable theme-part namespace for scroll containers. */
 public object Scroll {
     public object Part {
-        public val ROOT: StylePart<Scroll> = StylePart("scroll.root")
-        public val SCROLLBAR_TRACK: StylePart<Scroll> = StylePart("scroll.scrollbar-track")
-        public val SCROLLBAR_THUMB: StylePart<Scroll> = StylePart("scroll.scrollbar-thumb")
+        public val ROOT: StylePart<Scroll> = StylePart()
+        public val SCROLLBAR_TRACK: StylePart<Scroll> = StylePart()
+        public val SCROLLBAR_THUMB: StylePart<Scroll> = StylePart()
     }
 }
 
 /** Stable theme-part namespace for tooltips. */
 public object Tooltip {
     public object Part {
-        public val ROOT: StylePart<Tooltip> = StylePart("tooltip.root")
-        public val POPUP: StylePart<Tooltip> = StylePart("tooltip.popup")
+        public val ROOT: StylePart<Tooltip> = StylePart()
+        public val POPUP: StylePart<Tooltip> = StylePart()
     }
 }
 

@@ -1087,8 +1087,8 @@ public class StyleVar<T>(public val default: T)
 /** Creates a typed theme variable with [default]. */
 public fun <T> styleVar(default: T): StyleVar<T> = StyleVar(default)
 
-/** Stable typed component skinning token. [name] is diagnostic only; identity is token identity. */
-public class StylePart<T : Any>(public val name: String)
+/** Stable typed component skinning token. Identity is token identity. */
+public class StylePart<T : Any>
 
 /** Immutable overrides for style variables and component parts. */
 public class Theme
