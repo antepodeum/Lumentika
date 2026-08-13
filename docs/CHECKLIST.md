@@ -52,12 +52,12 @@
 - [x] safeDrawing/safeGestures/safeContent
 - [x] lifecycle state
 - [x] capability snapshot
-- [ ] environment updates do not remount root
+- [x] environment updates do not remount root
 
 ## Frame/services
 
 - [x] `FrameScheduler.requestFrame()`
-- [ ] one stable frame timestamp/root frame
+- [x] one stable frame timestamp/root frame
 - [x] frame requests coalesce
 - [x] clipboard service
 - [x] UI feedback service
@@ -281,8 +281,8 @@
 
 ## Core integration proof
 
-- [ ] deterministic headless host with real Taffy4J
-- [ ] no native platform or mod-loader classes in core
+- [x] deterministic headless host with real Taffy4J
+- [x] no native platform or mod-loader classes in core
 - [ ] unit revisions / accessibility / motion / insets update without remount
 - [ ] gesture arbitration trace
 - [ ] nested scroll/fling trace
@@ -292,6 +292,6 @@
 - [ ] opacity transition absence-of-layout trace
 - [ ] width animation max-one-layout trace
 - [ ] static scrolling absence-of-Taffy/repaint trace
-- [ ] retained paint/hit/semantic geometry parity
+- [x] retained paint/hit/semantic geometry parity
 - [ ] repeated mount/unmount returns all ownership counters to baseline
 - [ ] all universal components pass behavior and semantics tests
