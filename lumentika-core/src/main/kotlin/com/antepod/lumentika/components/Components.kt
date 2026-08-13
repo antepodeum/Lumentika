@@ -76,43 +76,44 @@ private val TextFieldIntegrationAttachment: AttachmentKey<AutoCloseable> = Attac
 private val ScrollIntegrationAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 private val ScrollWheelAttachment: AttachmentKey<AutoCloseable> = AttachmentKey()
 
-public fun UiScope.block(content: UiScope.() -> Unit = {}): Element =
-    defaultStyle(element("block", block = content), style {})
+public fun UiScope.block(content: ContainerBuilder.() -> Unit = {}): Element =
+    container("block", style {}, content)
 
-public fun UiScope.flex(content: UiScope.() -> Unit = {}): Element =
-    defaultStyle(element("flex", block = content), style { display = Display.FLEX })
+public fun UiScope.flex(content: ContainerBuilder.() -> Unit = {}): Element =
+    container("flex", style { display = Display.FLEX }, content)
 
-public fun UiScope.row(content: UiScope.() -> Unit = {}): Element =
-    defaultStyle(
-        element("row", block = content),
+public fun UiScope.row(content: ContainerBuilder.() -> Unit = {}): Element =
+    container(
+        "row",
         style {
             display = Display.FLEX
             flexDirection = FlexDirection.ROW
         },
+        content,
     )
 
-public fun UiScope.column(content: UiScope.() -> Unit = {}): Element =
-    defaultStyle(
-        element("column", block = content),
+public fun UiScope.column(content: ContainerBuilder.() -> Unit = {}): Element =
+    container(
+        "column",
         style {
             display = Display.FLEX
             flexDirection = FlexDirection.COLUMN
         },
+        content,
     )
 
-public fun UiScope.grid(content: UiScope.() -> Unit = {}): Element =
-    defaultStyle(element("grid", block = content), style { display = Display.GRID })
+public fun UiScope.grid(content: ContainerBuilder.() -> Unit = {}): Element =
+    container("grid", style { display = Display.GRID }, content)
 
-public fun UiScope.stack(content: UiScope.() -> Unit = {}): Element =
-    defaultStyle(element("stack", block = content), style { display = Display.GRID })
+public fun UiScope.stack(content: ContainerBuilder.() -> Unit = {}): Element =
+    container("stack", style { display = Display.GRID }, content)
 
 public fun UiScope.scroll(
     state: ScrollState = ScrollState(),
     gestures: GestureConfiguration = GestureConfiguration(),
-    content: UiScope.() -> Unit = {},
+    content: ContainerBuilder.() -> Unit = {},
 ): Element =
-    defaultStyle(element("scroll", block = content), style { overflow = Overflow.SCROLL }).also {
-        element ->
+    container("scroll", style { overflow = Overflow.SCROLL }, content).also { element ->
         val handle =
             ControlGestureHandle(
                 DragRecognizer(
@@ -148,30 +149,20 @@ public fun UiScope.scroll(
         updateRender()
     }
 
-public fun UiScope.list(content: UiScope.() -> Unit = {}): Element =
-    defaultStyle(
-        element("list", block = content),
+public fun UiScope.list(content: ContainerBuilder.() -> Unit = {}): Element =
+    container(
+        "list",
         style {
             display = Display.FLEX
             flexDirection = FlexDirection.COLUMN
         },
+        content,
     )
 
 public fun UiScope.text(value: String): Element =
     element("text", TextContent(value, context.textLayout))
 
-public fun UiScope.text(value: Readable<String>): Element = text { value.value }
-
-public fun UiScope.text(value: () -> String): Element {
-    val element = element("text", TextContent(value(), context.textLayout))
-    withComponentScope(element.scope) {
-        effect {
-            element.content = TextContent(value(), context.textLayout)
-            context.requestFrame(true)
-        }
-    }
-    return element
-}
+public fun UiScope.text(value: Readable<String>): Element = text { value(value) }
 
 public fun UiScope.image(
     source: ImageSource,
@@ -404,6 +395,13 @@ private fun handleEditorKey(
     }
 }
 
-private fun UiScope.defaultStyle(element: Element, source: Style): Element = element.also {
-    context.attachStyle(it, source)
+private fun UiScope.container(
+    kind: String,
+    defaultStyle: Style,
+    content: ContainerBuilder.() -> Unit,
+): Element {
+    val element = element(kind)
+    context.attachStyle(element, defaultStyle)
+    ContainerBuilder(element, context).content()
+    return element
 }

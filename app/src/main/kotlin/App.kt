@@ -24,7 +24,7 @@ class ProofComponent : Component() {
         private set
 
     override fun view(): Element = ui.column {
-        text { title.value }
+        text { value { title.value } }
         boundControl = checkbox(value)
         content.mount(this)
     }
