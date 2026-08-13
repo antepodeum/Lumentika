@@ -6,6 +6,7 @@ import com.antepod.lumentika.component.UIComponent
 import com.antepod.lumentika.geometry.Matrix3
 import com.antepod.lumentika.geometry.Point
 import com.antepod.lumentika.geometry.Rect
+import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.gesture.DragAxis
 import com.antepod.lumentika.gesture.DragRecognizer
 import com.antepod.lumentika.gesture.GestureArena
@@ -41,6 +42,7 @@ import com.antepod.lumentika.runtime.*
 import com.antepod.lumentika.semantics.*
 import com.antepod.lumentika.style.ACTIVE
 import com.antepod.lumentika.style.DISABLED
+import com.antepod.lumentika.style.Direction
 import com.antepod.lumentika.style.Display
 import com.antepod.lumentika.style.FOCUS
 import com.antepod.lumentika.style.FOCUS_VISIBLE
@@ -53,12 +55,47 @@ import com.antepod.lumentika.style.StyleState
 import com.antepod.lumentika.style.px
 import com.antepod.lumentika.style.style
 import com.antepod.lumentika.text.AutofillConfiguration
+import com.antepod.lumentika.text.TextAlign
 import com.antepod.lumentika.text.TextEditingController
 import com.antepod.lumentika.text.TextEditingValue
 import com.antepod.lumentika.text.TextEditorRuntime
 import com.antepod.lumentika.text.TextInputConfiguration
 import com.antepod.lumentika.text.TextLayoutRequest
 import com.antepod.lumentika.text.TextRange
+
+/** Standard text leaf declared through the shared component model. */
+@UIComponent
+public class Text : Component() {
+    public val value = prop("")
+    public val alignment = prop(TextAlign.START)
+    public val direction = prop(Direction.LTR)
+    public val style = prop<Style?>(null)
+    public val semantics = prop<ElementSemantics?>(null)
+
+    override fun view(): Element =
+        ui.mountText({ value.value }, alignment, direction, style.value, semantics.value)
+}
+
+/** Standard image leaf declared through the shared component model. */
+@UIComponent
+public class Image : Component() {
+    public val source = requiredProp<ImageSource>()
+    public val size = prop<Size?>(null)
+    public val description = prop<String?>(null)
+    public val decorative = prop(false)
+    public val style = prop<Style?>(null)
+    public val semantics = prop<ElementSemantics?>(null)
+
+    override fun view(): Element =
+        ui.mountImage(
+            { source.value },
+            size,
+            description,
+            decorative,
+            style.value,
+            semantics.value,
+        )
+}
 
 /** Standard button declared through the same component model used by application components. */
 @UIComponent

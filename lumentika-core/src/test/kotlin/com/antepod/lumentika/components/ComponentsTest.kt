@@ -5,6 +5,7 @@ import com.antepod.lumentika.component.bind
 import com.antepod.lumentika.component.forEach
 import com.antepod.lumentika.component.source
 import com.antepod.lumentika.geometry.Point
+import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.headlessRoot
 import com.antepod.lumentika.input.EventDispatcher
 import com.antepod.lumentika.input.PointerType
@@ -26,6 +27,52 @@ import com.antepod.lumentika.text.TextRange
 import kotlin.test.*
 
 class ComponentsTest {
+    @Test
+    fun `generated text and image react through every semantic declaration`() {
+        val root = Element()
+        val textValue = state("before")
+        val alignment = state(TextAlign.START)
+        val direction = state(Direction.LTR)
+        val text =
+            UiScope(root)
+                .text(
+                    value = source(textValue),
+                    alignment = source(alignment),
+                    direction = source(direction),
+                )
+        val imageSource = state<ImageSource>(ImageSource.Uri("before"))
+        val imageSize = state<Size?>(Size(10f, 10f))
+        val description = state<String?>("before")
+        val decorative = state(false)
+        val image =
+            UiScope(root)
+                .image(
+                    source = source(imageSource),
+                    size = source(imageSize),
+                    description = source(description),
+                    decorative = source(decorative),
+                )
+
+        textValue.value = "after"
+        alignment.value = TextAlign.END
+        direction.value = Direction.RTL
+        imageSource.value = ImageSource.Uri("after")
+        imageSize.value = Size(20f, 30f)
+        description.value = "after"
+        decorative.value = true
+
+        val textContent = text.content as TextContent
+        val imageContent = image.content as ImageContent
+        assertEquals("after", textContent.text)
+        assertEquals(TextAlign.END, textContent.request.alignment)
+        assertEquals(Direction.RTL, textContent.request.direction)
+        assertEquals(ImageSource.Uri("after"), imageContent.source)
+        assertEquals(Size(20f, 30f), imageContent.intrinsicSize)
+        assertEquals("after", image.attachment(SemanticsAttachment)?.label)
+        assertTrue(image.attachment(SemanticsAttachment)?.hidden == true)
+        root.close()
+    }
+
     @Test
     fun `generated text field binds value and reacts to placeholder and enabled props`() {
         val root = Element()

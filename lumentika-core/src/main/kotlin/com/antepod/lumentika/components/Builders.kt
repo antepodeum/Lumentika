@@ -157,10 +157,10 @@ public fun UiScope.list(
     return element
 }
 
-private fun UiScope.mountText(
+internal fun UiScope.mountText(
     source: () -> String,
-    alignment: TextAlign,
-    direction: Direction,
+    alignment: Readable<TextAlign>,
+    direction: Readable<Direction>,
     style: Style?,
     semantics: ElementSemantics?,
 ): Element {
@@ -176,7 +176,11 @@ private fun UiScope.mountText(
             val value = source()
             element.content =
                 TextContent(
-                    TextLayoutRequest(value, alignment = alignment, direction = direction),
+                    TextLayoutRequest(
+                        value,
+                        alignment = alignment.value,
+                        direction = direction.value,
+                    ),
                     context.textLayout,
                 )
             val current = element.attachment(SemanticsAttachment)!!
@@ -197,7 +201,7 @@ public fun UiScope.text(
     direction: Direction = Direction.LTR,
     style: Style? = null,
     semantics: ElementSemantics? = null,
-): Element = mountText({ value }, alignment, direction, style, semantics)
+): Element = mountText({ value }, state(alignment), state(direction), style, semantics)
 
 /** Mounts text backed by a one-way reactive source. */
 public fun UiScope.text(
@@ -206,7 +210,7 @@ public fun UiScope.text(
     direction: Direction = Direction.LTR,
     style: Style? = null,
     semantics: ElementSemantics? = null,
-): Element = mountText({ value.value }, alignment, direction, style, semantics)
+): Element = mountText({ value.value }, state(alignment), state(direction), style, semantics)
 
 /** Mounts text computed by a scope-owned tracked formula. */
 public fun UiScope.text(
@@ -215,7 +219,7 @@ public fun UiScope.text(
     direction: Direction = Direction.LTR,
     style: Style? = null,
     semantics: ElementSemantics? = null,
-): Element = mountText(value, alignment, direction, style, semantics)
+): Element = mountText(value, state(alignment), state(direction), style, semantics)
 
 private fun <T> UiScope.controlValue(
     source: () -> T,
@@ -762,11 +766,11 @@ public fun UiScope.textField(
         onChange,
     )
 
-private fun UiScope.mountImage(
+internal fun UiScope.mountImage(
     source: () -> ImageSource,
-    size: Size?,
-    description: String?,
-    decorative: Boolean,
+    size: Readable<Size?>,
+    description: Readable<String?>,
+    decorative: Readable<Boolean>,
     style: Style?,
     semantics: ElementSemantics?,
 ): Element {
@@ -775,14 +779,21 @@ private fun UiScope.mountImage(
         SemanticsAttachment,
         SemanticsConfiguration(
             role = SemanticRole.IMAGE,
-            label = description,
-            hidden = decorative,
+            label = description.value,
+            hidden = decorative.value,
         ),
     )
     withComponentScope(element.scope) {
         effect {
             val next = source()
-            element.content = ImageContent(next, size ?: context.images?.intrinsicSize(next))
+            element.content = ImageContent(next, size.value ?: context.images?.intrinsicSize(next))
+            element.attach(
+                SemanticsAttachment,
+                (element.attachment(SemanticsAttachment) ?: SemanticsConfiguration()).copy(
+                    label = description.value,
+                    hidden = decorative.value,
+                ),
+            )
             context.requestFrame(true)
         }
     }
@@ -798,7 +809,15 @@ public fun UiScope.image(
     decorative: Boolean = false,
     style: Style? = null,
     semantics: ElementSemantics? = null,
-): Element = mountImage({ source }, size, description, decorative, style, semantics)
+): Element =
+    mountImage(
+        { source },
+        state(size),
+        state(description),
+        state(decorative),
+        style,
+        semantics,
+    )
 
 /** Mounts a one-way reactive image source. */
 public fun UiScope.image(
@@ -808,7 +827,15 @@ public fun UiScope.image(
     decorative: Boolean = false,
     style: Style? = null,
     semantics: ElementSemantics? = null,
-): Element = mountImage({ source.value }, size, description, decorative, style, semantics)
+): Element =
+    mountImage(
+        { source.value },
+        state(size),
+        state(description),
+        state(decorative),
+        style,
+        semantics,
+    )
 
 /** Mounts an image source computed by a tracked formula. */
 public fun UiScope.image(
@@ -818,7 +845,15 @@ public fun UiScope.image(
     decorative: Boolean = false,
     style: Style? = null,
     semantics: ElementSemantics? = null,
-): Element = mountImage(source, size, description, decorative, style, semantics)
+): Element =
+    mountImage(
+        source,
+        state(size),
+        state(description),
+        state(decorative),
+        style,
+        semantics,
+    )
 
 private fun UiScope.mountTooltipComponent(
     source: () -> String,
