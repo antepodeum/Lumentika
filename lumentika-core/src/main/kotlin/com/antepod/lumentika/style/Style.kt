@@ -79,7 +79,7 @@ public fun <T> edges(vertical: T, horizontal: T): Edges<T> =
 public fun <T> edges(top: T, right: T, bottom: T, left: T): Edges<T> =
     Edges(top, right, bottom, left)
 
-/** Platform-neutral paint used by backgrounds and text. */
+/** Paint used by backgrounds and text. */
 public sealed interface Paint
 
 /** Solid ARGB color paint. */

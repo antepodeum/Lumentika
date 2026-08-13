@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong
 /** Stable identity of a committed semantics node. */
 @JvmInline public value class SemanticsNodeId(val value: Long)
 
-/** Platform-neutral accessibility role of an element. */
+/** Accessibility role of an element. */
 public enum class SemanticRole {
     NONE,
     BUTTON,

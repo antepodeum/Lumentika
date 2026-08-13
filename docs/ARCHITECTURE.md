@@ -1,6 +1,6 @@
 # Architecture
 
-Lumentika is a retained UI engine split at a strict platform boundary.
+Lumentika separates UI behavior from rendering-environment integration.
 
 ```text
 application components
@@ -9,9 +9,9 @@ component + reactive runtime
         ↓
 style → layout → retained render/hit test → semantics
         ↓
-platform service interfaces + immutable paint artifact
+service interfaces + immutable paint artifact
         ↓
-Minecraft, desktop, or another JVM adapter
+rendering adapter
 ```
 
 ## Core ownership
@@ -39,8 +39,8 @@ The adapter owns:
 - conversion of native pointer, wheel, keyboard, and IME input;
 - optional clipboard, accessibility, cursor, feedback, drag/drop, autofill, URI, and back services.
 
-Platform types may be carried inside adapter-defined backend paint commands or scene content, but
-must not leak into reusable component APIs.
+Environment-specific types may be carried inside adapter-defined backend paint commands or scene
+content. Reusable component APIs remain independent of a particular renderer.
 
 ## Frame flow
 
@@ -48,11 +48,11 @@ One platform frame performs reactive/style resolution, layout if dirty, scroll a
 updates, retained render commit, structural-animation post-commit work, semantics/autofill commit,
 and backend replay. Frame requests are coalesced.
 
-## What platform-neutral means
+## Runtime boundary
 
-The runtime has no concrete graphics, windowing, game, or mod-loader dependency. It can therefore be
-adapted to different JVM hosts. The current artifacts still depend on JVM APIs and Taffy4J, so they
-are not KMP artifacts.
+The core produces immutable paint, hit-test, semantics, and autofill artifacts. Adapters consume
+those artifacts and publish environment changes through `UiEnvironment`; application components do
+not need direct access to renderer services.
 
 ## Extension points
 

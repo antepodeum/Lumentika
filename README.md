@@ -3,25 +3,20 @@
 [![CI](https://github.com/antepodeum/lumentika/actions/workflows/ci.yml/badge.svg)](https://github.com/antepodeum/lumentika/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Lumentika is a retained UI runtime for Kotlin/JVM. It provides the platform-neutral mechanics needed
-to build a complete UI toolkit: reactive state, a component DSL, Taffy-based layout, retained
-rendering and hit testing, input and focus, gestures, text editing, accessibility semantics, styles,
-and animation.
+Lumentika is a retained UI runtime for Kotlin/JVM. It includes reactive state, a component DSL,
+Taffy-based layout, retained rendering and hit testing, input and focus, gestures, text editing,
+accessibility semantics, styles, and animation.
 
-The repository publishes two artifacts:
+## Artifacts
 
 ```text
 com.antepod:lumentika-core:<version>
 com.antepod:lumentika-ksp:<version>
 ```
 
-`lumentika-core` does not render through a concrete graphics API and does not depend on Minecraft,
-a mod loader, or a desktop toolkit. A platform adapter supplies frame scheduling, renderer replay,
-text shaping, native input, and optional operating-system services. This makes the core suitable for
-building a Minecraft UI library without putting game types into reusable UI code.
-
-> Lumentika currently targets JVM 25. It is platform-neutral at the API boundary, but it is not a
-> Kotlin Multiplatform library.
+`lumentika-core` contains the runtime and public UI API. Rendering environments integrate it through
+interfaces for frame scheduling, paint replay, text layout, input, images, accessibility, and other
+services.
 
 ## Features
 
@@ -45,8 +40,8 @@ custom `@UIComponent` classes.
 
 ```kotlin
 plugins {
-    kotlin("jvm") version "2.4.10"
-    id("com.google.devtools.ksp") version "2.3.5"
+    kotlin("jvm") version "<kotlin-version>"
+    id("com.google.devtools.ksp") version "<ksp-version>"
 }
 
 dependencies {
@@ -55,13 +50,12 @@ dependencies {
 }
 ```
 
-Releases are available from Maven Central. GitHub Packages is also populated by the release
-workflow and requires GitHub package credentials when used as a dependency repository.
+Releases are available from Maven Central.
 
 ## Quick start
 
-The headless root is useful for learning and tests. A real application creates `UiRoot` through its
-platform adapter.
+The headless root is useful for examples and tests. Applications create `UiRoot` with the services
+required by their rendering environment.
 
 ```kotlin
 import com.antepod.lumentika.components.*
@@ -95,8 +89,7 @@ root.frame(1_000_000L)
 root.close()
 ```
 
-The root owns the mounted tree and all runtime subsystems. Close it when the screen or adapter is
-destroyed.
+The root owns the mounted tree and all runtime subsystems. Close it when its UI surface is destroyed.
 
 ## Documentation
 
@@ -108,14 +101,6 @@ destroyed.
 - [Architecture and platform boundary](docs/ARCHITECTURE.md)
 - [Platform adapter guide](docs/PLATFORM_ADAPTER.md)
 - [Contributing and verification](docs/CONTRIBUTING.md)
-
-Generated Dokka API documentation is distributed in each release's Javadoc-classified JAR.
-
-## Status
-
-The core runtime is implemented and covered by the repository test suite. Platform adapters are
-separate libraries: applications cannot display native output using `lumentika-core` alone.
-Compatibility is not guaranteed across `0.x` releases.
 
 ## License
 

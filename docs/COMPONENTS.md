@@ -1,7 +1,7 @@
 # Built-in components
 
 Lumentika ships behavior-first components. Their appearance is controlled by styles and themes, so
-a platform UI library can provide its own visual language without replacing interaction logic.
+a UI library can provide its own visual language without replacing interaction logic.
 
 | Builder | Purpose |
 | --- | --- |
@@ -52,7 +52,7 @@ root.scope.column {
 ```
 
 Each control returns a `ControlHandle` containing its element, current semantics, activation entry
-point, and gesture handle when applicable. This is useful in tests and adapter-level integration.
+point, and gesture handle when applicable.
 
 ## Text and images
 
@@ -84,7 +84,7 @@ root.scope.list {
 }
 ```
 
-Scroll state is explicit and can be shared with scrollbars or inspected by a platform library.
+Scroll state is explicit and can be shared with scrollbars or inspected by higher-level components.
 Nested scroll and gesture thresholds can be customized through the builder.
 
 ## Semantics

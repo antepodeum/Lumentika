@@ -27,17 +27,17 @@ Tests live with their owning module. `lumentika-core` contains runtime and integ
 
 ## Repository modules
 
-| Module | Role | Published |
-| --- | --- | --- |
-| `lumentika-core` | Runtime and public UI APIs | Yes |
-| `lumentika-ksp` | `@UIComponent` DSL generator | Yes |
-| `app` | Executable integration example | No |
-| `utils` | Local sample support | No |
-| `buildSrc` | Shared Gradle conventions | No |
+| Module | Role |
+| --- | --- |
+| `lumentika-core` | Runtime and public UI APIs |
+| `lumentika-ksp` | `@UIComponent` DSL generator |
+| `app` | Executable integration example |
+| `utils` | Local sample support |
+| `buildSrc` | Shared Gradle conventions |
 
 ## Change guidelines
 
-- Keep platform and game types out of core APIs.
+- Keep rendering-environment types out of reusable core APIs.
 - Preserve retained element identity and owner-scoped cleanup.
 - Add tests for public behavior, invalidation, lifecycle, and failure cases.
 - Update user documentation when public APIs or adapter contracts change.

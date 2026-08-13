@@ -59,7 +59,7 @@ public enum class PointerInputPhase {
     CANCEL,
 }
 
-/** Platform-neutral pointer input delivered to [UiRoot.dispatchPointer]. */
+/** Normalized pointer input delivered to [UiRoot.dispatchPointer]. */
 public data class PointerInput(
     val phase: PointerInputPhase,
     val pointerId: Int,

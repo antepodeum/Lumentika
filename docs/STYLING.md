@@ -72,8 +72,8 @@ val darkTheme = theme {
 }
 ```
 
-Theme objects are platform-neutral data. A platform library decides how themes are selected and
-attached to its component layer.
+Theme objects contain variable and component-part overrides. A UI library decides how themes are
+selected and attached to its component layer.
 
 ## Property animation
 

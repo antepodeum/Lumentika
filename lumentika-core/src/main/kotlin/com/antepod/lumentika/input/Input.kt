@@ -118,7 +118,7 @@ public class WheelEvent(
     val timestampNanos: Long,
 ) : BaseEvent(target)
 
-/** Platform-neutral logical keys used by core controls and navigation. */
+/** Logical keys used by core controls and navigation. */
 public enum class LogicalKey {
     TAB,
     ENTER,

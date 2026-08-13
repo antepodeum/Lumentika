@@ -48,13 +48,13 @@ public interface IntrinsicMeasurable {
     public fun measure(input: IntrinsicMeasureInput): Size
 }
 
-/** Records immutable platform-neutral paint commands. */
+/** Records immutable core paint commands. */
 public interface PaintRecorder {
     /** Appends [command] to the current retained paint recording. */
     public fun record(command: PaintCommand)
 }
 
-/** One platform-neutral or adapter-defined retained drawing command. */
+/** One core or adapter-defined retained drawing command. */
 public sealed interface PaintCommand {
     public data class FillRect(val rect: Rect, val color: Int) : PaintCommand
 

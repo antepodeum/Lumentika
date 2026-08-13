@@ -175,7 +175,7 @@ public interface PointerCursorService {
     public fun set(role: PointerCursorRole)
 }
 
-/** A platform-neutral URI value. */
+/** URI value passed to an external launcher. */
 public data class UiUri(val value: String)
 
 /** Opens external URIs through the host platform. */

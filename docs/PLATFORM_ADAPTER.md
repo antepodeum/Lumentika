@@ -1,7 +1,7 @@
 # Platform adapter guide
 
-A platform adapter turns `lumentika-core` into a usable renderer on a specific JVM host. The core
-owns UI behavior; the adapter owns native scheduling, drawing, shaping, and services.
+A platform adapter connects `lumentika-core` to a rendering environment. The core owns UI behavior;
+the adapter owns scheduling, drawing, text shaping, input translation, and external services.
 
 ## Create the root
 
@@ -85,26 +85,9 @@ Implement the services needed by the host:
 
 An unavailable service should be `null`, and the matching capability should be false.
 
-## Minecraft adapter mapping
-
-```text
-render callback             → FrameScheduler / UiRoot.frame
-window and GUI scale        → UiEnvironment / UnitResolver
-GUI graphics and shaders    → RenderBackend
-font renderer               → TextLayoutService / DrawText replay
-resource identifiers        → ImageSource / ImageService
-mouse and keyboard          → pointer, wheel, and key dispatch
-character or IME callbacks  → TextInputService
-narrator                     → AccessibilityAdapter
-item or world preview       → BackendPaintCommand / SceneContent
-```
-
-Keep Minecraft and mod-loader classes inside the adapter. Higher-level components should depend on
-neutral values or adapter-owned abstractions.
-
 ## Acceptance checks
 
-Before publishing an adapter, verify that:
+Before shipping an adapter, verify that:
 
 - measurement, rendering, caret placement, and text hit testing share shaped text output;
 - transformed and clipped content receives correct pointer targets;

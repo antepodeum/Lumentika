@@ -43,7 +43,7 @@ public data class TextEditingValue(
     }
 }
 
-/** Platform-neutral editing operation delivered by keyboard or IME input. */
+/** Editing operation delivered by keyboard or IME input. */
 public sealed interface TextEditCommand {
     public data class CommitText(val text: String) : TextEditCommand
 
