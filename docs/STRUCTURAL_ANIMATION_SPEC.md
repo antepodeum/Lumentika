@@ -44,7 +44,7 @@ also cancels owned motion and clears its sparse render overlay.
 ## Built-ins and custom transitions
 
 Core includes `fade`, `fly`, `slide`, and `scale`. Each supports duration, delay, and easing.
-Transition progress follows the Svelte convention: `t = 1` is the natural state and `u = 1 - t`.
+Transition progress uses `t = 1` for the natural state and `u = 1 - t` for its complement.
 
 A custom `ElementTransition` receives the element, committed bounds, and direction, then returns an
 `ElementTransitionConfig`:

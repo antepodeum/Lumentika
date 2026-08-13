@@ -2,7 +2,7 @@
 
 ## Goals
 
-The public API is Kotlin-first and aims for Svelte-like fine-grained ergonomics without requiring a Kotlin compiler plugin.
+The public API is Kotlin-first and provides fine-grained reactive ergonomics without requiring a Kotlin compiler plugin.
 
 KSP may generate type-safe component DSL facades, but the reactive graph is an ordinary Kotlin/JVM runtime.
 
