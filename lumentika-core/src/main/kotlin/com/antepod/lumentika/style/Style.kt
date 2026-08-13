@@ -601,6 +601,19 @@ internal constructor(
             as T
     }
 
+    internal fun withUntyped(property: StyleProperty<*>, value: Any?): ResolvedStyle {
+        val values =
+            Properties.all.associateWith { candidate ->
+                if (candidate === property) value else getUntyped(candidate)
+            }
+        return from(values, this)
+    }
+
+    private fun getUntyped(property: StyleProperty<*>): Any? {
+        @Suppress("UNCHECKED_CAST")
+        return this[property as StyleProperty<Any?>]
+    }
+
     internal companion object {
         fun from(values: Map<StyleProperty<*>, Any?>, previous: ResolvedStyle?): ResolvedStyle {
             fun <T> value(property: StyleProperty<T>): T {

@@ -246,14 +246,14 @@
 ## Animation
 
 - [x] tween/spring
-- [ ] transitions
+- [x] transitions
 - [x] generated AnimationAdapter
 - [x] one track/element/property
 - [x] continuous retargeting
-- [ ] sparse effective overlay
+- [x] sparse effective overlay
 - [x] root frame clock
 - [x] motion-duration-scale policy
-- [ ] layout animation routes through Taffy
+- [x] layout animation routes through Taffy
 - [x] fling/overscroll/cursor blink share frame time model
 
 ## Universal components

@@ -1,5 +1,6 @@
 package com.antepod.lumentika
 
+import com.antepod.lumentika.animation.StyleAnimationRuntime
 import com.antepod.lumentika.animation.UiAnimationClock
 import com.antepod.lumentika.geometry.Size
 import com.antepod.lumentika.input.EventDispatcher
@@ -12,6 +13,7 @@ import com.antepod.lumentika.render.RenderRuntime
 import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.UiScope
 import com.antepod.lumentika.semantics.SemanticsRuntime
+import com.antepod.lumentika.style.StyleImpact
 import com.antepod.lumentika.style.StyleRuntime
 import com.antepod.lumentika.style.style
 
@@ -43,16 +45,26 @@ public class UiRoot(
     public val animations = UiAnimationClock()
     private val defaultStyle = state(style {})
     private val frame = CoalescingFrameScheduler(services.frameScheduler)
+    public val styleAnimations =
+        StyleAnimationRuntime(
+            animations,
+            onImpact = { _, impact -> requestFrame(impact.contains(StyleImpact.LAYOUT)) },
+            requestFrame = frame::requestFrame,
+        )
     private val layout =
         LayoutRuntime(
             element,
             services.units,
-            { styles.resolve(it).first },
+            { styleAnimations.effective(it, styles.resolve(it).first) },
             onLayoutRequested = frame::requestFrame,
         )
-    private val render = RenderRuntime(element) { styles.resolve(it).first }
+    private val render =
+        RenderRuntime(element) { styleAnimations.effective(it, styles.resolve(it).first) }
     public var frameTimeNanos = 0L
         private set
+
+    public val layoutComputeCount: Long
+        get() = layout.computeCount
 
     init {
         styles.attach(element, defaultStyle)
@@ -80,6 +92,7 @@ public class UiRoot(
     }
 
     override fun close() {
+        styleAnimations.close()
         layout.close()
         element.close()
     }
