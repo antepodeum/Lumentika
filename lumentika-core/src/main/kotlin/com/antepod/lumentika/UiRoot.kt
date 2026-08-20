@@ -183,10 +183,12 @@ public class UiRoot(
         get() = render.committed
 
     /** Returns the frontmost interactive element at [point]. */
-    public fun hitTest(point: Point): Element? = render.committed.hitTest.hitTest(point)
+    public fun hitTest(point: Point): Element? =
+        render.committed.hitTest.hitTest(point)?.takeIf(::isMountedInRoot)
 
     /** Performs a scene-content raycast at [point]. */
-    public fun raycast(point: Point): SceneRaycastHit? = render.committed.hitTest.raycast(point)
+    public fun raycast(point: Point): SceneRaycastHit? =
+        render.committed.hitTest.raycast(point)?.takeIf { isMountedInRoot(it.element) }
 
     /** Dispatches normalized pointer input through hit testing, events, and gesture recognition. */
     public fun dispatchPointer(input: PointerInput): Boolean {
@@ -463,6 +465,16 @@ public class UiRoot(
         val arena: GestureArena,
         val handles: List<ControlGestureHandle>,
     )
+
+    private fun isMountedInRoot(target: Element): Boolean {
+        if (!target.isMounted) return false
+        var current: Element? = target
+        while (current != null) {
+            if (current === element) return true
+            current = current.parent
+        }
+        return false
+    }
 }
 
 /** Frame scheduler that only records requests, intended for tests and headless tools. */

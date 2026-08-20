@@ -390,6 +390,37 @@ class PlatformInputTest {
     }
 
     @Test
+    fun `input ignores removed elements retained by the previous render commit`() {
+        val root = headlessRoot(100f, 100f)
+        val button = root.scope.button(value = "Transient")
+        root.styles.attach(
+            button.element,
+            com.antepod.lumentika.reactive.state(
+                style {
+                    width = 100.px
+                    height = 40.px
+                }
+            ),
+        )
+        root.requestFrame()
+        root.frame(1)
+        assertSame(button.element, root.hitTest(Point(10f, 10f)))
+
+        root.element.remove(button.element, dispose = false)
+
+        assertNull(root.hitTest(Point(10f, 10f)))
+        assertNull(root.raycast(Point(10f, 10f)))
+        assertFalse(
+            root.dispatchPointer(
+                PointerInput(PointerInputPhase.MOVE, 1, PointerType.MOUSE, Point(10f, 10f), 2)
+            )
+        )
+        assertFalse(root.dispatchWheel(Point(10f, 10f), 0f, 1f, 3))
+        button.element.close()
+        root.close()
+    }
+
+    @Test
     fun `mounted long press uses active frame time without pointer movement`() {
         var presses = 0
         val root = headlessRoot(100f, 100f)

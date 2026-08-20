@@ -19,6 +19,8 @@ branch, then move the pointer.
   lifecycle called them.
 - The event repair did not remove detached elements from `hoverPath`.
 - Focus configuration retained detached elements.
+- The immutable hit-test artifact can legitimately retain an element until the next render commit;
+  `UiRoot.hitTest` exposed that stale target to immediate pointer and wheel events.
 - Cleanup after detachment cannot safely emit `POINTER_LEAVE`, `BLUR`, or `FOCUS_OUT`, because event
   dispatch correctly rejects out-of-root targets.
 
@@ -32,6 +34,10 @@ and listeners are still valid it must:
 3. clear hover state, pointer capture, listeners, default actions, and focus registrations;
 4. detach or dispose the subtree.
 
+Until the next render commit, public hit testing and scene raycasting must filter entries that are no
+longer mounted beneath the root. Native input arriving in that interval must report no target rather
+than dispatching to the previous commit's detached element.
+
 The observer must propagate to children appended later and must be removed from a detached subtree so
 its independent mutations cannot affect the former root. The legacy `repairRemovedSubtree(Element)`
 entry point must remain available for adapter compatibility, but cannot emit lifecycle events after
@@ -41,6 +47,7 @@ detachment.
 
 - Removing a hovered, captured, focused subtree emits leave and repairs focus automatically.
 - The following hover update does not dispatch to a stale element.
+- Pointer and wheel input between subtree removal and the next frame ignores stale committed hits.
 - The legacy post-removal cleanup remains safe.
 - New descendants inherit the root lifecycle observer.
 
