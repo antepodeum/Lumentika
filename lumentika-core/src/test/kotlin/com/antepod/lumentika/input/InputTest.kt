@@ -98,4 +98,18 @@ class InputTest {
         focus.blur(first)
         assertNull(focus.activeElement)
     }
+
+    @Test
+    fun `legacy repair tolerates an already detached hovered subtree`() {
+        val root = Element()
+        val branch = Element().also(root::append)
+        val target = Element().also(branch::append)
+        val dispatcher = EventDispatcher(root)
+        dispatcher.updateHover(target, 1)
+
+        root.remove(branch, dispose = false)
+        dispatcher.repairRemovedSubtree(branch)
+
+        dispatcher.updateHover(null, 2)
+    }
 }

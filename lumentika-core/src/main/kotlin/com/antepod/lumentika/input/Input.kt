@@ -260,7 +260,38 @@ public class EventDispatcher(private val root: Element) {
         return !actualEvent.defaultPrevented
     }
 
+    /** Repairs transient input state before [subtree] is detached from the mounted root. */
+    public fun repairBeforeRemoval(subtree: Element, timestampNanos: Long) {
+        val removedHover = hoverPath.filter { it === subtree || isDescendant(it, subtree) }
+        removedHover.asReversed().forEach {
+            dispatch(
+                EventType.POINTER_LEAVE,
+                PointerEvent(
+                    it,
+                    -1,
+                    PointerType.MOUSE,
+                    Point(0f, 0f),
+                    timestampNanos = timestampNanos,
+                    cancelable = false,
+                ),
+            )
+        }
+        if (removedHover.isNotEmpty()) hoverPath = hoverPath - removedHover.toSet()
+        pointerCapture.entries.removeIf { (_, element) ->
+            element === subtree || isDescendant(element, subtree)
+        }
+        listeners.keys.removeIf { it === subtree || isDescendant(it, subtree) }
+        defaultActions.keys.removeIf { it === subtree || isDescendant(it, subtree) }
+    }
+
+    /**
+     * Clears state for an already removed subtree.
+     *
+     * Prefer automatic repair through [com.antepod.lumentika.UiRoot]. This method remains for
+     * source and binary compatibility with adapters that performed explicit cleanup.
+     */
     public fun repairRemovedSubtree(subtree: Element) {
+        hoverPath = hoverPath.filterNot { it === subtree || isDescendant(it, subtree) }
         pointerCapture.entries.removeIf { (_, element) ->
             element === subtree || isDescendant(element, subtree)
         }
@@ -408,12 +439,13 @@ public class FocusManager(
     public fun focusPrevious(): Element? = move(-1)
 
     public fun repairBeforeRemoval(subtree: Element) {
-        val active = activeElement ?: return
-        if (active === subtree || isDescendant(active, subtree)) {
+        val active = activeElement
+        if (active != null && (active === subtree || isDescendant(active, subtree))) {
             val candidates = ordered().filterNot { it === subtree || isDescendant(it, subtree) }
             blur(active)
             candidates.firstOrNull()?.let { focus(it, FocusCause.REPAIR) }
         }
+        properties.keys.removeIf { it === subtree || isDescendant(it, subtree) }
     }
 
     private fun move(direction: Int): Element? {

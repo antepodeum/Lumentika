@@ -278,6 +278,10 @@ public class UiRoot(
     }
 
     init {
+        element.installSubtreeRemovalObserver { subtree ->
+            focus.repairBeforeRemoval(subtree)
+            events.repairBeforeRemoval(subtree, frameTimeNanos)
+        }
         styles.attach(element, defaultStyle)
     }
 

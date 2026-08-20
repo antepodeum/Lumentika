@@ -269,6 +269,7 @@ public open class Element : AutoCloseable {
         private set
 
     private var isClosing: Boolean = false
+    private var beforeSubtreeRemoval: ((Element) -> Unit)? = null
 
     init {
         OwnershipCounters.mountElement()
@@ -278,6 +279,7 @@ public open class Element : AutoCloseable {
     public fun append(child: Element) {
         require(child.parent == null) { "Element ${child.id} already has a parent" }
         child.parent = this
+        child.installSubtreeRemovalObserver(beforeSubtreeRemoval)
         mutableChildren += child
     }
 
@@ -285,12 +287,15 @@ public open class Element : AutoCloseable {
     public fun insert(index: Int, child: Element) {
         require(child.parent == null) { "Element ${child.id} already has a parent" }
         child.parent = this
+        child.installSubtreeRemovalObserver(beforeSubtreeRemoval)
         mutableChildren.add(index, child)
     }
 
     /** Detaches [child] and optionally disposes its owned subtree. */
     public fun remove(child: Element, dispose: Boolean = true): Boolean {
         if (child !in mutableChildren) return false
+        beforeSubtreeRemoval?.invoke(child)
+        child.installSubtreeRemovalObserver(null)
         try {
             if (dispose) child.close()
         } finally {
@@ -298,6 +303,11 @@ public open class Element : AutoCloseable {
             child.parent = null
         }
         return true
+    }
+
+    internal fun installSubtreeRemovalObserver(observer: ((Element) -> Unit)?) {
+        beforeSubtreeRemoval = observer
+        mutableChildren.forEach { it.installSubtreeRemovalObserver(observer) }
     }
 
     /** Reorders an existing direct [child] to [index]. */

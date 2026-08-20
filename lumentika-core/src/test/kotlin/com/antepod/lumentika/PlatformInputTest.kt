@@ -40,6 +40,7 @@ import com.antepod.lumentika.platform.UiFeedbackType
 import com.antepod.lumentika.platform.UiUri
 import com.antepod.lumentika.render.PaintArtifact
 import com.antepod.lumentika.render.RenderBackend
+import com.antepod.lumentika.runtime.Element
 import com.antepod.lumentika.runtime.ImageService
 import com.antepod.lumentika.runtime.ImageSource
 import com.antepod.lumentika.runtime.PaintCommand
@@ -65,12 +66,55 @@ import com.antepod.lumentika.text.TextLine
 import com.antepod.lumentika.text.TextRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class PlatformInputTest {
+    @Test
+    fun `removing interactive subtree automatically repairs hover capture and focus`() {
+        val root = headlessRoot()
+        val survivor = Element().also(root.element::append)
+        val branch = Element().also(root.element::append)
+        val target = Element().also(branch::append)
+        val trace = mutableListOf<String>()
+        root.events.on(target, EventType.POINTER_LEAVE) { trace += "leave" }
+        root.events.on(target, EventType.POINTER_MOVE) { trace += "move" }
+        root.events.defaultAction(target, EventType.POINTER_MOVE) { trace += "default" }
+        root.events.updateHover(target, 1)
+        root.events.setPointerCapture(target, 7)
+        root.focus.configure(
+            survivor,
+            com.antepod.lumentika.input.FocusProperties(focusable = true),
+        )
+        root.focus.configure(target, com.antepod.lumentika.input.FocusProperties(focusable = true))
+        root.focus.focus(target)
+
+        root.element.remove(branch, dispose = false)
+
+        assertEquals(listOf("leave"), trace)
+        assertNull(root.events.captured(7))
+        assertSame(survivor, root.focus.activeElement)
+        root.events.updateHover(null, 2)
+        root.element.append(branch)
+        root.events.dispatch(
+            EventType.POINTER_MOVE,
+            com.antepod.lumentika.input.PointerEvent(
+                target,
+                7,
+                com.antepod.lumentika.input.PointerType.MOUSE,
+                Point(0f, 0f),
+                timestampNanos = 3,
+            ),
+        )
+        assertEquals(listOf("leave"), trace)
+        assertFailsWith<IllegalArgumentException> { root.focus.focus(target) }
+        root.element.remove(branch)
+        root.close()
+    }
+
     @Test
     fun `missing optional platform services have deterministic fallbacks`() {
         val root = headlessRoot()
